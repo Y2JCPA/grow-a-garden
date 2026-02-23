@@ -1235,3 +1235,260 @@ body {
         grid-template-columns: repeat(4, 1fr);
     }
 }
+
+/* ============================================
+   PROFILE SYSTEM
+   ============================================ */
+
+/* --- Profile Select Screen --- */
+.profile-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-dark);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.profile-screen.hidden {
+    display: none;
+}
+
+.profile-screen-inner {
+    text-align: center;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+}
+
+.profile-logo {
+    font-size: 72px;
+    margin-bottom: 8px;
+    animation: logoSway 3s ease-in-out infinite;
+}
+
+.profile-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--green-light);
+    margin-bottom: 4px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.profile-subtitle {
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+}
+
+/* --- Profile List --- */
+.profile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.profile-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: linear-gradient(145deg, var(--bg-card), var(--bg-medium));
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    text-align: left;
+}
+
+.profile-card:hover {
+    border-color: var(--green-main);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.profile-card-avatar {
+    font-size: 36px;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+}
+
+.profile-card-info {
+    flex: 1;
+}
+
+.profile-card-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.profile-card-stats {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.profile-card-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    opacity: 0;
+    flex-shrink: 0;
+}
+
+.profile-card:hover .profile-card-delete {
+    opacity: 1;
+}
+
+.profile-card-delete:hover {
+    color: var(--rarity-mythic);
+    background: rgba(239,83,80,0.15);
+}
+
+.profile-add-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+}
+
+/* --- New Profile Modal extras --- */
+.profile-input-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.profile-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-primary);
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.profile-input:focus {
+    border-color: var(--green-main);
+}
+
+.profile-input::placeholder {
+    color: var(--text-muted);
+}
+
+.profile-avatar-pick {
+    margin-top: 16px;
+}
+
+.profile-avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.profile-avatar-option {
+    font-size: 28px;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: none;
+}
+
+.profile-avatar-option:hover {
+    border-color: var(--green-main);
+    background: rgba(76,175,80,0.15);
+    transform: scale(1.1);
+}
+
+.profile-avatar-option.selected {
+    border-color: var(--green-light);
+    background: rgba(76,175,80,0.2);
+    box-shadow: 0 0 8px rgba(76,175,80,0.3);
+}
+
+/* --- Profile Badge in Header --- */
+.profile-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-lg);
+    padding: 4px 12px 4px 6px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: inherit;
+    color: var(--text-secondary);
+    margin-left: 8px;
+}
+
+.profile-badge:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: var(--green-main);
+    color: var(--text-primary);
+}
+
+.profile-badge-avatar {
+    font-size: 18px;
+}
+
+.profile-badge-name {
+    font-size: 12px;
+    font-weight: 600;
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- Delete button danger style --- */
+.btn-danger {
+    background: linear-gradient(135deg, #ef5350, #c62828);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+}
+
+/* --- Responsive tweaks for profiles --- */
+@media (max-width: 600px) {
+    .profile-badge-name {
+        display: none;
+    }
+
+    .profile-avatar-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+
+    .profile-card-delete {
+        opacity: 0.5;
+    }
+}

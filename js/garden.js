@@ -460,21 +460,67 @@ const Garden = (() => {
         }
     }
 
-    // --- Save / Load ---
-    const SAVE_KEY = 'growAGarden_save';
+    // --- Profile System ---
+    const PROFILES_KEY = 'growAGarden_profiles';
+    let currentProfileId = null;
 
+    function getSaveKey() {
+        return `growAGarden_save_${currentProfileId}`;
+    }
+
+    function getProfiles() {
+        try {
+            const data = localStorage.getItem(PROFILES_KEY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveProfiles(profiles) {
+        localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+    }
+
+    function createProfile(name, avatar) {
+        const profiles = getProfiles();
+        const id = 'profile_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const profile = { id, name, avatar, createdAt: Date.now() };
+        profiles.push(profile);
+        saveProfiles(profiles);
+        return profile;
+    }
+
+    function deleteProfile(profileId) {
+        let profiles = getProfiles();
+        profiles = profiles.filter(p => p.id !== profileId);
+        saveProfiles(profiles);
+        localStorage.removeItem(`growAGarden_save_${profileId}`);
+    }
+
+    function setCurrentProfile(profileId) {
+        currentProfileId = profileId;
+    }
+
+    function getCurrentProfile() {
+        if (!currentProfileId) return null;
+        return getProfiles().find(p => p.id === currentProfileId) || null;
+    }
+
+    // --- Save / Load ---
     function save() {
+        if (!currentProfileId) return;
         state.lastSaveTime = Date.now();
         try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+            localStorage.setItem(getSaveKey(), JSON.stringify(state));
         } catch (e) {
             console.warn('Failed to save:', e);
         }
     }
 
     function load() {
+        if (!currentProfileId) return null;
         try {
-            const saved = localStorage.getItem(SAVE_KEY);
+            const saved = localStorage.getItem(getSaveKey());
             if (!saved) return null;
 
             const parsed = JSON.parse(saved);
@@ -495,9 +541,30 @@ const Garden = (() => {
     }
 
     function resetSave() {
-        localStorage.removeItem(SAVE_KEY);
+        if (currentProfileId) {
+            localStorage.removeItem(getSaveKey());
+        }
         state = createDefaultState();
         return state;
+    }
+
+    // Migrate old single-profile save to a profile if needed
+    function migrateOldSave() {
+        const oldSave = localStorage.getItem('growAGarden_save');
+        if (!oldSave) return null;
+
+        const profiles = getProfiles();
+        if (profiles.length > 0) {
+            // Already has profiles, just clean up old key
+            localStorage.removeItem('growAGarden_save');
+            return null;
+        }
+
+        // Create a default profile and move the save
+        const profile = createProfile('Gardener', '🌱');
+        localStorage.setItem(`growAGarden_save_${profile.id}`, oldSave);
+        localStorage.removeItem('growAGarden_save');
+        return profile;
     }
 
     // --- Offline Progress ---
@@ -568,5 +635,12 @@ const Garden = (() => {
         resetSave,
         calculateOfflineProgress,
         createDefaultState,
+        // Profile system
+        getProfiles,
+        createProfile,
+        deleteProfile,
+        setCurrentProfile,
+        getCurrentProfile,
+        migrateOldSave,
     };
 })();
