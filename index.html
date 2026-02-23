@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grow a Garden</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Weather Overlay -->
+    <div id="weather-overlay" class="weather-overlay"></div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <span class="logo">🌱</span>
+            <h1 class="game-title">Grow a Garden</h1>
+        </div>
+        <div class="header-center">
+            <div class="weather-display" id="weather-display">
+                <span class="weather-icon" id="weather-icon">☀️</span>
+                <span class="weather-name" id="weather-name">Sunny</span>
+                <span class="weather-timer" id="weather-timer"></span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="coins-display">
+                <span class="coin-icon">🪙</span>
+                <span class="coin-amount" id="coin-amount">100</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Garden View (default) -->
+        <section id="garden-view" class="view active">
+            <div class="garden-grid" id="garden-grid"></div>
+        </section>
+
+        <!-- Shop View -->
+        <section id="shop-view" class="view">
+            <div class="panel-header">
+                <h2>🌾 Seed Shop</h2>
+                <p class="panel-subtitle">Buy seeds to plant in your garden</p>
+            </div>
+            <div class="shop-grid" id="shop-grid"></div>
+        </section>
+
+        <!-- Upgrades View -->
+        <section id="upgrades-view" class="view">
+            <div class="panel-header">
+                <h2>⬆️ Upgrades</h2>
+                <p class="panel-subtitle">Improve your garden</p>
+            </div>
+            <div class="upgrades-list" id="upgrades-list"></div>
+        </section>
+
+        <!-- Mutations View -->
+        <section id="mutations-view" class="view">
+            <div class="panel-header">
+                <h2>🧬 Mutation Log</h2>
+                <p class="panel-subtitle">Discover hybrid plants by growing compatible seeds next to each other</p>
+            </div>
+            <div class="mutations-grid" id="mutations-grid"></div>
+        </section>
+
+        <!-- Achievements View -->
+        <section id="achievements-view" class="view">
+            <div class="panel-header">
+                <h2>🏆 Achievements</h2>
+                <p class="panel-subtitle">Track your gardening milestones</p>
+            </div>
+            <div class="achievements-list" id="achievements-list"></div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-view="garden-view">
+            <span class="nav-icon">🌿</span>
+            <span class="nav-label">Garden</span>
+        </button>
+        <button class="nav-btn" data-view="shop-view">
+            <span class="nav-icon">🛒</span>
+            <span class="nav-label">Shop</span>
+        </button>
+        <button class="nav-btn" data-view="upgrades-view">
+            <span class="nav-icon">⬆️</span>
+            <span class="nav-label">Upgrades</span>
+        </button>
+        <button class="nav-btn" data-view="mutations-view">
+            <span class="nav-icon">🧬</span>
+            <span class="nav-label">Mutations</span>
+        </button>
+        <button class="nav-btn" data-view="achievements-view">
+            <span class="nav-icon">🏆</span>
+            <span class="nav-label">Achieve</span>
+        </button>
+    </nav>
+
+    <!-- Seed Selection Modal -->
+    <div id="seed-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🌱 Select a Seed</h3>
+                <button class="modal-close" id="seed-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="seed-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Harvest Modal -->
+    <div id="harvest-modal" class="modal-overlay hidden">
+        <div class="modal harvest-modal">
+            <div class="modal-header">
+                <h3>🎉 Harvest!</h3>
+            </div>
+            <div class="modal-body" id="harvest-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="harvest-sell-btn">Sell</button>
+                <button class="btn btn-secondary" id="harvest-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Back Modal -->
+    <div id="welcome-modal" class="modal-overlay hidden">
+        <div class="modal welcome-modal">
+            <div class="modal-header">
+                <h3>🌅 Welcome Back!</h3>
+            </div>
+            <div class="modal-body" id="welcome-modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="welcome-close-btn">Let's Garden!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plot Action Tooltip -->
+    <div id="plot-tooltip" class="plot-tooltip hidden">
+        <div id="plot-tooltip-content"></div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/garden.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
