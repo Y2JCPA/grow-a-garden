@@ -1,207 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grow a Garden</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Grow a Garden 3D</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Profile Select Screen -->
-    <div id="profile-screen" class="profile-screen">
-        <div class="profile-screen-inner">
-            <div class="profile-logo">🌱</div>
-            <h1 class="profile-title">Grow a Garden</h1>
-            <p class="profile-subtitle">Who's playing?</p>
-            <div class="profile-list" id="profile-list"></div>
-            <button class="btn btn-primary profile-add-btn" id="profile-add-btn">+ New Gardener</button>
-        </div>
+  <!-- Start Screen -->
+  <div id="start-screen">
+    <div class="logo-emoji">🌱</div>
+    <h1>Grow a Garden</h1>
+    <p class="subtitle">3D Minecraft-Style Gardening</p>
+    <button id="start-btn">Click to Play</button>
+    <div class="controls-hint">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move &nbsp;|&nbsp;
+      <kbd>Mouse</kbd> Look &nbsp;|&nbsp;
+      <kbd>Space</kbd> Jump<br>
+      <kbd>E</kbd> / Click &nbsp; Interact &nbsp;|&nbsp;
+      <kbd>I</kbd> Inventory &nbsp;|&nbsp;
+      <kbd>B</kbd> Shop &nbsp;|&nbsp;
+      <kbd>1-9</kbd> Hotbar
     </div>
+  </div>
 
-    <!-- New Profile Modal -->
-    <div id="new-profile-modal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>🌱 New Gardener</h3>
-                <button class="modal-close" id="new-profile-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <label class="profile-input-label">What's your name?</label>
-                <input type="text" id="new-profile-name" class="profile-input" placeholder="Enter name..." maxlength="20" autocomplete="off">
-                <div class="profile-avatar-pick">
-                    <label class="profile-input-label">Pick an avatar</label>
-                    <div class="profile-avatar-grid" id="profile-avatar-grid"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="new-profile-create">Start Gardening!</button>
-                <button class="btn btn-secondary" id="new-profile-cancel">Cancel</button>
-            </div>
-        </div>
+  <!-- Crosshair -->
+  <div id="crosshair"></div>
+
+  <!-- Top HUD -->
+  <div id="hud-top">
+    <div class="hud-box" id="coin-display">
+      <span class="coin-icon">🪙</span>
+      <span id="coin-amount">100</span>
     </div>
+  </div>
 
-    <!-- Delete Profile Confirm Modal -->
-    <div id="delete-profile-modal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>🗑️ Delete Profile?</h3>
-            </div>
-            <div class="modal-body" id="delete-profile-body">
-                <p>This will permanently delete this gardener's save data. Are you sure?</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-danger" id="delete-profile-confirm">Delete</button>
-                <button class="btn btn-secondary" id="delete-profile-cancel">Cancel</button>
-            </div>
-        </div>
+  <!-- Interact Prompt -->
+  <div id="interact-prompt"></div>
+
+  <!-- Plot label -->
+  <div id="plot-label"></div>
+
+  <!-- Hotbar -->
+  <div id="hotbar"></div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Seed Selector Panel -->
+  <div class="panel-overlay hidden" id="seed-panel">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🌱 Plant a Seed</h2>
+        <button class="panel-close" onclick="closeSeedPanel()">&times;</button>
+      </div>
+      <div class="panel-body" id="seed-panel-body"></div>
     </div>
+  </div>
 
-    <!-- Weather Overlay -->
-    <div id="weather-overlay" class="weather-overlay"></div>
-
-    <!-- Toast Notifications -->
-    <div id="toast-container" class="toast-container"></div>
-
-    <!-- Header -->
-    <header class="header">
-        <div class="header-left">
-            <span class="logo">🌱</span>
-            <h1 class="game-title">Grow a Garden</h1>
-        </div>
-        <div class="header-center">
-            <div class="weather-display" id="weather-display">
-                <span class="weather-icon" id="weather-icon">☀️</span>
-                <span class="weather-name" id="weather-name">Sunny</span>
-                <span class="weather-timer" id="weather-timer"></span>
-            </div>
-        </div>
-        <div class="header-right">
-            <div class="coins-display">
-                <span class="coin-icon">🪙</span>
-                <span class="coin-amount" id="coin-amount">100</span>
-            </div>
-            <button class="profile-badge" id="profile-badge" title="Switch profile">
-                <span class="profile-badge-avatar" id="profile-badge-avatar">🌱</span>
-                <span class="profile-badge-name" id="profile-badge-name">Player</span>
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="main-content">
-        <!-- Garden View (default) -->
-        <section id="garden-view" class="view active">
-            <div class="garden-grid" id="garden-grid"></div>
-        </section>
-
-        <!-- Shop View -->
-        <section id="shop-view" class="view">
-            <div class="panel-header">
-                <h2>🌾 Seed Shop</h2>
-                <p class="panel-subtitle">Buy seeds to plant in your garden</p>
-            </div>
-            <div class="shop-grid" id="shop-grid"></div>
-        </section>
-
-        <!-- Upgrades View -->
-        <section id="upgrades-view" class="view">
-            <div class="panel-header">
-                <h2>⬆️ Upgrades</h2>
-                <p class="panel-subtitle">Improve your garden</p>
-            </div>
-            <div class="upgrades-list" id="upgrades-list"></div>
-        </section>
-
-        <!-- Mutations View -->
-        <section id="mutations-view" class="view">
-            <div class="panel-header">
-                <h2>🧬 Mutation Log</h2>
-                <p class="panel-subtitle">Discover hybrid plants by growing compatible seeds next to each other</p>
-            </div>
-            <div class="mutations-grid" id="mutations-grid"></div>
-        </section>
-
-        <!-- Achievements View -->
-        <section id="achievements-view" class="view">
-            <div class="panel-header">
-                <h2>🏆 Achievements</h2>
-                <p class="panel-subtitle">Track your gardening milestones</p>
-            </div>
-            <div class="achievements-list" id="achievements-list"></div>
-        </section>
-    </main>
-
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-        <button class="nav-btn active" data-view="garden-view">
-            <span class="nav-icon">🌿</span>
-            <span class="nav-label">Garden</span>
-        </button>
-        <button class="nav-btn" data-view="shop-view">
-            <span class="nav-icon">🛒</span>
-            <span class="nav-label">Shop</span>
-        </button>
-        <button class="nav-btn" data-view="upgrades-view">
-            <span class="nav-icon">⬆️</span>
-            <span class="nav-label">Upgrades</span>
-        </button>
-        <button class="nav-btn" data-view="mutations-view">
-            <span class="nav-icon">🧬</span>
-            <span class="nav-label">Mutations</span>
-        </button>
-        <button class="nav-btn" data-view="achievements-view">
-            <span class="nav-icon">🏆</span>
-            <span class="nav-label">Achieve</span>
-        </button>
-    </nav>
-
-    <!-- Seed Selection Modal -->
-    <div id="seed-modal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>🌱 Select a Seed</h3>
-                <button class="modal-close" id="seed-modal-close">&times;</button>
-            </div>
-            <div class="modal-body" id="seed-modal-body"></div>
-        </div>
+  <!-- Shop Panel -->
+  <div class="panel-overlay hidden" id="shop-panel">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🛒 Seed Shop</h2>
+        <button class="panel-close" onclick="closeShop()">&times;</button>
+      </div>
+      <div class="panel-body" id="shop-panel-body"></div>
     </div>
+  </div>
 
-    <!-- Harvest Modal -->
-    <div id="harvest-modal" class="modal-overlay hidden">
-        <div class="modal harvest-modal">
-            <div class="modal-header">
-                <h3>🎉 Harvest!</h3>
-            </div>
-            <div class="modal-body" id="harvest-modal-body"></div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="harvest-sell-btn">Sell</button>
-                <button class="btn btn-secondary" id="harvest-close-btn">Close</button>
-            </div>
-        </div>
+  <!-- Inventory Panel -->
+  <div class="panel-overlay hidden" id="inv-panel">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🎒 Inventory</h2>
+        <button class="panel-close" onclick="closeInventory()">&times;</button>
+      </div>
+      <div class="panel-body" id="inv-panel-body"></div>
     </div>
+  </div>
 
-    <!-- Welcome Back Modal -->
-    <div id="welcome-modal" class="modal-overlay hidden">
-        <div class="modal welcome-modal">
-            <div class="modal-header">
-                <h3>🌅 Welcome Back!</h3>
-            </div>
-            <div class="modal-body" id="welcome-modal-body"></div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="welcome-close-btn">Let's Garden!</button>
-            </div>
-        </div>
-    </div>
+  <!-- Mobile Touch Controls -->
+  <div id="touch-controls">
+    <div id="touch-move"><div id="touch-move-stick"></div></div>
+    <div id="touch-look"></div>
+    <div class="touch-btn" id="touch-jump">⬆</div>
+    <div class="touch-btn" id="touch-interact">E</div>
+    <div class="touch-btn" id="touch-inv">I</div>
+    <div class="touch-btn" id="touch-shop">B</div>
+  </div>
 
-    <!-- Plot Action Tooltip -->
-    <div id="plot-tooltip" class="plot-tooltip hidden">
-        <div id="plot-tooltip-content"></div>
-    </div>
-
-    <script src="js/data.js"></script>
-    <script src="js/garden.js"></script>
-    <script src="js/engine.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
 </body>
 </html>
