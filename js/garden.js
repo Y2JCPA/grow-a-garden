@@ -343,7 +343,7 @@ const Garden = (() => {
                     if (pair[0] === recipe[0] && pair[1] === recipe[1]) {
                         // Already discovered doesn't matter, can still trigger
                         const chance = mutation.chance * weather.mutationModifier;
-                        if (Math.random() < chance / 60) { // per-second chance adjustment
+                        if (Math.random() < chance / 10) { // per-tick chance (boosted for playability)
                             // Mutate this plot
                             plot.isMutation = true;
                             plot.mutationId = mutation.id;
