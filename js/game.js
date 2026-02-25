@@ -1022,21 +1022,21 @@ function updatePlayer(dt) {
   camera.lookAt(playerPos.x, playerGroundY + PLAYER_HEIGHT, playerPos.z);
 }
 
-// ─── Raycasting / Interaction ───
+// ─── Proximity / Interaction ───
 function updateInteraction() {
-  // Cast ray from player position in the direction player faces
-  const playerFwd = new THREE.Vector3(-Math.sin(playerModel ? playerModel.rotation.y : yaw), 0, -Math.cos(playerModel ? playerModel.rotation.y : yaw));
-  raycaster.set(new THREE.Vector3(playerPos.x, playerGroundY + PLAYER_HEIGHT * 0.8, playerPos.z), playerFwd);
   interactTarget = null;
 
+  // Find closest plot by distance (proximity-based, no aiming needed)
   let closestDist = Infinity;
   let closestIdx = -1;
 
   for (let i = 0; i < plotMeshes.length; i++) {
-    const pm = plotMeshes[i];
-    const intersects = raycaster.intersectObjects(pm.group.children, true);
-    if (intersects.length > 0 && intersects[0].distance < closestDist) {
-      closestDist = intersects[0].distance;
+    const pos = getPlotWorldPos(i);
+    const dx = playerPos.x - pos.x;
+    const dz = playerPos.z - pos.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < closestDist) {
+      closestDist = dist;
       closestIdx = i;
     }
   }
