@@ -43,6 +43,10 @@ let plotMeshes = [];      // {group, plotIndex, soilMesh, plantMesh, stage}
 let cloudMeshes = [];
 let particlePool = [];
 let playerModel = null;  // third-person blocky character
+let shopkeeperModel = null; // Shlomo the seed seller
+const SHOPKEEPER_POS = { x: -10, z: -2 }; // off to the left of the garden
+const SHOPKEEPER_INTERACT_DIST = 4;
+let nearShopkeeper = false;
 let started = false;
 let autoSaveTimer = 0;
 let touchMoveVec = {x: 0, y: 0};
@@ -390,6 +394,203 @@ function buildPlayerModel() {
 
   playerModel.position.set(0, 0, 0);
   scene.add(playerModel);
+}
+
+// ─── Shopkeeper NPC: Shlomo ───
+function buildShopkeeper() {
+  if (shopkeeperModel) scene.remove(shopkeeperModel);
+  shopkeeperModel = new THREE.Group();
+
+  const skinColor = 0xC8956C;
+  const apronColor = 0xD32F2F;  // red apron
+  const shirtColor = 0xFFF9C4;  // cream shirt
+  const pantsColor = 0x37474F;
+  const hatColor = 0x4E342E;
+  const standWood = 0x8D6E63;
+  const standTop = 0x5D4037;
+  const canopyColor = 0xC62828;
+  const canopyStripe = 0xEF9A9A;
+
+  // ── Stand / Market stall ──
+  // Counter
+  const counter = new THREE.Mesh(
+    new THREE.BoxGeometry(3, 0.15, 1.2),
+    new THREE.MeshLambertMaterial({ color: standTop })
+  );
+  counter.position.set(0, 1.0, -1.2);
+  counter.castShadow = true;
+  shopkeeperModel.add(counter);
+
+  // Counter legs
+  const legGeo = new THREE.BoxGeometry(0.15, 1.0, 0.15);
+  const legMat = new THREE.MeshLambertMaterial({ color: standWood });
+  [[-1.3, -1.7], [-1.3, -0.7], [1.3, -1.7], [1.3, -0.7]].forEach(([x, z]) => {
+    const leg = new THREE.Mesh(legGeo, legMat);
+    leg.position.set(x, 0.5, z);
+    leg.castShadow = true;
+    shopkeeperModel.add(leg);
+  });
+
+  // Canopy poles
+  const poleGeo = new THREE.BoxGeometry(0.12, 2.5, 0.12);
+  const poleMat = new THREE.MeshLambertMaterial({ color: standWood });
+  [[-1.4, -1.8], [1.4, -1.8], [-1.4, -0.6], [1.4, -0.6]].forEach(([x, z]) => {
+    const pole = new THREE.Mesh(poleGeo, poleMat);
+    pole.position.set(x, 1.25, z);
+    pole.castShadow = true;
+    shopkeeperModel.add(pole);
+  });
+
+  // Canopy (striped awning)
+  const canopyGeo = new THREE.BoxGeometry(3.2, 0.1, 1.8);
+  const canopy = new THREE.Mesh(canopyGeo, new THREE.MeshLambertMaterial({ color: canopyColor }));
+  canopy.position.set(0, 2.55, -1.2);
+  canopy.castShadow = true;
+  shopkeeperModel.add(canopy);
+
+  // Canopy stripes
+  for (let i = -1; i <= 1; i++) {
+    const stripe = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.12, 1.85),
+      new THREE.MeshLambertMaterial({ color: canopyStripe })
+    );
+    stripe.position.set(i * 1.0, 2.56, -1.2);
+    shopkeeperModel.add(stripe);
+  }
+
+  // Seed display items on counter (decorative)
+  const displaySeeds = ['🌻', '🌹', '🌷'];
+  const seedColors = [0xFFD600, 0xE91E63, 0xFF5722];
+  seedColors.forEach((col, i) => {
+    const seedBag = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.3, 0.25),
+      new THREE.MeshLambertMaterial({ color: col })
+    );
+    seedBag.position.set(-0.8 + i * 0.8, 1.25, -1.2);
+    seedBag.castShadow = true;
+    shopkeeperModel.add(seedBag);
+  });
+
+  // Sign
+  const signBoard = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, 0.5, 0.08),
+    new THREE.MeshLambertMaterial({ color: 0xFFF8E1 })
+  );
+  signBoard.position.set(0, 2.95, -1.2);
+  shopkeeperModel.add(signBoard);
+
+  // ── Shlomo (the shopkeeper) ──
+  // Head
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshLambertMaterial({ color: skinColor })
+  );
+  head.position.y = 1.55;
+  head.castShadow = true;
+  shopkeeperModel.add(head);
+
+  // Big smile (mouth)
+  const mouth = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.06, 0.05),
+    new THREE.MeshLambertMaterial({ color: 0x8B4513 })
+  );
+  mouth.position.set(0, 1.42, -0.25);
+  shopkeeperModel.add(mouth);
+
+  // Eyes
+  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.05), eyeMat);
+  eyeL.position.set(-0.12, 1.58, -0.25);
+  shopkeeperModel.add(eyeL);
+  const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.05), eyeMat);
+  eyeR.position.set(0.12, 1.58, -0.25);
+  shopkeeperModel.add(eyeR);
+
+  // Straw hat
+  const brim = new THREE.Mesh(
+    new THREE.BoxGeometry(0.9, 0.06, 0.9),
+    new THREE.MeshLambertMaterial({ color: 0xF9A825 })
+  );
+  brim.position.y = 1.82;
+  shopkeeperModel.add(brim);
+  const top = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.3, 0.5),
+    new THREE.MeshLambertMaterial({ color: 0xF9A825 })
+  );
+  top.position.y = 1.98;
+  shopkeeperModel.add(top);
+  // Hat band
+  const band = new THREE.Mesh(
+    new THREE.BoxGeometry(0.52, 0.08, 0.52),
+    new THREE.MeshLambertMaterial({ color: apronColor })
+  );
+  band.position.y = 1.87;
+  shopkeeperModel.add(band);
+
+  // Body (cream shirt)
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.6, 0.3),
+    new THREE.MeshLambertMaterial({ color: shirtColor })
+  );
+  body.position.y = 1.0;
+  body.castShadow = true;
+  shopkeeperModel.add(body);
+
+  // Apron
+  const apron = new THREE.Mesh(
+    new THREE.BoxGeometry(0.4, 0.5, 0.05),
+    new THREE.MeshLambertMaterial({ color: apronColor })
+  );
+  apron.position.set(0, 0.95, -0.18);
+  shopkeeperModel.add(apron);
+
+  // Arms
+  const armGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
+  const armMat = new THREE.MeshLambertMaterial({ color: shirtColor });
+  const armL = new THREE.Mesh(armGeo, armMat);
+  armL.position.set(-0.35, 1.0, 0);
+  armL.castShadow = true;
+  shopkeeperModel.add(armL);
+  const armR = new THREE.Mesh(armGeo, armMat);
+  armR.position.set(0.35, 1.0, 0);
+  armR.rotation.x = -0.3; // reaching forward toward counter
+  armR.castShadow = true;
+  shopkeeperModel.add(armR);
+
+  // Hands
+  const handGeo = new THREE.BoxGeometry(0.18, 0.15, 0.18);
+  const handMat = new THREE.MeshLambertMaterial({ color: skinColor });
+  const handL = new THREE.Mesh(handGeo, handMat);
+  handL.position.set(-0.35, 0.66, 0);
+  shopkeeperModel.add(handL);
+  const handR = new THREE.Mesh(handGeo, handMat);
+  handR.position.set(0.35, 0.72, -0.15);
+  shopkeeperModel.add(handR);
+
+  // Legs
+  const legGeo2 = new THREE.BoxGeometry(0.22, 0.5, 0.25);
+  const legMat2 = new THREE.MeshLambertMaterial({ color: pantsColor });
+  const legL = new THREE.Mesh(legGeo2, legMat2);
+  legL.position.set(-0.13, 0.45, 0);
+  shopkeeperModel.add(legL);
+  const legR = new THREE.Mesh(legGeo2, legMat2);
+  legR.position.set(0.13, 0.45, 0);
+  shopkeeperModel.add(legR);
+
+  // Shoes
+  const shoeGeo = new THREE.BoxGeometry(0.22, 0.1, 0.32);
+  const shoeMat = new THREE.MeshLambertMaterial({ color: 0x5D4037 });
+  const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeL.position.set(-0.13, 0.15, -0.03);
+  shopkeeperModel.add(shoeL);
+  const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeR.position.set(0.13, 0.15, -0.03);
+  shopkeeperModel.add(shoeR);
+
+  // Position the whole group — Shlomo stands behind the counter facing the garden
+  shopkeeperModel.position.set(SHOPKEEPER_POS.x, 0, SHOPKEEPER_POS.z);
+  shopkeeperModel.rotation.y = Math.PI * 0.5; // face right toward garden
+  scene.add(shopkeeperModel);
 }
 
 // ─── Garden Plots (3D) ───
@@ -851,8 +1052,19 @@ function updateInteraction() {
       }
     }
   } else {
-    hidePrompt();
-    hidePlotLabel();
+    // Check if near Shlomo the shopkeeper
+    const dxShop = playerPos.x - SHOPKEEPER_POS.x;
+    const dzShop = playerPos.z - SHOPKEEPER_POS.z;
+    const distToShop = Math.sqrt(dxShop * dxShop + dzShop * dzShop);
+    if (distToShop <= SHOPKEEPER_INTERACT_DIST) {
+      nearShopkeeper = true;
+      showPrompt('Press <b>E</b> to talk to <b>Shlomo</b> 🌱');
+      showPlotLabel("Shlomo's Seeds");
+    } else {
+      nearShopkeeper = false;
+      hidePrompt();
+      hidePlotLabel();
+    }
   }
 }
 
@@ -870,6 +1082,13 @@ function hidePlotLabel() { plotLabelEl.classList.remove('visible'); }
 // ─── Interact Action ───
 function tryInteract() {
   if (isAnyPanelOpen()) return;
+
+  // Shlomo interaction
+  if (nearShopkeeper && interactTarget === null) {
+    openShop();
+    return;
+  }
+
   if (interactTarget === null) return;
 
   const plotData = gameState.plots[interactTarget];
@@ -1418,6 +1637,28 @@ function animate() {
   animatePlants(time);
   animateClouds(dt);
 
+  // Shlomo idle + floating label
+  if (shopkeeperModel && camera) {
+    // Floating label position
+    const labelEl = document.getElementById('shopkeeper-label');
+    if (labelEl) {
+      const labelPos = new THREE.Vector3(SHOPKEEPER_POS.x, 3.4, SHOPKEEPER_POS.z);
+      labelPos.project(camera);
+      const hw = window.innerWidth / 2;
+      const hh = window.innerHeight / 2;
+      const sx = labelPos.x * hw + hw;
+      const sy = -(labelPos.y * hh) + hh;
+      if (labelPos.z < 1 && labelPos.z > 0) {
+        labelEl.style.left = sx + 'px';
+        labelEl.style.top = sy + 'px';
+        const dist = Math.sqrt((playerPos.x - SHOPKEEPER_POS.x)**2 + (playerPos.z - SHOPKEEPER_POS.z)**2);
+        labelEl.classList.toggle('visible', dist < 12);
+      } else {
+        labelEl.classList.remove('visible');
+      }
+    }
+  }
+
   // Periodic plant mesh update (every 2 seconds for growth changes)
   if (Math.floor(time * 0.5) !== Math.floor((time - dt) * 0.5)) {
     updatePlantMeshes();
@@ -1460,6 +1701,7 @@ function initGame() {
   initLighting();
   buildWorld();
   buildPlayerModel();
+  buildShopkeeper();
 
   const loaded = loadGame();
   if (!loaded) {
