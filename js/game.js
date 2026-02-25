@@ -741,6 +741,12 @@ function lerpColor(a, b, t) {
 
 // ─── Player Controls ───
 function initControls() {
+  // Prevent default touch behaviors on the canvas (pull-to-refresh, pinch zoom)
+  renderer.domElement.addEventListener('touchstart', (e) => { if (started) e.preventDefault(); }, {passive: false});
+  renderer.domElement.addEventListener('touchmove', (e) => { if (started) e.preventDefault(); }, {passive: false});
+  document.body.addEventListener('gesturestart', (e) => e.preventDefault(), {passive: false});
+  document.body.addEventListener('gesturechange', (e) => e.preventDefault(), {passive: false});
+
   // Third-person camera: right-click drag to orbit
   let isOrbiting = false;
   renderer.domElement.addEventListener('mousedown', (e) => {
@@ -812,7 +818,7 @@ function initControls() {
 
 // ─── Touch Controls ───
 function initTouchControls() {
-  isMobile = ('ontouchstart' in window) && (window.innerWidth < 1024);
+  isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
   const touchMove = $('#touch-move');
   const touchStick = $('#touch-move-stick');
@@ -888,7 +894,7 @@ function initTouchControls() {
         const dy = t.clientY - lastLookY;
         yaw -= dx * 0.004;
         pitch -= dy * 0.004;
-        pitch = clamp(pitch, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
+        pitch = clamp(pitch, -0.6, 0.8);
         lastLookX = t.clientX;
         lastLookY = t.clientY;
       }

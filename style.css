@@ -2,6 +2,7 @@
    GROW A GARDEN 3D — HUD & Overlay Styles
    ============================================ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { overflow: hidden; overscroll-behavior: none; }
 
 body {
   overflow: hidden;
@@ -316,7 +317,7 @@ canvas { display: block; }
 }
 #touch-look {
   position: absolute; top: 0; right: 0;
-  width: 50%; height: 70%;
+  width: 60%; height: 65%;
   pointer-events: auto;
   touch-action: none;
 }
@@ -340,12 +341,75 @@ canvas { display: block; }
   #touch-controls { display: block; }
 }
 
-/* --- Responsive --- */
+/* --- Responsive / Mobile / Tablet --- */
+@media (max-width: 1024px) {
+  /* Prevent all unwanted touch behaviors */
+  html, body {
+    overflow: hidden;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    position: fixed;
+    width: 100%; height: 100%;
+  }
+
+  /* Panels: full-width on small screens, scrollable */
+  .panel {
+    max-width: 95vw !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .panel-body {
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Bigger touch targets for shop buttons */
+  .shop-btn {
+    min-height: 44px;
+    font-size: 1em;
+    padding: 10px 16px;
+  }
+  .shop-card {
+    min-width: 130px;
+  }
+
+  /* Profile cards bigger for fat fingers */
+  .profile-card {
+    min-width: 90px;
+    padding: 14px 16px;
+  }
+  .avatar-option {
+    font-size: 2.2em;
+    padding: 8px;
+    min-width: 44px; min-height: 44px;
+  }
+
+  /* Seed options bigger */
+  .seed-option {
+    min-height: 54px;
+    padding: 12px;
+  }
+
+  /* Badge position safe from notch */
+  #profile-badge {
+    top: max(12px, env(safe-area-inset-top, 12px));
+    left: max(12px, env(safe-area-inset-left, 12px));
+  }
+
+  /* Touch controls: bigger for tablets */
+  #touch-move { width: 130px; height: 130px; }
+  #touch-move-stick { width: 48px; height: 48px; }
+  .touch-btn { width: 62px; height: 62px; font-size: 26px; }
+}
+
 @media (max-width: 600px) {
   .shop-grid { grid-template-columns: 1fr; }
   .hotbar-slot { width: 46px; height: 46px; }
   .hotbar-slot .slot-emoji { font-size: 20px; }
-  #hud-top { top: 8px; }
+  #hud-top { top: max(8px, env(safe-area-inset-top, 8px)); }
   .hud-box { padding: 6px 12px; font-size: 14px; }
 }
 
@@ -491,4 +555,30 @@ canvas { display: block; }
 .shop-desc {
   font-size: 0.75em; color: #aaa; font-style: italic;
   margin: 2px 0 4px;
+}
+
+/* Desktop/mobile hint toggles */
+.mobile-only { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .desktop-only { display: none; }
+  .mobile-only { display: block; }
+}
+
+/* Start button bigger on mobile */
+@media (max-width: 1024px) {
+  #start-btn {
+    font-size: 1.3em;
+    padding: 16px 40px;
+    min-height: 54px;
+  }
+  #start-screen h1 { font-size: 2em; }
+
+  /* Shopkeeper label readable on mobile */
+  #shopkeeper-label { font-size: 0.75em; }
+
+  /* Close buttons bigger for touch */
+  .panel-close {
+    min-width: 44px; min-height: 44px;
+    font-size: 1.5em;
+  }
 }
