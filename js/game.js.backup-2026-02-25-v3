@@ -52,7 +52,7 @@ let dogModel = null;
 let dogPos = new THREE.Vector3(3, 0, 3);
 let dogTargetPos = new THREE.Vector3(3, 0, 3);
 let dogWalkCycle = 0;
-let dogBarkTimer = 60 + Math.random() * 60;
+let dogBarkTimer = 30 + Math.random() * 30;
 let dogWanderTimer = 5;
 const DOG_SPEED = 2.5;
 const DOG_INTERACT_DIST = 2.5;
@@ -108,9 +108,7 @@ function showToast(icon, text) {
   t.className = 'toast';
   t.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-text">${text}</span>`;
   toastContainer.appendChild(t);
-  // Max 3 toasts visible at once
-  while (toastContainer.children.length > 3) toastContainer.firstChild.remove();
-  setTimeout(() => { t.classList.add('exiting'); setTimeout(() => t.remove(), 200); }, 1500);
+  setTimeout(() => { t.classList.add('exiting'); setTimeout(() => t.remove(), 300); }, 2500);
 }
 
 function spawnParticles(screenX, screenY, emoji, count) {
@@ -2985,7 +2983,7 @@ function updateDog(dt, time) {
   // Dog bark timer
   dogBarkTimer -= dt;
   if (dogBarkTimer <= 0) {
-    dogBarkTimer = 60 + Math.random() * 90;
+    dogBarkTimer = 30 + Math.random() * 30;
     showToast('🐕', 'Woof!');
   }
 

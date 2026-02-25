@@ -116,19 +116,19 @@ canvas { display: block; }
   position: fixed;
   bottom: 120px; left: 50%;
   transform: translateX(-50%);
-  background: rgba(0,0,0,0.75);
-  border: 2px solid rgba(255,255,255,0.2);
-  border-radius: 10px;
-  padding: 10px 24px;
-  font-size: 15px; font-weight: 600;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 12px; font-weight: 600;
   z-index: 20;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
   text-align: center;
-  backdrop-filter: blur(4px);
+  max-width: 280px;
 }
-#interact-prompt.visible { opacity: 1; }
+#interact-prompt.visible { opacity: 0.85; }
 
 /* --- Hotbar --- */
 #hotbar {
@@ -286,41 +286,41 @@ canvas { display: block; }
 
 /* --- Toast --- */
 #toast-container {
-  position: fixed; top: 60px; right: 16px;
-  z-index: 200; display: flex; flex-direction: column; gap: 8px;
+  position: fixed; top: 50px; right: 8px;
+  z-index: 200; display: flex; flex-direction: column; gap: 4px;
   pointer-events: none;
+  max-width: 200px;
 }
 .toast {
-  background: rgba(0,0,0,0.8);
-  border: 2px solid rgba(255,255,255,0.15);
-  border-radius: 10px; padding: 10px 16px;
-  display: flex; align-items: center; gap: 10px;
-  min-width: 200px; max-width: 320px;
-  backdrop-filter: blur(4px);
-  animation: toastIn 0.3s ease;
-  pointer-events: auto;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 5px 10px;
+  display: flex; align-items: center; gap: 6px;
+  max-width: 200px;
+  animation: toastIn 0.2s ease;
+  pointer-events: none;
 }
-.toast.exiting { animation: toastOut 0.3s ease forwards; }
-@keyframes toastIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
-.toast-icon { font-size: 22px; flex-shrink: 0; }
-.toast-text { font-size: 13px; font-weight: 600; }
+.toast.exiting { animation: toastOut 0.2s ease forwards; }
+@keyframes toastIn { from { transform: translateX(80%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(80%); opacity: 0; } }
+.toast-icon { font-size: 16px; flex-shrink: 0; }
+.toast-text { font-size: 11px; font-weight: 600; }
 
 /* --- Plot Info Label (3D) --- */
 #plot-label {
   position: fixed;
-  top: 50%; left: 50%;
-  transform: translate(-50%, 30px);
-  background: rgba(0,0,0,0.7);
+  bottom: 150px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.45);
   border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 13px; font-weight: 600;
+  padding: 3px 10px;
+  font-size: 11px; font-weight: 600;
   pointer-events: none;
   z-index: 15;
   opacity: 0; transition: opacity 0.15s;
   white-space: nowrap;
 }
-#plot-label.visible { opacity: 1; }
+#plot-label.visible { opacity: 0.8; }
 
 /* --- Harvest Particles --- */
 .harvest-particle {
@@ -471,10 +471,18 @@ canvas { display: block; }
 
 @media (max-width: 600px) {
   .shop-grid { grid-template-columns: 1fr; }
-  .hotbar-slot { width: 46px; height: 46px; }
-  .hotbar-slot .slot-emoji { font-size: 20px; }
-  #hud-top { top: max(8px, env(safe-area-inset-top, 8px)); }
-  .hud-box { padding: 6px 12px; font-size: 14px; }
+  .hotbar-slot { width: 42px; height: 42px; }
+  .hotbar-slot .slot-emoji { font-size: 18px; }
+  #hud-top { top: max(4px, env(safe-area-inset-top, 4px)); gap: 6px; }
+  .hud-box { padding: 4px 8px; font-size: 12px; border-radius: 8px; }
+  .hud-btn { font-size: 16px; padding: 4px 8px; }
+  .hud-indicator { font-size: 14px; }
+  #interact-prompt { font-size: 10px; padding: 3px 10px; bottom: 100px; }
+  #plot-label { font-size: 10px; bottom: 115px; }
+  #toast-container { max-width: 160px; top: 40px; right: 4px; }
+  .toast { padding: 3px 8px; }
+  .toast-icon { font-size: 13px; }
+  .toast-text { font-size: 10px; }
 }
 
 /* ─── Profile System ─── */
@@ -596,15 +604,14 @@ canvas { display: block; }
 /* ─── NPC / entity labels ─── */
 .npc-label {
   position: fixed; z-index: 30;
-  background: rgba(0,0,0,0.65); color: #FFD600;
-  padding: 4px 12px; border-radius: 8px;
-  font-family: 'Segoe UI', sans-serif; font-size: 0.85em; font-weight: 700;
+  background: rgba(0,0,0,0.45); color: #FFD600;
+  padding: 2px 8px; border-radius: 6px;
+  font-family: 'Segoe UI', sans-serif; font-size: 0.7em; font-weight: 700;
   pointer-events: none; white-space: nowrap;
   transform: translate(-50%, -100%);
   opacity: 0; transition: opacity 0.3s;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }
-.npc-label.visible { opacity: 1; }
+.npc-label.visible { opacity: 0.8; }
 
 /* ─── Achievements Panel ─── */
 #achieve-panel {
@@ -651,15 +658,14 @@ canvas { display: block; }
 /* ─── Shopkeeper Label ─── */
 #shopkeeper-label {
   position: fixed; z-index: 30;
-  background: rgba(0,0,0,0.65); color: #FFD600;
-  padding: 4px 12px; border-radius: 8px;
-  font-family: 'Segoe UI', sans-serif; font-size: 0.85em; font-weight: 700;
+  background: rgba(0,0,0,0.45); color: #FFD600;
+  padding: 2px 8px; border-radius: 6px;
+  font-family: 'Segoe UI', sans-serif; font-size: 0.7em; font-weight: 700;
   pointer-events: none; white-space: nowrap;
   transform: translate(-50%, -100%);
   opacity: 0; transition: opacity 0.3s;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }
-#shopkeeper-label.visible { opacity: 1; }
+#shopkeeper-label.visible { opacity: 0.8; }
 
 /* ─── Seasonal Shop Styling ─── */
 .shop-section-header {
