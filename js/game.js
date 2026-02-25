@@ -19,7 +19,7 @@ const CAM_HEIGHT_OFFSET = 3; // height above player
 const PROFILES_KEY = 'garden3d_profiles';
 const SAVE_PREFIX = 'garden3d_save_';
 const MAX_PROFILES = 10;
-const AUTO_SAVE_SEC = 30;
+const AUTO_SAVE_SEC = 10;
 let activeProfileId = null;
 function getSaveKey() { return SAVE_PREFIX + activeProfileId; }
 
@@ -2132,6 +2132,13 @@ function animate() {
 
   renderer.render(scene, camera);
 }
+
+// ─── Save on exit / background ───
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && started) saveGame();
+});
+window.addEventListener('beforeunload', () => { if (started) saveGame(); });
+window.addEventListener('pagehide', () => { if (started) saveGame(); });
 
 // ─── Start Game ───
 function startGame() {
