@@ -14,6 +14,8 @@ const PLAYER_SPEED = 5;
 const JUMP_FORCE = 7;
 const GRAVITY = 18;
 const INTERACT_DIST = 5;
+const CAM_DISTANCE = 6;      // distance behind player
+const CAM_HEIGHT_OFFSET = 3; // height above player
 const PROFILES_KEY = 'garden3d_profiles';
 const SAVE_PREFIX = 'garden3d_save_';
 const MAX_PROFILES = 10;
@@ -40,6 +42,7 @@ let raycaster, interactTarget = null;
 let plotMeshes = [];      // {group, plotIndex, soilMesh, plantMesh, stage}
 let cloudMeshes = [];
 let particlePool = [];
+let playerModel = null;  // third-person blocky character
 let started = false;
 let autoSaveTimer = 0;
 let touchMoveVec = {x: 0, y: 0};
@@ -120,8 +123,8 @@ function initScene() {
   scene.background = new THREE.Color(0x87CEEB);
   scene.fog = new THREE.Fog(0x87CEEB, 30, 60);
 
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, PLAYER_HEIGHT, 8);
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, PLAYER_HEIGHT + CAM_HEIGHT_OFFSET, CAM_DISTANCE);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -284,6 +287,111 @@ function buildWorld() {
   }
 }
 
+// ─── Player Character Model (blocky Minecraft-style) ───
+function buildPlayerModel() {
+  if (playerModel) scene.remove(playerModel);
+  playerModel = new THREE.Group();
+
+  const skinColor = 0xD2A87A;
+  const shirtColor = 0x4CAF50;
+  const pantsColor = 0x5D4037;
+  const shoeColor = 0x333333;
+  const hatColor = 0x8B4513;
+
+  // Head
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshLambertMaterial({ color: skinColor })
+  );
+  head.position.y = 1.55;
+  head.castShadow = true;
+  playerModel.add(head);
+
+  // Eyes
+  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), eyeMat);
+  eyeL.position.set(-0.12, 1.6, -0.25);
+  playerModel.add(eyeL);
+  const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), eyeMat);
+  eyeR.position.set(0.12, 1.6, -0.25);
+  playerModel.add(eyeR);
+
+  // Hat (farmer's hat)
+  const hatBrim = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.06, 0.8),
+    new THREE.MeshLambertMaterial({ color: hatColor })
+  );
+  hatBrim.position.y = 1.82;
+  hatBrim.castShadow = true;
+  playerModel.add(hatBrim);
+  const hatTop = new THREE.Mesh(
+    new THREE.BoxGeometry(0.45, 0.25, 0.45),
+    new THREE.MeshLambertMaterial({ color: hatColor })
+  );
+  hatTop.position.y = 1.95;
+  hatTop.castShadow = true;
+  playerModel.add(hatTop);
+
+  // Body (shirt)
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.6, 0.3),
+    new THREE.MeshLambertMaterial({ color: shirtColor })
+  );
+  body.position.y = 1.0;
+  body.castShadow = true;
+  playerModel.add(body);
+
+  // Arms
+  const armGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
+  const armMat = new THREE.MeshLambertMaterial({ color: shirtColor });
+  const armL = new THREE.Mesh(armGeo, armMat);
+  armL.position.set(-0.35, 1.0, 0);
+  armL.castShadow = true;
+  playerModel.add(armL);
+  const armR = new THREE.Mesh(armGeo, armMat);
+  armR.position.set(0.35, 1.0, 0);
+  armR.castShadow = true;
+  playerModel.add(armR);
+
+  // Hands (skin)
+  const handGeo = new THREE.BoxGeometry(0.18, 0.15, 0.18);
+  const handMat = new THREE.MeshLambertMaterial({ color: skinColor });
+  const handL = new THREE.Mesh(handGeo, handMat);
+  handL.position.set(-0.35, 0.66, 0);
+  playerModel.add(handL);
+  const handR = new THREE.Mesh(handGeo, handMat);
+  handR.position.set(0.35, 0.66, 0);
+  playerModel.add(handR);
+
+  // Legs (pants)
+  const legGeo = new THREE.BoxGeometry(0.22, 0.5, 0.25);
+  const legMat = new THREE.MeshLambertMaterial({ color: pantsColor });
+  const legL = new THREE.Mesh(legGeo, legMat);
+  legL.position.set(-0.13, 0.45, 0);
+  legL.castShadow = true;
+  playerModel.add(legL);
+  const legR = new THREE.Mesh(legGeo, legMat);
+  legR.position.set(0.13, 0.45, 0);
+  legR.castShadow = true;
+  playerModel.add(legR);
+
+  // Shoes
+  const shoeGeo = new THREE.BoxGeometry(0.22, 0.1, 0.32);
+  const shoeMat = new THREE.MeshLambertMaterial({ color: shoeColor });
+  const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeL.position.set(-0.13, 0.15, -0.03);
+  playerModel.add(shoeL);
+  const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeR.position.set(0.13, 0.15, -0.03);
+  playerModel.add(shoeR);
+
+  // Store refs for animation
+  playerModel.userData = { armL, armR, legL, legR };
+
+  playerModel.position.set(0, 0, 0);
+  scene.add(playerModel);
+}
+
 // ─── Garden Plots (3D) ───
 function buildGardenPlots() {
   plotMeshes.forEach(pm => scene.remove(pm.group));
@@ -432,31 +540,33 @@ function lerpColor(a, b, t) {
 
 // ─── Player Controls ───
 function initControls() {
-  // Pointer lock
-  renderer.domElement.addEventListener('click', () => {
+  // Third-person camera: right-click drag to orbit
+  let isOrbiting = false;
+  renderer.domElement.addEventListener('mousedown', (e) => {
     if (!started) return;
-    if (isAnyPanelOpen()) return;
-    renderer.domElement.requestPointerLock();
+    if (e.button === 2 || e.button === 0) isOrbiting = true;
   });
+  document.addEventListener('mouseup', () => { isOrbiting = false; });
+  renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
   document.addEventListener('pointerlockchange', () => {
     isPointerLocked = document.pointerLockElement === renderer.domElement;
   });
 
   document.addEventListener('mousemove', (e) => {
-    if (!isPointerLocked) return;
-    yaw -= e.movementX * 0.002;
-    pitch -= e.movementY * 0.002;
-    pitch = clamp(pitch, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
+    if (!started || !isOrbiting) return;
+    yaw -= e.movementX * 0.004;
+    pitch -= e.movementY * 0.004;
+    pitch = clamp(pitch, -0.6, 0.8);
   });
 
   document.addEventListener('keydown', (e) => {
     if (!started) return;
     switch(e.code) {
-      case 'KeyW': moveForward = true; break;
-      case 'KeyS': moveBackward = true; break;
-      case 'KeyA': moveLeft = true; break;
-      case 'KeyD': moveRight = true; break;
+      case 'KeyW': case 'ArrowUp': moveForward = true; break;
+      case 'KeyS': case 'ArrowDown': moveBackward = true; break;
+      case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
+      case 'KeyD': case 'ArrowRight': moveRight = true; break;
       case 'Space':
         e.preventDefault();
         if (playerOnGround) { playerVelocity.y = JUMP_FORCE; playerOnGround = false; }
@@ -482,10 +592,10 @@ function initControls() {
 
   document.addEventListener('keyup', (e) => {
     switch(e.code) {
-      case 'KeyW': moveForward = false; break;
-      case 'KeyS': moveBackward = false; break;
-      case 'KeyA': moveLeft = false; break;
-      case 'KeyD': moveRight = false; break;
+      case 'KeyW': case 'ArrowUp': moveForward = false; break;
+      case 'KeyS': case 'ArrowDown': moveBackward = false; break;
+      case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
+      case 'KeyD': case 'ArrowRight': moveRight = false; break;
     }
   });
 
@@ -613,9 +723,15 @@ function initTouchControls() {
   }, {passive: false});
 }
 
-// ─── Player Update ───
+// ─── Player position (separate from camera) ───
+let playerPos = new THREE.Vector3(0, 0, 0);
+let playerGroundY = 0;
+let walkCycle = 0;
+let isMoving = false;
+
+// ─── Player Update (third-person) ───
 function updatePlayer(dt) {
-  // Direction from yaw
+  // Direction from yaw (camera orbit angle)
   const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
 
@@ -633,37 +749,70 @@ function updatePlayer(dt) {
     moveDir.add(forward.clone().multiplyScalar(-touchMoveVec.y));
   }
 
-  if (moveDir.length() > 0) moveDir.normalize();
+  isMoving = moveDir.length() > 0;
+  if (isMoving) moveDir.normalize();
 
-  // Apply movement
-  camera.position.x += moveDir.x * PLAYER_SPEED * dt;
-  camera.position.z += moveDir.z * PLAYER_SPEED * dt;
+  // Apply movement to player position
+  playerPos.x += moveDir.x * PLAYER_SPEED * dt;
+  playerPos.z += moveDir.z * PLAYER_SPEED * dt;
 
   // Gravity
   playerVelocity.y -= GRAVITY * dt;
-  camera.position.y += playerVelocity.y * dt;
+  playerGroundY += playerVelocity.y * dt;
 
-  // Ground collision
-  if (camera.position.y <= PLAYER_HEIGHT) {
-    camera.position.y = PLAYER_HEIGHT;
+  if (playerGroundY <= 0) {
+    playerGroundY = 0;
     playerVelocity.y = 0;
     playerOnGround = true;
   }
 
   // World bounds
   const bound = WORLD_SIZE / 2 - 1;
-  camera.position.x = clamp(camera.position.x, -bound, bound);
-  camera.position.z = clamp(camera.position.z, -bound, bound);
+  playerPos.x = clamp(playerPos.x, -bound, bound);
+  playerPos.z = clamp(playerPos.z, -bound, bound);
 
-  // Camera rotation
-  camera.rotation.order = 'YXZ';
-  camera.rotation.y = yaw;
-  camera.rotation.x = pitch;
+  // Update player model
+  if (playerModel) {
+    playerModel.position.set(playerPos.x, playerGroundY, playerPos.z);
+
+    // Face movement direction (or face camera forward direction)
+    if (isMoving) {
+      playerModel.rotation.y = Math.atan2(moveDir.x, moveDir.z);
+    }
+
+    // Walk animation — swing arms and legs
+    if (isMoving) {
+      walkCycle += dt * 10;
+      const swing = Math.sin(walkCycle) * 0.4;
+      const parts = playerModel.userData;
+      if (parts.armL) parts.armL.rotation.x = swing;
+      if (parts.armR) parts.armR.rotation.x = -swing;
+      if (parts.legL) parts.legL.rotation.x = -swing;
+      if (parts.legR) parts.legR.rotation.x = swing;
+    } else {
+      walkCycle = 0;
+      const parts = playerModel.userData;
+      if (parts.armL) parts.armL.rotation.x = 0;
+      if (parts.armR) parts.armR.rotation.x = 0;
+      if (parts.legL) parts.legL.rotation.x = 0;
+      if (parts.legR) parts.legR.rotation.x = 0;
+    }
+  }
+
+  // Third-person camera: orbit behind the player
+  const camX = playerPos.x + Math.sin(yaw) * CAM_DISTANCE;
+  const camZ = playerPos.z + Math.cos(yaw) * CAM_DISTANCE;
+  const camY = playerGroundY + PLAYER_HEIGHT + CAM_HEIGHT_OFFSET + Math.sin(pitch) * CAM_DISTANCE * 0.5;
+
+  camera.position.set(camX, clamp(camY, 1.5, 20), camZ);
+  camera.lookAt(playerPos.x, playerGroundY + PLAYER_HEIGHT, playerPos.z);
 }
 
 // ─── Raycasting / Interaction ───
 function updateInteraction() {
-  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  // Cast ray from player position in the direction player faces
+  const playerFwd = new THREE.Vector3(-Math.sin(playerModel ? playerModel.rotation.y : yaw), 0, -Math.cos(playerModel ? playerModel.rotation.y : yaw));
+  raycaster.set(new THREE.Vector3(playerPos.x, playerGroundY + PLAYER_HEIGHT * 0.8, playerPos.z), playerFwd);
   interactTarget = null;
 
   let closestDist = Infinity;
@@ -1289,10 +1438,7 @@ function startGame() {
   started = true;
   startScreen.style.display = 'none';
 
-  // Request pointer lock on desktop
-  if (!isMobile) {
-    renderer.domElement.requestPointerLock();
-  }
+  // Third-person: no pointer lock needed
 }
 
 // ─── Init Game (after profile selected) ───
@@ -1304,9 +1450,16 @@ function initGame() {
   autoSaveTimer = 0;
   started = false;
 
+  playerPos = new THREE.Vector3(0, 0, 8);
+  playerGroundY = 0;
+  walkCycle = 0;
+  isMoving = false;
+  yaw = 0; pitch = 0;
+
   initScene();
   initLighting();
   buildWorld();
+  buildPlayerModel();
 
   const loaded = loadGame();
   if (!loaded) {
