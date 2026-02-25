@@ -663,7 +663,7 @@ function updatePlantMeshes() {
       continue;
     }
 
-    const seed = SEEDS[plotData.seedId];
+    const seed = getSeedData(plotData.seedId);
     if (!seed) continue;
 
     const elapsed = (Date.now() - plotData.plantedAt) / 1000;
@@ -1036,7 +1036,7 @@ function updateInteraction() {
       showPrompt('Press <b>E</b> to Plant');
       showPlotLabel('Empty Plot');
     } else {
-      const seed = SEEDS[plotData.seedId];
+      const seed = getSeedData(plotData.seedId);
       const elapsed = (Date.now() - plotData.plantedAt) / 1000;
       const progress = Math.min(elapsed / plotData.growTime, 1);
       const isReady = progress >= 1;
@@ -1058,7 +1058,9 @@ function updateInteraction() {
     const distToShop = Math.sqrt(dxShop * dxShop + dzShop * dzShop);
     if (distToShop <= SHOPKEEPER_INTERACT_DIST) {
       nearShopkeeper = true;
-      showPrompt('Press <b>E</b> to talk to <b>Shlomo</b> 🌱');
+      const holidays = getActiveHolidayLabels();
+      const seasonalMsg = holidays.length > 0 ? ` — ${holidays.join(' ')} specials!` : '';
+      showPrompt(`Press <b>E</b> to talk to <b>Shlomo</b> 🌱${seasonalMsg}`);
       showPlotLabel("Shlomo's Seeds");
     } else {
       nearShopkeeper = false;
@@ -1123,7 +1125,7 @@ function openSeedPanel(plotIndex) {
   }
 
   seeds.forEach(seedId => {
-    const seed = SEEDS[seedId];
+    const seed = getSeedData(seedId);
     if (!seed) return;
     const count = gameState.inventory[seedId];
     const opt = document.createElement('div');
@@ -1155,10 +1157,10 @@ function plantSeed(plotIndex, seedId) {
   gameState.plots[plotIndex] = {
     seedId: seedId,
     plantedAt: Date.now(),
-    growTime: SEEDS[seedId].growTime,
+    growTime: getSeedData(seedId).growTime,
   };
 
-  showToast('🌱', `Planted ${SEEDS[seedId].name}!`);
+  showToast('🌱', `Planted ${getSeedData(seedId).name}!`);
   updateHotbar();
   updatePlantMeshes();
   saveGame();
@@ -1169,7 +1171,7 @@ function harvestPlot(plotIndex) {
   const plotData = gameState.plots[plotIndex];
   if (!plotData) return;
 
-  const seed = SEEDS[plotData.seedId];
+  const seed = getSeedData(plotData.seedId);
   const sellPrice = seed.sellPrice;
 
   gameState.coins += sellPrice;
@@ -1200,6 +1202,39 @@ function toggleShop() {
   }
 }
 
+function makeShopCard(seedId, seed) {
+  const canAfford = gameState.coins >= seed.seedCost;
+  const owned = gameState.inventory[seedId] || 0;
+
+  const card = document.createElement('div');
+  card.className = 'shop-card' + (seed.holiday ? ' shop-card-seasonal' : '');
+  card.innerHTML = `
+    <div class="shop-emoji">${seed.emoji}</div>
+    <div class="shop-name">${seed.name}</div>
+    ${seed.description ? `<div class="shop-desc">${seed.description}</div>` : ''}
+    <div class="shop-stats">
+      Grow: ${seed.growTime}s<br>
+      Sell: 🪙${seed.sellPrice}<br>
+      Owned: ${owned}
+    </div>
+    <button class="shop-btn" ${!canAfford ? 'disabled' : ''}>Buy 🪙${seed.seedCost}</button>
+  `;
+
+  card.querySelector('.shop-btn').addEventListener('click', () => {
+    if (gameState.coins >= seed.seedCost) {
+      gameState.coins -= seed.seedCost;
+      gameState.inventory[seedId] = (gameState.inventory[seedId] || 0) + 1;
+      showToast('🛒', `Bought ${seed.name} seed!`);
+      updateHUD();
+      updateHotbar();
+      saveGame();
+      openShop();
+    }
+  });
+
+  return card;
+}
+
 function openShop() {
   if (document.pointerLockElement) document.exitPointerLock();
   closeAllPanels();
@@ -1207,44 +1242,40 @@ function openShop() {
   const body = $('#shop-panel-body');
   body.innerHTML = '';
 
+  // Seasonal seeds section
+  const seasonal = getSeasonalSeeds();
+  const holidayLabels = getActiveHolidayLabels();
+  if (Object.keys(seasonal).length > 0) {
+    const seasonHeader = document.createElement('div');
+    seasonHeader.className = 'shop-section-header seasonal';
+    seasonHeader.innerHTML = `${holidayLabels.join(' ')} <span class="seasonal-tag">Limited Time!</span>`;
+    body.appendChild(seasonHeader);
+
+    const seasonGrid = document.createElement('div');
+    seasonGrid.className = 'shop-grid';
+    for (const [seedId, seed] of Object.entries(seasonal)) {
+      seasonGrid.appendChild(makeShopCard(seedId, seed));
+    }
+    body.appendChild(seasonGrid);
+
+    const divider = document.createElement('hr');
+    divider.className = 'shop-divider';
+    body.appendChild(divider);
+  }
+
+  // Regular seeds
+  const regularHeader = document.createElement('div');
+  regularHeader.className = 'shop-section-header';
+  regularHeader.textContent = '🌱 Regular Seeds';
+  body.appendChild(regularHeader);
+
   const grid = document.createElement('div');
   grid.className = 'shop-grid';
-
   SEED_LIST.forEach(seedId => {
-    const seed = SEEDS[seedId];
-    const canAfford = gameState.coins >= seed.seedCost;
-    const owned = gameState.inventory[seedId] || 0;
-
-    const card = document.createElement('div');
-    card.className = 'shop-card';
-    card.innerHTML = `
-      <div class="shop-emoji">${seed.emoji}</div>
-      <div class="shop-name">${seed.name}</div>
-      <div class="shop-stats">
-        Grow: ${seed.growTime}s<br>
-        Sell: 🪙${seed.sellPrice}<br>
-        Owned: ${owned}
-      </div>
-      <button class="shop-btn" ${!canAfford ? 'disabled' : ''}>Buy 🪙${seed.seedCost}</button>
-    `;
-
-    card.querySelector('.shop-btn').addEventListener('click', () => {
-      if (gameState.coins >= seed.seedCost) {
-        gameState.coins -= seed.seedCost;
-        gameState.inventory[seedId] = (gameState.inventory[seedId] || 0) + 1;
-        showToast('🛒', `Bought ${seed.name} seed!`);
-        updateHUD();
-        updateHotbar();
-        saveGame();
-        // Refresh shop
-        openShop();
-      }
-    });
-
-    grid.appendChild(card);
+    grid.appendChild(makeShopCard(seedId, getSeedData(seedId)));
   });
-
   body.appendChild(grid);
+
   $('#shop-panel').classList.remove('hidden');
 }
 
@@ -1281,7 +1312,7 @@ function openInventory() {
   grid.className = 'inv-grid';
 
   seeds.forEach(seedId => {
-    const seed = SEEDS[seedId];
+    const seed = getSeedData(seedId);
     if (!seed) return;
     const count = gameState.inventory[seedId];
     const item = document.createElement('div');
@@ -1339,7 +1370,7 @@ function updateHotbar() {
   const slots = seeds.slice(0, 9);
 
   slots.forEach((seedId, i) => {
-    const seed = SEEDS[seedId];
+    const seed = getSeedData(seedId);
     if (!seed) return;
     const count = gameState.inventory[seedId];
     const slot = document.createElement('div');
