@@ -389,7 +389,6 @@ canvas { display: block; }
 }
 #touch-jump { bottom: 80px; right: 20px; }
 #touch-interact { bottom: 20px; right: 90px; font-size: 16px; font-weight: 700; }
-#touch-water { bottom: 80px; right: 90px; font-size: 20px; }
 #touch-inv { top: 60px; right: 20px; font-size: 16px; }
 #touch-shop { top: 60px; right: 90px; font-size: 16px; }
 
@@ -585,68 +584,6 @@ canvas { display: block; }
   margin-left: 4px;
 }
 .badge-switch:hover { background: rgba(255,255,255,0.35); }
-
-/* ─── HUD indicators ─── */
-.hud-indicator {
-  font-size: 20px;
-  line-height: 1;
-  filter: drop-shadow(0 0 4px rgba(255,255,255,0.3));
-}
-
-/* ─── NPC / entity labels ─── */
-.npc-label {
-  position: fixed; z-index: 30;
-  background: rgba(0,0,0,0.65); color: #FFD600;
-  padding: 4px 12px; border-radius: 8px;
-  font-family: 'Segoe UI', sans-serif; font-size: 0.85em; font-weight: 700;
-  pointer-events: none; white-space: nowrap;
-  transform: translate(-50%, -100%);
-  opacity: 0; transition: opacity 0.3s;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-}
-.npc-label.visible { opacity: 1; }
-
-/* ─── Achievements Panel ─── */
-#achieve-panel {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  background: rgba(20, 20, 30, 0.95); border: 2px solid rgba(255,255,255,0.2);
-  border-radius: 16px; padding: 20px; z-index: 200;
-  min-width: 300px; max-width: 92vw; max-height: 80vh; overflow-y: auto;
-  backdrop-filter: blur(10px);
-}
-#achieve-panel.hidden { display: none; }
-#achieve-panel .panel-header {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
-}
-#achieve-panel .panel-header h2 { margin: 0; font-size: 1.3em; }
-#achieve-panel .panel-close {
-  background: none; border: none; color: white; font-size: 1.4em; cursor: pointer;
-  padding: 4px 8px; border-radius: 8px;
-}
-#achieve-panel .panel-close:hover { background: rgba(255,255,255,0.15); }
-
-.achieve-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 10px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 8px; opacity: 0.5;
-}
-.achieve-card.unlocked {
-  opacity: 1; background: rgba(76,175,80,0.1);
-  border-color: rgba(76,175,80,0.3);
-}
-.achieve-emoji { font-size: 1.8em; flex-shrink: 0; }
-.achieve-info { flex: 1; }
-.achieve-name { font-weight: 700; font-size: 0.95em; }
-.achieve-desc { font-size: 0.78em; color: #90a4ae; margin-top: 2px; }
-.achieve-check { font-size: 1.2em; }
-
-/* ─── Sell Panel bonus banner ─── */
-.sell-bonus {
-  background: rgba(255,152,0,0.15); border: 1px solid rgba(255,152,0,0.4);
-  border-radius: 8px; padding: 8px 12px; margin-bottom: 12px;
-  font-size: 0.9em; text-align: center; color: #FFB74D;
-}
 
 /* ─── Shopkeeper Label ─── */
 #shopkeeper-label {

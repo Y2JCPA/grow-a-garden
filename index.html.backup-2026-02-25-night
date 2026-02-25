@@ -20,11 +20,9 @@
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> Move &nbsp;|&nbsp;
       <kbd>Mouse</kbd> Look &nbsp;|&nbsp;
       <kbd>Space</kbd> Jump<br>
-      <kbd>E</kbd> Interact &nbsp;|&nbsp;
-      <kbd>Q</kbd> Water Plant &nbsp;|&nbsp;
+      <kbd>E</kbd> / Click &nbsp; Interact &nbsp;|&nbsp;
       <kbd>I</kbd> Inventory &nbsp;|&nbsp;
       <kbd>B</kbd> Shop &nbsp;|&nbsp;
-      <kbd>J</kbd> Achievements &nbsp;|&nbsp;
       <kbd>1-9</kbd> Hotbar
     </div>
     <div class="controls-hint mobile-only">
@@ -42,15 +40,7 @@
       <span class="coin-icon">🪙</span>
       <span id="coin-amount">100</span>
     </div>
-    <div class="hud-box" id="water-display">
-      <span>💧</span>
-      <span id="water-amount">100</span>
-    </div>
-    <span id="time-indicator" class="hud-indicator">☀️</span>
-    <span id="weather-indicator" class="hud-indicator"></span>
-    <button class="hud-box hud-btn" id="wardrobe-btn" title="Wardrobe (👔)">👔</button>
-    <button class="hud-box hud-btn" id="achieve-btn" title="Achievements (J)">🏅</button>
-    <button class="hud-box hud-btn" id="sell-btn" title="Sell crops">💰</button>
+    <button class="hud-box hud-btn" id="wardrobe-btn" title="Wardrobe">👔</button>
   </div>
 
   <!-- Interact Prompt -->
@@ -64,9 +54,6 @@
 
   <!-- Shopkeeper Label -->
   <div id="shopkeeper-label">🌱 Shlomo's Seeds</div>
-
-  <!-- Dog Label -->
-  <div id="dog-label" class="npc-label">🐕 Buddy</div>
 
   <!-- Toast Container -->
   <div id="toast-container"></div>
@@ -110,7 +97,6 @@
     <div id="touch-look"></div>
     <div class="touch-btn" id="touch-jump">⬆</div>
     <div class="touch-btn" id="touch-interact">E</div>
-    <div class="touch-btn" id="touch-water">💧</div>
     <div class="touch-btn" id="touch-inv">I</div>
     <div class="touch-btn" id="touch-shop">B</div>
   </div>
