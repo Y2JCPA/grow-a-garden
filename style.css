@@ -347,3 +347,99 @@ canvas { display: block; }
   #hud-top { top: 8px; }
   .hud-box { padding: 6px 12px; font-size: 14px; }
 }
+
+/* ─── Profile System ─── */
+#profile-screen {
+  position: fixed; inset: 0; z-index: 10000;
+  background: linear-gradient(135deg, #1a3a1a 0%, #2d5a27 50%, #1a4a2e 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', sans-serif; color: #fff;
+}
+.profile-container {
+  text-align: center; max-width: 500px; width: 90%;
+}
+.profile-container h1 {
+  font-size: 2.5em; margin: 10px 0 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+.profile-container .subtitle {
+  font-size: 1.2em; opacity: 0.8; margin-bottom: 25px;
+}
+.profile-container .logo-emoji {
+  font-size: 4em; animation: bobProfile 2s ease-in-out infinite;
+}
+@keyframes bobProfile { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+
+.profile-grid {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 20px;
+}
+.profile-card {
+  background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 16px; padding: 16px 20px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 100px; transition: all 0.2s;
+}
+.profile-card:hover {
+  background: rgba(255,255,255,0.25); border-color: #7CFC00; transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+.profile-avatar { font-size: 2.5em; }
+.profile-name { font-size: 0.95em; font-weight: 600; }
+
+.profile-new-btn {
+  background: #4CAF50; color: #fff; border: none; border-radius: 12px;
+  padding: 14px 32px; font-size: 1.1em; font-weight: 700; cursor: pointer;
+  transition: all 0.2s;
+}
+.profile-new-btn:hover { background: #66BB6A; transform: scale(1.05); }
+
+/* New Profile Modal */
+#new-profile-modal {
+  position: fixed; inset: 0; z-index: 10001;
+  background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
+}
+.profile-modal-box {
+  background: #2a4a2a; border: 2px solid #4CAF50; border-radius: 16px;
+  padding: 25px 30px; max-width: 400px; width: 90%; text-align: center; color: #fff;
+}
+.profile-modal-box h2 { margin-bottom: 15px; font-size: 1.5em; }
+.profile-modal-box input {
+  width: 100%; padding: 10px 14px; font-size: 1.1em; border-radius: 8px;
+  border: 2px solid #4CAF50; background: #1a3a1a; color: #fff;
+  outline: none; text-align: center;
+}
+.profile-modal-box input:focus { border-color: #7CFC00; }
+
+.avatar-grid {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+}
+.avatar-option {
+  font-size: 1.8em; cursor: pointer; padding: 6px; border-radius: 10px;
+  border: 2px solid transparent; transition: all 0.15s;
+}
+.avatar-option:hover { background: rgba(255,255,255,0.15); }
+.avatar-option.selected { border-color: #7CFC00; background: rgba(124,252,0,0.15); }
+
+.profile-modal-btn {
+  background: #4CAF50; color: #fff; border: none; border-radius: 10px;
+  padding: 10px 24px; font-size: 1em; font-weight: 700; cursor: pointer;
+}
+.profile-modal-btn:hover { background: #66BB6A; }
+.profile-modal-btn.cancel { background: #666; }
+.profile-modal-btn.cancel:hover { background: #888; }
+
+/* Profile Badge (during gameplay) */
+#profile-badge {
+  position: fixed; top: 12px; left: 12px; z-index: 500;
+  background: rgba(0,0,0,0.6); border-radius: 20px;
+  padding: 6px 14px; display: flex; align-items: center; gap: 8px;
+  font-family: 'Segoe UI', sans-serif; color: #fff; font-size: 0.9em;
+  backdrop-filter: blur(4px);
+}
+.badge-avatar { font-size: 1.4em; }
+.badge-name { font-weight: 600; }
+.badge-switch {
+  background: rgba(255,255,255,0.2); border: none; color: #fff;
+  border-radius: 8px; padding: 3px 8px; cursor: pointer; font-size: 0.9em;
+  margin-left: 4px;
+}
+.badge-switch:hover { background: rgba(255,255,255,0.35); }

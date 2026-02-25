@@ -14,8 +14,12 @@ const PLAYER_SPEED = 5;
 const JUMP_FORCE = 7;
 const GRAVITY = 18;
 const INTERACT_DIST = 5;
-const SAVE_KEY = 'garden3d_save';
+const PROFILES_KEY = 'garden3d_profiles';
+const SAVE_PREFIX = 'garden3d_save_';
+const MAX_PROFILES = 10;
 const AUTO_SAVE_SEC = 30;
+let activeProfileId = null;
+function getSaveKey() { return SAVE_PREFIX + activeProfileId; }
 
 // ─── Game State ───
 let gameState = {
@@ -999,8 +1003,181 @@ function updateHUD() {
   coinAmountEl.textContent = gameState.coins.toLocaleString();
 }
 
+// ─── Profile System ───
+const PROFILE_AVATARS = ['🌻','🌵','🍄','🌸','🌲','🦊','🐸','🌈','🍀','🔥','🐝','🦋','🌺','🍉','⭐','🐢','🎮','🧑‍🌾'];
+
+function getProfiles() {
+  try { return JSON.parse(localStorage.getItem(PROFILES_KEY)) || []; } catch(e) { return []; }
+}
+
+function saveProfiles(profiles) {
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+}
+
+function migrateOldSave() {
+  const old = localStorage.getItem('garden3d_save');
+  if (!old) return;
+  const profiles = getProfiles();
+  if (profiles.length === 0) {
+    const id = 'p_' + Date.now();
+    profiles.push({ id, name: 'Player 1', avatar: '🌻' });
+    saveProfiles(profiles);
+    localStorage.setItem(SAVE_PREFIX + id, old);
+  }
+  localStorage.removeItem('garden3d_save');
+}
+
+function showProfileScreen() {
+  // Remove existing if any
+  const existing = document.getElementById('profile-screen');
+  if (existing) existing.remove();
+
+  migrateOldSave();
+  const profiles = getProfiles();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'profile-screen';
+  overlay.innerHTML = `
+    <div class="profile-container">
+      <div class="logo-emoji">🌱</div>
+      <h1>Grow a Garden</h1>
+      <p class="subtitle">Who's playing?</p>
+      <div class="profile-grid" id="profile-grid"></div>
+      <button class="profile-new-btn" id="new-profile-btn">+ New Gardener</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const grid = document.getElementById('profile-grid');
+  profiles.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.innerHTML = `<span class="profile-avatar">${p.avatar}</span><span class="profile-name">${p.name}</span>`;
+    card.addEventListener('click', () => selectProfile(p.id));
+
+    // Long press / right-click to delete
+    card.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (confirm(`Delete ${p.name}'s garden? This cannot be undone!`)) {
+        deleteProfile(p.id);
+      }
+    });
+    grid.appendChild(card);
+  });
+
+  document.getElementById('new-profile-btn').addEventListener('click', showNewProfileModal);
+}
+
+function showNewProfileModal() {
+  const profiles = getProfiles();
+  if (profiles.length >= MAX_PROFILES) {
+    alert('Maximum 10 profiles! Long-press a profile to delete one.');
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'new-profile-modal';
+  modal.innerHTML = `
+    <div class="profile-modal-box">
+      <h2>New Gardener</h2>
+      <input type="text" id="profile-name-input" placeholder="Enter name..." maxlength="12" autofocus>
+      <p style="margin:10px 0 5px;font-weight:bold;">Pick an avatar:</p>
+      <div class="avatar-grid" id="avatar-grid"></div>
+      <div style="margin-top:15px;display:flex;gap:10px;justify-content:center;">
+        <button class="profile-modal-btn" id="create-profile-btn">Create</button>
+        <button class="profile-modal-btn cancel" id="cancel-profile-btn">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  let selectedAvatar = '🌻';
+  const avatarGrid = document.getElementById('avatar-grid');
+  PROFILE_AVATARS.forEach((emoji, i) => {
+    const btn = document.createElement('span');
+    btn.className = 'avatar-option' + (i === 0 ? ' selected' : '');
+    btn.textContent = emoji;
+    btn.addEventListener('click', () => {
+      avatarGrid.querySelectorAll('.avatar-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedAvatar = emoji;
+    });
+    avatarGrid.appendChild(btn);
+  });
+
+  document.getElementById('create-profile-btn').addEventListener('click', () => {
+    const name = document.getElementById('profile-name-input').value.trim();
+    if (!name) { document.getElementById('profile-name-input').focus(); return; }
+    const id = 'p_' + Date.now();
+    const profiles = getProfiles();
+    profiles.push({ id, name, avatar: selectedAvatar });
+    saveProfiles(profiles);
+    modal.remove();
+    selectProfile(id);
+  });
+
+  document.getElementById('cancel-profile-btn').addEventListener('click', () => modal.remove());
+  document.getElementById('profile-name-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('create-profile-btn').click();
+  });
+  setTimeout(() => document.getElementById('profile-name-input').focus(), 50);
+}
+
+function deleteProfile(id) {
+  let profiles = getProfiles();
+  profiles = profiles.filter(p => p.id !== id);
+  saveProfiles(profiles);
+  localStorage.removeItem(SAVE_PREFIX + id);
+  showProfileScreen();
+}
+
+function selectProfile(id) {
+  activeProfileId = id;
+  const profileScreen = document.getElementById('profile-screen');
+  if (profileScreen) profileScreen.remove();
+  const modal = document.getElementById('new-profile-modal');
+  if (modal) modal.remove();
+
+  // Show profile badge
+  const profiles = getProfiles();
+  const p = profiles.find(pr => pr.id === id);
+  if (p) showProfileBadge(p);
+
+  // Now init the game
+  initGame();
+}
+
+function showProfileBadge(profile) {
+  let badge = document.getElementById('profile-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'profile-badge';
+    document.body.appendChild(badge);
+  }
+  badge.innerHTML = `<span class="badge-avatar">${profile.avatar}</span><span class="badge-name">${profile.name}</span><button class="badge-switch" id="switch-profile-btn">↩</button>`;
+  document.getElementById('switch-profile-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Reset game state
+    if (started) saveGame();
+    started = false;
+    // Clean up Three.js
+    if (renderer) {
+      renderer.domElement.remove();
+      renderer.dispose();
+      renderer = null;
+    }
+    scene = null; camera = null;
+    plotMeshes = []; cloudMeshes = [];
+    document.getElementById('start-screen').style.display = '';
+    badge.remove();
+    activeProfileId = null;
+    showProfileScreen();
+  });
+}
+
 // ─── Save / Load ───
 function saveGame() {
+  if (!activeProfileId) return;
   try {
     const data = {
       coins: gameState.coins,
@@ -1008,13 +1185,14 @@ function saveGame() {
       plots: gameState.plots,
       savedAt: Date.now(),
     };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    localStorage.setItem(getSaveKey(), JSON.stringify(data));
   } catch(e) { /* ignore */ }
 }
 
 function loadGame() {
+  if (!activeProfileId) return false;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = localStorage.getItem(getSaveKey());
     if (!raw) return false;
     const data = JSON.parse(raw);
     gameState.coins = data.coins || 100;
@@ -1117,13 +1295,19 @@ function startGame() {
   }
 }
 
-// ─── Init ───
-function init() {
+// ─── Init Game (after profile selected) ───
+function initGame() {
+  // Reset game state
+  gameState = { coins: 100, inventory: { daisy: 3, sunflower: 2 }, plots: [], selectedSlot: 0 };
+  plotMeshes = [];
+  cloudMeshes = [];
+  autoSaveTimer = 0;
+  started = false;
+
   initScene();
   initLighting();
   buildWorld();
 
-  // Load or init plots
   const loaded = loadGame();
   if (!loaded) {
     initPlots();
@@ -1135,11 +1319,16 @@ function init() {
   updateHUD();
   updateHotbar();
 
-  // Start button
+  // Show start screen
+  startScreen.style.display = '';
   startBtn.addEventListener('click', startGame);
 
-  // Start render loop
   animate();
+}
+
+// ─── Init (show profile screen) ───
+function init() {
+  showProfileScreen();
 }
 
 // Boot
