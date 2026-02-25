@@ -51,6 +51,8 @@ let started = false;
 let autoSaveTimer = 0;
 let touchMoveVec = {x: 0, y: 0};
 let isMobile = false;
+let animating = false;
+let startBtnBound = false;
 
 // ─── DOM refs ───
 const $ = sel => document.querySelector(sel);
@@ -820,6 +822,11 @@ function initControls() {
 function initTouchControls() {
   isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+  // Force-show touch controls on mobile (CSS media query fallback)
+  if (isMobile) {
+    document.getElementById('touch-controls').style.display = 'block';
+  }
+
   const touchMove = $('#touch-move');
   const touchStick = $('#touch-move-stick');
   const touchLook = $('#touch-look');
@@ -1573,6 +1580,7 @@ function showProfileBadge(profile) {
     }
     scene = null; camera = null;
     plotMeshes = []; cloudMeshes = [];
+    animating = false;
     document.getElementById('start-screen').style.display = '';
     badge.remove();
     activeProfileId = null;
@@ -1662,6 +1670,7 @@ function animateClouds(dt) {
 
 // ─── Main Game Loop ───
 function animate() {
+  if (!animating || !renderer) return;
   requestAnimationFrame(animate);
 
   const dt = Math.min(clock.getDelta(), 0.1);
@@ -1753,9 +1762,15 @@ function initGame() {
 
   // Show start screen
   startScreen.style.display = '';
-  startBtn.addEventListener('click', startGame);
+  if (!startBtnBound) {
+    startBtn.addEventListener('click', startGame);
+    startBtnBound = true;
+  }
 
-  animate();
+  if (!animating) {
+    animating = true;
+    animate();
+  }
 }
 
 // ─── Init (show profile screen) ───

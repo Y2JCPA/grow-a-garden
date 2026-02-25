@@ -340,6 +340,9 @@ canvas { display: block; }
 @media (hover: none) and (pointer: coarse) {
   #touch-controls { display: block; }
 }
+@media (max-width: 1024px) and (any-pointer: coarse) {
+  #touch-controls { display: block; }
+}
 
 /* --- Responsive / Mobile / Tablet --- */
 @media (max-width: 1024px) {
