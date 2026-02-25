@@ -194,8 +194,8 @@ function initLighting() {
   sunLight = new THREE.DirectionalLight(0xfff4cc, 1.2);
   sunLight.position.set(10, 20, 8);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 1024;
-  sunLight.shadow.mapSize.height = 1024;
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
   sunLight.shadow.camera.near = 0.5;
   sunLight.shadow.camera.far = 100;
   sunLight.shadow.camera.left = -40;
@@ -220,7 +220,7 @@ function buildWorld() {
   scene.add(ground);
 
   // Darker green top detail patches
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 160; i++) {
     const patchGeo = new THREE.BoxGeometry(1 + Math.random() * 3, 0.05, 1 + Math.random() * 3);
     const patchMat = new THREE.MeshLambertMaterial({ color: Math.random() > 0.5 ? 0x388E3C : 0x66BB6A });
     const patch = new THREE.Mesh(patchGeo, patchMat);
@@ -282,7 +282,7 @@ function buildWorld() {
 
   // Clouds
   const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 12; i++) {
     const cg = new THREE.Group();
     const numBlocks = 3 + Math.floor(Math.random() * 4);
     for (let b = 0; b < numBlocks; b++) {
@@ -305,8 +305,8 @@ function buildWorld() {
   // Decorative trees/bushes outside garden
   const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6D4C41 });
   const leavesMat = new THREE.MeshLambertMaterial({ color: 0x2E7D32 });
-  for (let i = 0; i < 20; i++) {
-    const angle = (Math.PI * 2 * i) / 20;
+  for (let i = 0; i < 40; i++) {
+    const angle = (Math.PI * 2 * i) / 40;
     const dist = 14 + Math.random() * 28;
     const tx = Math.cos(angle) * dist;
     const tz = Math.sin(angle) * dist;
@@ -1795,7 +1795,7 @@ function updateInteraction() {
       const waterIcon = waterPct > 60 ? '💧' : waterPct > 20 ? '💦' : '🏜️';
 
       if (isReady) {
-        showPrompt(`Press <b>E</b> to Harvest ${seed.emoji} ${seed.name} → Inventory`);
+        showPrompt(`Press <b>E</b> to Harvest ${seed.emoji} ${seed.name}`);
         showPlotLabel(`${seed.emoji} ${seed.name} — READY! ${waterIcon}${waterPct}%`);
       } else {
         const stage = progress < 0.33 ? '🌱 Sprout' : progress < 0.66 ? '🌿 Growing' : '🌻 Almost Ready';
@@ -1968,9 +1968,11 @@ function harvestPlot(plotIndex) {
 
   const seed = getSeedData(plotData.seedId);
   const rarity = seed.rarity || 'common';
+  const rarityMult = rarity === 'legendary' ? 2 : rarity === 'rare' ? 1.5 : rarity === 'uncommon' ? 1.2 : 1;
+  const sellPrice = Math.round(seed.sellPrice * rarityMult);
 
-  // Add to inventory (NOT auto-sell — sell to Shlomo via 💰 panel)
-  gameState.inventory[plotData.seedId] = (gameState.inventory[plotData.seedId] || 0) + 1;
+  gameState.coins += sellPrice;
+  gameState.totalCoinsEarned += sellPrice;
   gameState.totalHarvested++;
   if (!gameState.harvestedTypes.includes(plotData.seedId)) {
     gameState.harvestedTypes.push(plotData.seedId);
@@ -1978,8 +1980,9 @@ function harvestPlot(plotIndex) {
   gameState.plots[plotIndex] = null;
 
   const rarityLabel = rarity !== 'common' ? ` (${rarity})` : '';
-  showToast('🎉', `Harvested ${seed.emoji} ${seed.name}${rarityLabel} → Inventory!`);
-  const particleCount = rarity === 'legendary' ? 12 : rarity === 'rare' ? 8 : 5;
+  showToast('🎉', `Harvested ${seed.emoji} ${seed.name}${rarityLabel} — +🪙${sellPrice}!`);
+  spawnCoinFly();
+  const particleCount = rarity === 'legendary' ? 16 : rarity === 'rare' ? 12 : 8;
   spawnParticles(window.innerWidth / 2, window.innerHeight / 2, seed.emoji, particleCount);
 
   // Achievement checks
@@ -1987,6 +1990,12 @@ function harvestPlot(plotIndex) {
   if (gameState.totalHarvested >= 50) checkAchievement('master_gardener');
   if (rarity === 'rare' || rarity === 'legendary') checkAchievement('rare_find');
   if (gameState.harvestedTypes.length >= 8) checkAchievement('variety_pack');
+  if (gameState.totalCoinsEarned >= 500) checkAchievement('entrepreneur');
+  if (gameState.coins >= 10000) checkAchievement('millionaire');
+
+  // Check full garden
+  const allPlanted = gameState.plots.every(p => p !== null);
+  if (allPlanted) checkAchievement('full_garden');
 
   updateHUD();
   updateHotbar();
@@ -2777,9 +2786,8 @@ function buildRainParticles() {
   removeRainParticles();
   rainDrops = [];
   const rainMat = new THREE.MeshBasicMaterial({ color: 0x6699cc, transparent: true, opacity: 0.6 });
-  const rainGeo = new THREE.BoxGeometry(0.05, 0.3, 0.05); // shared geometry
-  for (let i = 0; i < 30; i++) {
-    const drop = new THREE.Mesh(rainGeo, rainMat);
+  for (let i = 0; i < 80; i++) {
+    const drop = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.05), rainMat);
     drop.position.set(
       (Math.random() - 0.5) * 40,
       5 + Math.random() * 15,
@@ -3135,9 +3143,8 @@ function updateButterflies(time) {
 
 function buildFireflies() {
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xFFFF44, transparent: true, opacity: 0.8 });
-  const ffGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06); // shared
-  for (let i = 0; i < 10; i++) {
-    const ff = new THREE.Mesh(ffGeo, glowMat.clone());
+  for (let i = 0; i < 20; i++) {
+    const ff = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), glowMat.clone());
     ff.position.set(
       (Math.random() - 0.5) * 30,
       0.5 + Math.random() * 3,
@@ -3407,8 +3414,8 @@ function animate() {
     }
   }
 
-  // Periodic plant mesh update (every 5 seconds to reduce GC pressure)
-  if (Math.floor(time * 0.2) !== Math.floor((time - dt) * 0.2)) {
+  // Periodic plant mesh update (every 2 seconds for growth changes)
+  if (Math.floor(time * 0.5) !== Math.floor((time - dt) * 0.5)) {
     updatePlantMeshes();
   }
 
