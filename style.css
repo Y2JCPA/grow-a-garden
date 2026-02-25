@@ -56,6 +56,61 @@ canvas { display: block; }
 #coin-display .coin-icon { font-size: 20px; }
 #coin-amount { color: #ffd54f; }
 
+.hud-btn {
+  pointer-events: auto; cursor: pointer;
+  font-size: 20px; padding: 8px 12px;
+  transition: transform 0.15s, background 0.15s;
+}
+.hud-btn:hover { transform: scale(1.1); background: rgba(255,255,255,0.15); }
+.hud-btn:active { transform: scale(0.95); }
+
+/* Wardrobe panel */
+#wardrobe-panel {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(20, 20, 30, 0.95); border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 16px; padding: 20px; z-index: 200;
+  min-width: 300px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+#wardrobe-panel.hidden { display: none; }
+#wardrobe-panel .panel-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+}
+#wardrobe-panel .panel-header h2 { margin: 0; font-size: 1.3em; }
+#wardrobe-panel .panel-close {
+  background: none; border: none; color: white; font-size: 1.4em; cursor: pointer;
+  padding: 4px 8px; border-radius: 8px;
+}
+#wardrobe-panel .panel-close:hover { background: rgba(255,255,255,0.15); }
+#wardrobe-panel .panel-body {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+}
+
+.wardrobe-card {
+  background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 14px; padding: 16px 20px; text-align: center;
+  min-width: 110px; transition: all 0.2s;
+}
+.wardrobe-card.active { border-color: #7CFC00; background: rgba(124,252,0,0.1); }
+.wardrobe-card.locked { opacity: 0.7; }
+.wardrobe-card:hover { background: rgba(255,255,255,0.12); }
+.wardrobe-emoji { font-size: 2.5em; margin-bottom: 6px; }
+.wardrobe-name { font-weight: 700; font-size: 1em; margin-bottom: 4px; }
+.wardrobe-cost { color: #ffd54f; font-size: 0.85em; margin-bottom: 6px; }
+.wardrobe-status { color: #81C784; font-size: 0.8em; margin-bottom: 6px; }
+
+.wardrobe-btn {
+  border: none; border-radius: 8px; padding: 6px 16px;
+  font-weight: 700; font-size: 0.85em; cursor: pointer;
+  transition: all 0.15s;
+}
+.wardrobe-btn.equipped { background: #555; color: #aaa; cursor: default; }
+.wardrobe-btn.equip { background: #4CAF50; color: white; }
+.wardrobe-btn.equip:hover { background: #66BB6A; }
+.wardrobe-btn.buy { background: #FF9800; color: white; }
+.wardrobe-btn.buy:hover:not(:disabled) { background: #FFB74D; }
+.wardrobe-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* --- Interaction Prompt --- */
 #interact-prompt {
   position: fixed;
@@ -389,6 +444,11 @@ canvas { display: block; }
     padding: 8px;
     min-width: 44px; min-height: 44px;
   }
+  .skin-option {
+    padding: 10px 16px;
+    min-width: 80px; min-height: 44px;
+  }
+  .skin-emoji { font-size: 2.2em; }
 
   /* Seed options bigger */
   .seed-option {
@@ -486,6 +546,19 @@ canvas { display: block; }
 }
 .avatar-option:hover { background: rgba(255,255,255,0.15); }
 .avatar-option.selected { border-color: #7CFC00; background: rgba(124,252,0,0.15); }
+
+.skin-grid {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 5px;
+}
+.skin-option {
+  display: flex; flex-direction: column; align-items: center; cursor: pointer;
+  padding: 8px 14px; border-radius: 12px; border: 2px solid transparent;
+  transition: all 0.15s; min-width: 70px;
+}
+.skin-option:hover { background: rgba(255,255,255,0.15); }
+.skin-option.selected { border-color: #7CFC00; background: rgba(124,252,0,0.15); }
+.skin-emoji { font-size: 2em; }
+.skin-name { font-size: 0.75em; margin-top: 2px; color: #ccc; font-weight: bold; }
 
 .profile-modal-btn {
   background: #4CAF50; color: #fff; border: none; border-radius: 10px;
