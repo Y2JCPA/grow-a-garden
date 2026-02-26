@@ -345,8 +345,6 @@ function buildPlayerModel() {
     buildNinjaSkin(playerModel);
   } else if (skin === 'sonic') {
     buildSonicSkin(playerModel);
-  } else if (skin === 'mando') {
-    buildMandoSkin(playerModel);
   } else {
     buildFarmerSkin(playerModel);
   }
@@ -709,188 +707,6 @@ function buildSonicSkin(model) {
   const stripeR = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.04, 0.37), stripeMat);
   stripeR.position.set(0.12, 0.22, 0);
   model.add(stripeR);
-
-  model.userData = { armL, armR, legL, legR };
-}
-
-function buildMandoSkin(model) {
-  const beskarSilver = 0x8C8C8C;
-  const beskarDark = 0x5A5A5A;
-  const visorColor = 0x1a1a1a;
-  const visorTint = 0x2a2a3a;
-  const capeColor = 0x4a3728;
-  const bootColor = 0x3d2b1f;
-  const beltColor = 0x5D4037;
-  const jetpackGray = 0x6B6B6B;
-
-  // Helmet (T-visor Mandalorian style)
-  const helmet = new THREE.Mesh(
-    new THREE.BoxGeometry(0.52, 0.52, 0.52),
-    new THREE.MeshLambertMaterial({ color: beskarSilver })
-  );
-  helmet.position.y = 1.55;
-  helmet.castShadow = true;
-  model.add(helmet);
-
-  // T-visor (dark horizontal bar + vertical strip)
-  const visorMat = new THREE.MeshLambertMaterial({ color: visorTint });
-  const visorH = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.07, 0.05), visorMat);
-  visorH.position.set(0, 1.58, 0.27);
-  model.add(visorH);
-  const visorV = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.05), visorMat);
-  visorV.position.set(0, 1.5, 0.27);
-  model.add(visorV);
-
-  // Helmet cheek plates (slightly wider at bottom)
-  const cheekMat = new THREE.MeshLambertMaterial({ color: beskarDark });
-  const cheekL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.15), cheekMat);
-  cheekL.position.set(-0.27, 1.48, 0.15);
-  model.add(cheekL);
-  const cheekR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.15), cheekMat);
-  cheekR.position.set(0.27, 1.48, 0.15);
-  model.add(cheekR);
-
-  // Helmet crest (ridge on top)
-  const crest = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.06, 0.35),
-    new THREE.MeshLambertMaterial({ color: beskarDark })
-  );
-  crest.position.set(0, 1.83, -0.05);
-  model.add(crest);
-
-  // Body (beskar chest plate)
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.6, 0.3),
-    new THREE.MeshLambertMaterial({ color: beskarDark })
-  );
-  body.position.y = 1.0;
-  body.castShadow = true;
-  model.add(body);
-
-  // Chest plate (lighter beskar overlay)
-  const chestPlate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.4, 0.35, 0.05),
-    new THREE.MeshLambertMaterial({ color: beskarSilver })
-  );
-  chestPlate.position.set(0, 1.05, 0.16);
-  model.add(chestPlate);
-
-  // Mudhorn signet (small gold detail on right chest)
-  const signet = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.08, 0.02),
-    new THREE.MeshLambertMaterial({ color: 0xDAA520 })
-  );
-  signet.position.set(0.1, 1.1, 0.19);
-  model.add(signet);
-
-  // Belt
-  const belt = new THREE.Mesh(
-    new THREE.BoxGeometry(0.52, 0.08, 0.32),
-    new THREE.MeshLambertMaterial({ color: beltColor })
-  );
-  belt.position.y = 0.72;
-  model.add(belt);
-
-  // Belt pouches
-  const pouchMat = new THREE.MeshLambertMaterial({ color: 0x4E342E });
-  const pouchL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.08), pouchMat);
-  pouchL.position.set(-0.2, 0.7, 0.15);
-  model.add(pouchL);
-  const pouchR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.08), pouchMat);
-  pouchR.position.set(0.2, 0.7, 0.15);
-  model.add(pouchR);
-
-  // Cape (hanging from shoulders, back)
-  const cape = new THREE.Mesh(
-    new THREE.BoxGeometry(0.45, 0.7, 0.06),
-    new THREE.MeshLambertMaterial({ color: capeColor })
-  );
-  cape.position.set(0, 0.85, -0.18);
-  cape.castShadow = true;
-  model.add(cape);
-
-  // Jetpack (on back, above cape)
-  const jetpackBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.25, 0.35, 0.15),
-    new THREE.MeshLambertMaterial({ color: jetpackGray })
-  );
-  jetpackBody.position.set(0, 1.2, -0.22);
-  model.add(jetpackBody);
-  // Jetpack nozzle
-  const nozzle = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.1, 0.08),
-    new THREE.MeshLambertMaterial({ color: beskarDark })
-  );
-  nozzle.position.set(0, 1.0, -0.22);
-  model.add(nozzle);
-  // Jetpack top fin
-  const fin = new THREE.Mesh(
-    new THREE.BoxGeometry(0.04, 0.15, 0.1),
-    new THREE.MeshLambertMaterial({ color: jetpackGray })
-  );
-  fin.position.set(0, 1.45, -0.22);
-  model.add(fin);
-
-  // Arms (dark beskar)
-  const armGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
-  const armMat = new THREE.MeshLambertMaterial({ color: beskarDark });
-  const armL = new THREE.Mesh(armGeo, armMat);
-  armL.position.set(-0.35, 1.0, 0);
-  armL.castShadow = true;
-  model.add(armL);
-  const armR = new THREE.Mesh(armGeo, armMat);
-  armR.position.set(0.35, 1.0, 0);
-  armR.castShadow = true;
-  model.add(armR);
-
-  // Vambraces (forearm armor — slightly lighter)
-  const vambMat = new THREE.MeshLambertMaterial({ color: beskarSilver });
-  const vambL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.22), vambMat);
-  vambL.position.set(-0.35, 0.78, 0);
-  model.add(vambL);
-  const vambR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.22), vambMat);
-  vambR.position.set(0.35, 0.78, 0);
-  model.add(vambR);
-
-  // Gloves (dark)
-  const gloveMat = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
-  const gloveL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.18), gloveMat);
-  gloveL.position.set(-0.35, 0.64, 0);
-  model.add(gloveL);
-  const gloveR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.18), gloveMat);
-  gloveR.position.set(0.35, 0.64, 0);
-  model.add(gloveR);
-
-  // Legs (dark pants with armor plates)
-  const legGeo = new THREE.BoxGeometry(0.22, 0.5, 0.25);
-  const legMat = new THREE.MeshLambertMaterial({ color: beskarDark });
-  const legL = new THREE.Mesh(legGeo, legMat);
-  legL.position.set(-0.13, 0.45, 0);
-  legL.castShadow = true;
-  model.add(legL);
-  const legR = new THREE.Mesh(legGeo, legMat);
-  legR.position.set(0.13, 0.45, 0);
-  legR.castShadow = true;
-  model.add(legR);
-
-  // Knee plates (silver)
-  const kneeMat = new THREE.MeshLambertMaterial({ color: beskarSilver });
-  const kneeL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.06), kneeMat);
-  kneeL.position.set(-0.13, 0.42, 0.13);
-  model.add(kneeL);
-  const kneeR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.06), kneeMat);
-  kneeR.position.set(0.13, 0.42, 0.13);
-  model.add(kneeR);
-
-  // Boots (brown leather)
-  const shoeGeo = new THREE.BoxGeometry(0.22, 0.12, 0.32);
-  const shoeMat = new THREE.MeshLambertMaterial({ color: bootColor });
-  const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
-  shoeL.position.set(-0.13, 0.14, -0.02);
-  model.add(shoeL);
-  const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
-  shoeR.position.set(0.13, 0.14, -0.02);
-  model.add(shoeR);
 
   model.userData = { armL, armR, legL, legR };
 }
@@ -2516,7 +2332,6 @@ const CHARACTER_SKINS = {
   farmer: { name: 'Farmer', emoji: '🧑‍🌾', cost: 0 },
   ninja:  { name: 'Ninja',  emoji: '🥷',   cost: 1000 },
   sonic:  { name: 'Sonic',  emoji: '🦔',   cost: 1000 },
-  mando:  { name: 'Mando',  emoji: '⚔️',   cost: 2000 },
 };
 const DEFAULT_SKIN = 'farmer';
 
