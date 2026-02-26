@@ -59,11 +59,13 @@ const DOG_INTERACT_DIST = 2.5;
 let nearDog = false;
 
 // ─── Ambient Creatures ───
-// Ambient creatures removed for performance
+let butterflies = [];
+let birds = [];
+let fireflies = [];
 
 // ─── Rain Particles ───
 let rainParticles = null;
-let rainDrops = []; // reduced count for performance
+let rainDrops = [];
 
 // ─── Three.js globals ───
 let scene, camera, renderer, clock;
@@ -170,9 +172,9 @@ function initScene() {
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.BasicShadowMap;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
 
   clock = new THREE.Clock();
@@ -194,8 +196,8 @@ function initLighting() {
   sunLight = new THREE.DirectionalLight(0xfff4cc, 1.2);
   sunLight.position.set(10, 20, 8);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 512;
-  sunLight.shadow.mapSize.height = 512;
+  sunLight.shadow.mapSize.width = 1024;
+  sunLight.shadow.mapSize.height = 1024;
   sunLight.shadow.camera.near = 0.5;
   sunLight.shadow.camera.far = 100;
   sunLight.shadow.camera.left = -40;
@@ -313,10 +315,12 @@ function buildWorld() {
 
     const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5), trunkMat);
     trunk.position.set(tx, 1, tz);
+    trunk.castShadow = true;
     scene.add(trunk);
 
     const leaves = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), leavesMat);
     leaves.position.set(tx, 3, tz);
+    leaves.castShadow = true;
     scene.add(leaves);
 
     if (Math.random() > 0.5) {
@@ -2961,7 +2965,7 @@ function buildRainParticles() {
   rainDrops = [];
   const rainMat = new THREE.MeshBasicMaterial({ color: 0x6699cc, transparent: true, opacity: 0.6 });
   const rainGeo = new THREE.BoxGeometry(0.05, 0.3, 0.05); // shared geometry
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 30; i++) {
     const drop = new THREE.Mesh(rainGeo, rainMat);
     drop.position.set(
       (Math.random() - 0.5) * 40,
@@ -3564,7 +3568,9 @@ function animate() {
   updateWeather(dt);
   updateWaterLevels(dt);
   updateDog(dt, time);
-  // Ambient creatures removed for performance
+  updateButterflies(time);
+  updateFireflies(time);
+  updateBirds(dt, time);
 
   // Shlomo idle + floating label
   if (shopkeeperModel && camera) {
@@ -3663,7 +3669,9 @@ function initGame() {
   buildShopkeeper();
   buildWell();
   buildDog();
-  // Ambient creatures removed for performance
+  buildButterflies();
+  buildFireflies();
+  buildBirds();
 
   const loaded = loadGame();
   if (!loaded) {
