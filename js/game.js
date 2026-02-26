@@ -26,7 +26,8 @@ function getSaveKey() { return SAVE_PREFIX + activeProfileId; }
 // ─── Game State ───
 let gameState = {
   coins: 100,
-  inventory: { daisy: 3, sunflower: 2 },
+  inventory: { daisy: 3, sunflower: 2 },  // raw seeds (plantable, NOT sellable)
+  harvested: {},          // harvested produce (sellable, NOT plantable)
   plots: [],       // {seedId, plantedAt, growTime, waterLevel}
   selectedSlot: 0,
   unlockedSkins: ['farmer'],
@@ -2151,8 +2152,8 @@ function harvestPlot(plotIndex) {
   const seed = getSeedData(plotData.seedId);
   const rarity = seed.rarity || 'common';
 
-  // Add to inventory (NOT auto-sell — sell to Shlomo via 💰 panel)
-  gameState.inventory[plotData.seedId] = (gameState.inventory[plotData.seedId] || 0) + 1;
+  // Add to harvested produce (sellable via Shlomo, NOT plantable)
+  gameState.harvested[plotData.seedId] = (gameState.harvested[plotData.seedId] || 0) + 1;
   gameState.totalHarvested++;
   if (!gameState.harvestedTypes.includes(plotData.seedId)) {
     gameState.harvestedTypes.push(plotData.seedId);
@@ -2709,6 +2710,7 @@ function saveGame() {
     const data = {
       coins: gameState.coins,
       inventory: gameState.inventory,
+      harvested: gameState.harvested,
       plots: gameState.plots,
       selectedSlot: gameState.selectedSlot,
       unlockedSkins: gameState.unlockedSkins,
@@ -2732,6 +2734,7 @@ function loadGame() {
     const data = JSON.parse(raw);
     gameState.coins = data.coins || 100;
     gameState.inventory = data.inventory || { daisy: 3 };
+    gameState.harvested = data.harvested || {};
     gameState.plots = data.plots || [];
     gameState.selectedSlot = data.selectedSlot || 0;
     gameState.unlockedSkins = data.unlockedSkins || ['farmer'];
@@ -3423,7 +3426,7 @@ function openSellPanel() {
   const bonusIdx = Math.floor(Date.now() / 86400000) % allSeeds.length;
   const bonusSeedId = allSeeds[bonusIdx];
 
-  const items = Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0);
+  const items = Object.keys(gameState.harvested || {}).filter(id => gameState.harvested[id] > 0);
   if (items.length === 0) {
     body.innerHTML = '<p style="color:#78909c;text-align:center;padding:20px;">Nothing to sell! Harvest some plants first.</p>';
     panel.classList.remove('hidden');
@@ -3445,7 +3448,7 @@ function openSellPanel() {
   items.forEach(seedId => {
     const seed = getSeedData(seedId);
     if (!seed) return;
-    const count = gameState.inventory[seedId];
+    const count = gameState.harvested[seedId];
     const rarity = seed.rarity || 'common';
     const rarityMult = rarity === 'legendary' ? 2 : rarity === 'rare' ? 1.5 : rarity === 'uncommon' ? 1.2 : 1;
     const isBonus = seedId === bonusSeedId;
@@ -3457,7 +3460,7 @@ function openSellPanel() {
       <div class="shop-emoji">${seed.emoji}</div>
       <div class="shop-name" style="color:${getRarityColor(rarity)}">${seed.name}${isBonus ? ' 🔥' : ''}</div>
       <div class="shop-stats">
-        Owned: ${count}<br>
+        Harvested: ${count}<br>
         Value: 🪙${price} each
       </div>
       <button class="shop-btn sell-one-btn">Sell 1 — 🪙${price}</button>
@@ -3471,7 +3474,7 @@ function openSellPanel() {
     const sellAllBtn = card.querySelector('.sell-all-btn');
     if (sellAllBtn) {
       sellAllBtn.addEventListener('click', () => {
-        const cnt = gameState.inventory[seedId] || 0;
+        const cnt = gameState.harvested[seedId] || 0;
         sellItem(seedId, cnt, price);
         openSellPanel();
       });
@@ -3485,13 +3488,13 @@ function openSellPanel() {
 }
 
 function sellItem(seedId, count, priceEach) {
-  const available = gameState.inventory[seedId] || 0;
+  const available = gameState.harvested[seedId] || 0;
   const actual = Math.min(count, available);
   if (actual <= 0) return;
 
   const total = priceEach * actual;
-  gameState.inventory[seedId] -= actual;
-  if (gameState.inventory[seedId] <= 0) delete gameState.inventory[seedId];
+  gameState.harvested[seedId] -= actual;
+  if (gameState.harvested[seedId] <= 0) delete gameState.harvested[seedId];
   gameState.coins += total;
   gameState.totalCoinsEarned += total;
 
@@ -3624,6 +3627,7 @@ function initGame() {
   gameState = {
     coins: 100,
     inventory: { daisy: 3, sunflower: 2 },
+    harvested: {},
     plots: [],
     selectedSlot: 0,
     unlockedSkins: ['farmer'],
