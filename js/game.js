@@ -2853,18 +2853,18 @@ function updateDayNight(dt) {
 
   // Calculate phase: 0-0.15 dawn, 0.15-0.65 day, 0.65-0.8 dusk, 0.8-1 night
   let skyColor, fogColor, sunIntensity, ambIntensity;
-  const nightSky = 0x0a0e2a;
+  const nightSky = 0x1a2040;
   const daySky = 0x87CEEB;
   const dawnSky = 0xffa07a;
   const duskSky = 0x8B5CF6;
 
   if (dayTime < 0.15) {
-    // Night to dawn
+    // Night to dawn (minimum lighting kept for playability)
     const t = dayTime / 0.15;
     skyColor = lerpColor(nightSky, dawnSky, t);
     fogColor = skyColor;
-    sunIntensity = 0.2 + t * 0.6;
-    ambIntensity = 0.15 + t * 0.25;
+    sunIntensity = 0.4 + t * 0.4;
+    ambIntensity = 0.25 + t * 0.15;
   } else if (dayTime < 0.3) {
     // Dawn to day
     const t = (dayTime - 0.15) / 0.15;
@@ -2886,12 +2886,12 @@ function updateDayNight(dt) {
     sunIntensity = 1.2 - t * 0.6;
     ambIntensity = 0.5 - t * 0.2;
   } else {
-    // Dusk to night
+    // Dusk to night (minimum lighting kept for playability)
     const t = (dayTime - 0.8) / 0.2;
     skyColor = lerpColor(duskSky, nightSky, t);
     fogColor = skyColor;
-    sunIntensity = 0.6 - t * 0.4;
-    ambIntensity = 0.3 - t * 0.15;
+    sunIntensity = 0.6 - t * 0.2;
+    ambIntensity = 0.3 - t * 0.05;
   }
 
   // Apply weather modifiers
