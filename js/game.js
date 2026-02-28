@@ -344,6 +344,8 @@ function buildPlayerModel() {
     buildSonicSkin(playerModel);
   } else if (skin === 'mando') {
     buildMandoSkin(playerModel);
+  } else if (skin === 'kakashi') {
+    buildKakashiSkin(playerModel);
   } else {
     buildFarmerSkin(playerModel);
   }
@@ -888,6 +890,158 @@ function buildMandoSkin(model) {
   const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
   shoeR.position.set(0.13, 0.14, -0.02);
   model.add(shoeR);
+
+  model.userData = { armL, armR, legL, legR };
+}
+
+// Kakashi skin builder
+function buildKakashiSkin(model) {
+  const vestGreen = 0x556B2F;
+  const navyBlue = 0x1a1a3e;
+  const skinColor = 0xD2A87A;
+  const maskColor = 0x2a2a4e;
+  const headbandMetal = 0xA8A8A8;
+  const silverHair = 0xC8C8D0;
+
+  // Head (masked lower face)
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshLambertMaterial({ color: maskColor })
+  );
+  head.position.y = 1.55;
+  head.castShadow = true;
+  model.add(head);
+
+  // Silver/white spiky hair (tilted to one side - Kakashi style)
+  const hairMat = new THREE.MeshLambertMaterial({ color: silverHair });
+  const hairBase = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.2, 0.52), hairMat);
+  hairBase.position.y = 1.85;
+  model.add(hairBase);
+  // Spiky hair pieces leaning to the left
+  const spike1 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.25, 0.12), hairMat);
+  spike1.position.set(-0.15, 2.0, 0.05);
+  spike1.rotation.z = 0.3;
+  model.add(spike1);
+  const spike2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.12), hairMat);
+  spike2.position.set(-0.05, 2.05, -0.1);
+  spike2.rotation.z = 0.2;
+  model.add(spike2);
+  const spike3 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.12), hairMat);
+  spike3.position.set(0.1, 1.98, 0.0);
+  spike3.rotation.z = 0.4;
+  model.add(spike3);
+  const spike4 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.12), hairMat);
+  spike4.position.set(-0.1, 1.95, -0.15);
+  spike4.rotation.z = 0.25;
+  model.add(spike4);
+
+  // One visible eye (right) - the left is covered by headband
+  const eyeR = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 0.08, 0.05),
+    new THREE.MeshLambertMaterial({ color: 0x111111 })
+  );
+  eyeR.position.set(0.1, 1.58, 0.26);
+  model.add(eyeR);
+
+  // Sharingan eye (left, red, partially covered)
+  const eyeL = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 0.08, 0.05),
+    new THREE.MeshLambertMaterial({ color: 0xCC0000 })
+  );
+  eyeL.position.set(-0.1, 1.58, 0.26);
+  model.add(eyeL);
+
+  // Headband (metal plate with slash)
+  const headband = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.12, 0.55),
+    new THREE.MeshLambertMaterial({ color: navyBlue })
+  );
+  headband.position.y = 1.68;
+  model.add(headband);
+  // Metal plate on front
+  const plate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.1, 0.06),
+    new THREE.MeshLambertMaterial({ color: headbandMetal })
+  );
+  plate.position.set(0, 1.68, 0.28);
+  model.add(plate);
+  // Headband tilted to cover left eye
+  const coverStrip = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 0.15, 0.06),
+    new THREE.MeshLambertMaterial({ color: navyBlue })
+  );
+  coverStrip.position.set(-0.12, 1.63, 0.28);
+  model.add(coverStrip);
+
+  // Flak jacket (green vest - Jonin style)
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.6, 0.35),
+    new THREE.MeshLambertMaterial({ color: vestGreen })
+  );
+  body.position.y = 1.0;
+  body.castShadow = true;
+  model.add(body);
+
+  // Vest pockets (two small boxes on chest)
+  const pocketMat = new THREE.MeshLambertMaterial({ color: 0x4a5e2f });
+  const pocketL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.06), pocketMat);
+  pocketL.position.set(-0.12, 1.1, 0.2);
+  model.add(pocketL);
+  const pocketR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.06), pocketMat);
+  pocketR.position.set(0.12, 1.1, 0.2);
+  model.add(pocketR);
+
+  // Arms (navy blue sleeves)
+  const armGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
+  const armMat = new THREE.MeshLambertMaterial({ color: navyBlue });
+  const armL = new THREE.Mesh(armGeo, armMat);
+  armL.position.set(-0.35, 1.0, 0);
+  armL.castShadow = true;
+  model.add(armL);
+  const armR = new THREE.Mesh(armGeo, armMat);
+  armR.position.set(0.35, 1.0, 0);
+  armR.castShadow = true;
+  model.add(armR);
+
+  // Gloves (dark fingerless)
+  const handGeo = new THREE.BoxGeometry(0.18, 0.15, 0.18);
+  const handMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const handL = new THREE.Mesh(handGeo, handMat);
+  handL.position.set(-0.35, 0.66, 0);
+  model.add(handL);
+  const handR = new THREE.Mesh(handGeo, handMat);
+  handR.position.set(0.35, 0.66, 0);
+  model.add(handR);
+
+  // Legs (navy blue pants)
+  const legGeo = new THREE.BoxGeometry(0.22, 0.5, 0.25);
+  const legMat = new THREE.MeshLambertMaterial({ color: navyBlue });
+  const legL = new THREE.Mesh(legGeo, legMat);
+  legL.position.set(-0.13, 0.45, 0);
+  legL.castShadow = true;
+  model.add(legL);
+  const legR = new THREE.Mesh(legGeo, legMat);
+  legR.position.set(0.13, 0.45, 0);
+  legR.castShadow = true;
+  model.add(legR);
+
+  // Sandals (shinobi)
+  const shoeGeo = new THREE.BoxGeometry(0.22, 0.1, 0.32);
+  const shoeMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeL.position.set(-0.13, 0.15, -0.03);
+  model.add(shoeL);
+  const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
+  shoeR.position.set(0.13, 0.15, -0.03);
+  model.add(shoeR);
+
+  // Kunai pouch on right leg
+  const pouch = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.12, 0.15),
+    new THREE.MeshLambertMaterial({ color: 0x5D4037 })
+  );
+  pouch.position.set(0.22, 0.5, 0);
+  model.add(pouch);
 
   model.userData = { armL, armR, legL, legR };
 }
@@ -2514,6 +2668,7 @@ const CHARACTER_SKINS = {
   ninja:  { name: 'Ninja',  emoji: '🥷',   cost: 1000 },
   sonic:  { name: 'Sonic',  emoji: '🦔',   cost: 1000 },
   mando:  { name: 'Mando',  emoji: '⚔️',   cost: 2000 },
+  kakashi: { name: 'Kakashi', emoji: '🥷',  cost: 1500 },
 };
 const DEFAULT_SKIN = 'farmer';
 
