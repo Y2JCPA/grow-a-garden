@@ -3650,9 +3650,6 @@ function initGame() {
   yaw = 0; pitch = 0;
 
   // Reset ambient state
-  butterflies = [];
-  birds = [];
-  fireflies = [];
   rainDrops = [];
   dogModel = null;
   wellModel = null;
