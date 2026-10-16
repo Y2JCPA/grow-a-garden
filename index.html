@@ -6,117 +6,152 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#2e7d32">
   <title>Grow a Garden 3D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Start Screen -->
-  <div id="start-screen" style="display:none">
-    <div class="logo-emoji">🌱</div>
-    <h1>Grow a Garden</h1>
-    <p class="subtitle">3D Minecraft-Style Gardening</p>
-    <button id="start-btn">Click to Play</button>
-    <div class="controls-hint desktop-only">
-      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> Move &nbsp;|&nbsp;
-      <kbd>Mouse</kbd> Look &nbsp;|&nbsp;
-      <kbd>Space</kbd> Jump<br>
-      <kbd>E</kbd> Interact &nbsp;|&nbsp;
-      <kbd>Q</kbd> Water Plant &nbsp;|&nbsp;
-      <kbd>I</kbd> Inventory &nbsp;|&nbsp;
-      <kbd>B</kbd> Shop &nbsp;|&nbsp;
-      <kbd>J</kbd> Achievements &nbsp;|&nbsp;
-      <kbd>1-9</kbd> Hotbar
+  <!-- ─── HUD: left (player, level, tasks) ─── -->
+  <div id="hud-left" class="hud">
+    <div id="profile-badge" class="hud-card">
+      <span id="badge-avatar" class="badge-avatar">🌻</span>
+      <div class="badge-info">
+        <div class="badge-top"><span id="badge-name" class="badge-name">Gardener</span><span class="level-pill">⭐ <span id="level-num">1</span></span></div>
+        <div class="xp-bar"><div id="xp-fill"></div><span id="xp-text"></span></div>
+        <div id="level-title" class="level-title"></div>
+      </div>
+      <button id="switch-profile-btn" class="icon-btn small" title="Switch gardener">↩</button>
     </div>
-    <div class="controls-hint mobile-only">
-      🕹️ Left stick: Move &nbsp;|&nbsp; 👆 Right side: Look<br>
-      ⬆ Jump &nbsp;|&nbsp; E Interact &nbsp;|&nbsp; I Inventory &nbsp;|&nbsp; B Shop
+    <div id="tasks" class="hud-card">
+      <div id="tasks-title">📋 Garden Tasks</div>
+      <div id="tasks-list"></div>
     </div>
   </div>
 
-  <!-- Crosshair -->
-  <div id="crosshair"></div>
-
-  <!-- Top HUD -->
-  <div id="hud-top">
-    <div class="hud-box" id="coin-display">
-      <span class="coin-icon">🪙</span>
-      <span id="coin-amount">100</span>
-    </div>
-    <div class="hud-box" id="water-display">
-      <span>💧</span>
+  <!-- ─── HUD: top (coins, water, time) ─── -->
+  <div id="hud-top" class="hud">
+    <div class="hud-card stat" id="coin-display"><span class="stat-icon">🪙</span><span id="coin-amount">100</span></div>
+    <div class="hud-card stat" id="water-display">
+      <span class="stat-icon">💧</span>
+      <div class="water-bar"><div id="water-fill"></div></div>
       <span id="water-amount">100</span>
     </div>
-    <span id="time-indicator" class="hud-indicator">☀️</span>
-    <span id="weather-indicator" class="hud-indicator"></span>
-    <button class="hud-box hud-btn" id="wardrobe-btn" title="Wardrobe (👔)">👔</button>
-    <button class="hud-box hud-btn" id="achieve-btn" title="Achievements (J)">🏅</button>
-    <button class="hud-box hud-btn" id="sell-btn" title="Sell crops">💰</button>
+    <div class="hud-card stat time"><span id="time-indicator">☀️</span></div>
   </div>
 
-  <!-- Interact Prompt -->
+  <!-- ─── HUD: right (menu buttons) ─── -->
+  <div id="hud-right" class="hud">
+    <button class="icon-btn" id="shop-btn" title="Shop (B)">🛒<span class="lbl">Shop</span></button>
+    <button class="icon-btn" id="sell-btn" title="Sell crops">💰<span class="lbl">Sell</span></button>
+    <button class="icon-btn" id="bag-btn" title="Bag (I)">🎒<span class="lbl">Bag</span></button>
+    <button class="icon-btn" id="wardrobe-btn" title="Wardrobe">👕<span class="lbl">Outfits</span></button>
+    <button class="icon-btn" id="achieve-btn" title="Achievements (J)">🏅<span class="lbl">Awards</span></button>
+    <div class="btn-pair">
+      <button class="icon-btn small" id="sfx-btn" title="Sound effects">🔊</button>
+      <button class="icon-btn small" id="music-btn" title="Music (M)">🎵</button>
+      <button class="icon-btn small" id="help-btn" title="How to play (H)">❓</button>
+    </div>
+  </div>
+
+  <!-- ─── Prompt + hotbar ─── -->
   <div id="interact-prompt"></div>
-
-  <!-- Plot label -->
-  <div id="plot-label"></div>
-
-  <!-- Hotbar -->
   <div id="hotbar"></div>
-
-  <!-- Shopkeeper Label -->
-  <div id="shopkeeper-label">🌱 Shlomo's Seeds</div>
-
-  <!-- Dog Label -->
-  <div id="dog-label" class="npc-label">🐕 Buddy</div>
-
-  <!-- Toast Container -->
   <div id="toast-container"></div>
 
-  <!-- Seed Selector Panel -->
-  <div class="panel-overlay hidden" id="seed-panel">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>🌱 Plant a Seed</h2>
-        <button class="panel-close" onclick="closeSeedPanel()">&times;</button>
-      </div>
-      <div class="panel-body" id="seed-panel-body"></div>
-    </div>
-  </div>
-
-  <!-- Shop Panel -->
-  <div class="panel-overlay hidden" id="shop-panel">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>🌱 Shlomo's Seeds</h2>
-        <button class="panel-close" onclick="closeShop()">&times;</button>
-      </div>
-      <div class="panel-body" id="shop-panel-body"></div>
-    </div>
-  </div>
-
-  <!-- Inventory Panel -->
-  <div class="panel-overlay hidden" id="inv-panel">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>🎒 Inventory</h2>
-        <button class="panel-close" onclick="closeInventory()">&times;</button>
-      </div>
-      <div class="panel-body" id="inv-panel-body"></div>
-    </div>
-  </div>
-
-  <!-- Mobile Touch Controls -->
+  <!-- ─── Touch controls ─── -->
   <div id="touch-controls">
     <div id="touch-move"><div id="touch-move-stick"></div></div>
-    <div id="touch-look"></div>
-    <div class="touch-btn" id="touch-jump">⬆</div>
-    <div class="touch-btn" id="touch-interact">E</div>
-    <div class="touch-btn" id="touch-water">💧</div>
-    <div class="touch-btn" id="touch-inv">I</div>
-    <div class="touch-btn" id="touch-shop">B</div>
+    <button class="touch-btn" id="touch-interact"><span>✋</span></button>
+    <button class="touch-btn small" id="touch-water">💧</button>
+    <button class="touch-btn small" id="touch-jump">⬆️</button>
+    <button class="touch-btn small" id="touch-potion" style="display:none">🧪</button>
+  </div>
+
+  <!-- ─── Panels ─── -->
+  <div class="panel-overlay hidden" id="shop-panel">
+    <div class="panel wide">
+      <div class="panel-header shop-header">
+        <div class="shop-title"><span class="shop-face">🧑‍🌾</span><div><h2>Shlomo's Seeds</h2><p>"Shalom! What are we growing today?"</p></div></div>
+        <button class="panel-close" aria-label="Close">✕</button>
+      </div>
+      <div id="shop-tabs" class="tabs">
+        <button class="tab active" data-tab="seeds">🌱 Seeds</button>
+        <button class="tab" data-tab="upgrades">⭐ Upgrades</button>
+        <button class="tab" data-tab="sell">💰 Sell</button>
+      </div>
+      <div class="panel-body" id="shop-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="bag-panel">
+    <div class="panel">
+      <div class="panel-header"><h2>🎒 My Bag</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-body" id="bag-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="wardrobe-panel">
+    <div class="panel">
+      <div class="panel-header"><h2>👕 Wardrobe</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-body" id="wardrobe-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="achieve-panel">
+    <div class="panel">
+      <div class="panel-header"><h2>🏅 Achievements</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-body" id="achieve-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="gift-panel">
+    <div class="panel small">
+      <div class="panel-header"><h2>🎁 Daily Gift</h2></div>
+      <div class="panel-body" id="gift-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="help-panel">
+    <div class="panel">
+      <div class="panel-header"><h2>❓ How to Play</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-body help">
+        <ol class="steps">
+          <li><span>🌱</span>Walk to a dirt patch and <b>plant</b> a seed</li>
+          <li><span>💧</span><b>Water</b> it — wet plants grow faster! Refill at the well</li>
+          <li><span>🧺</span>When it sparkles, <b>harvest</b> it</li>
+          <li><span>💰</span><b>Sell</b> crops to Shlomo for coins</li>
+          <li><span>🛒</span>Buy better seeds, upgrades and new garden plots</li>
+        </ol>
+        <div class="tips">
+          <p>✨ <b>Golden</b> and 🌈 <b>Rainbow</b> plants are super rare and worth a LOT!</p>
+          <p>🌧️ Crops harvested after rain are 💧 <b>Wet</b> (1.5x). At night you might get 🌙 <b>Moonlit</b> crops (2x)!</p>
+          <p>♻️ Some plants grow back after you harvest them.</p>
+          <p>🐕 Stay near Buddy — he digs up treasure!</p>
+        </div>
+        <div class="controls desktop-only">
+          <p><kbd>W A S D</kbd> / arrows move • <kbd>Shift</kbd> run • <kbd>Space</kbd> jump</p>
+          <p><kbd>E</kbd> plant / harvest / talk • <kbd>Q</kbd> water • <kbd>F</kbd> grow potion</p>
+          <p><kbd>1-9</kbd> pick seed • <kbd>B</kbd> shop • <kbd>I</kbd> bag • <kbd>J</kbd> awards • <kbd>M</kbd> music</p>
+          <p>🖱️ Drag to look around • scroll to zoom • <b>click anything to walk there!</b></p>
+        </div>
+        <div class="controls touch-only">
+          <p>🕹️ Joystick to move (push all the way to run)</p>
+          <p>👆 <b>Tap anything</b> to walk there and use it!</p>
+          <p>✋ Big button does the right thing • 💧 water • drag to look • pinch to zoom</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/voxel.js"></script>
+  <script src="js/plants.js"></script>
+  <script src="js/skins.js"></script>
+  <script src="js/audio.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
