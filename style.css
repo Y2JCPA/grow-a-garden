@@ -366,6 +366,45 @@ body.touch #interact-prompt { bottom: calc(256px + var(--safe-bottom)); }
 .modal-buttons { display: flex; gap: 10px; margin-top: 16px; }
 .modal-buttons .btn { flex: 1; }
 
+/* ─── Family worlds (multiplayer) ─── */
+.net-only { display: none !important; }
+body.online .net-only { display: flex !important; }
+#emote-btn { position: relative; }
+.online-count { position: absolute; top: -7px; right: -7px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 99px; background: #3FBF3F; border: 2px solid #1b1b1b; color: #fff; font-size: 12px; font-weight: 700; line-height: 18px; text-shadow: var(--stroke); }
+#emote-panel { position: fixed; left: 50%; bottom: calc(150px + var(--safe-bottom)); transform: translateX(-50%); z-index: 40; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; background: var(--card); border: 3px solid #1b1b1b; border-radius: 16px; box-shadow: var(--shadow); animation: popIn 0.2s ease; }
+#emote-panel.hidden { display: none; }
+.emote-opt { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 78px; height: 62px; border-radius: 12px; background: #fff; border: 2px solid #1b1b1b; font-family: inherit; color: var(--ink); }
+.emote-opt span { font-size: 26px; line-height: 1.1; }
+.emote-opt small { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.emote-opt:active { transform: scale(0.94); }
+.lb-row .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3FBF3F; border: 1px solid #1b1b1b; margin-right: 4px; vertical-align: middle; }
+#world-bar { margin: 10px 0 0; display: flex; justify-content: center; }
+.world-btn { width: auto; background: linear-gradient(#5EC8FF, #1E88E5); }
+.world-pill { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 8px; background: rgba(0,0,0,0.45); border: 3px solid #1b1b1b; border-radius: 14px; padding: 6px 10px; font-weight: 600; text-shadow: var(--stroke); }
+.world-pill b { color: #FFE082; letter-spacing: 1px; }
+.world-status { font-size: 13px; }
+.profile-loading { font-size: 18px; font-weight: 600; text-shadow: var(--stroke); padding: 20px; }
+.profile-card.local-only { opacity: 0.8; border-style: dashed; }
+.profile-tag { font-size: 10px; font-weight: 700; color: var(--ink-soft); max-width: 120px; }
+.world-explain { font-size: 15px; line-height: 1.4; margin: 0 0 12px; }
+.world-explain.small { font-size: 12px; color: var(--ink-soft); margin: 8px 0; }
+#world-code-input { letter-spacing: 2px; text-transform: uppercase; }
+#net-overlay { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
+.net-box { background: var(--cream); border: 4px solid #1b1b1b; border-radius: 20px; padding: 22px 30px; font-size: 19px; font-weight: 700; text-align: center; box-shadow: var(--shadow); }
+.net-spin { font-size: 52px; animation: spin 1.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 700px) {
+  .online-count { top: -5px; right: -5px; min-width: 18px; height: 18px; font-size: 10px; line-height: 14px; }
+  #emote-panel { bottom: calc(80px + var(--safe-bottom)); }
+  body.touch #emote-panel { bottom: calc(230px + var(--safe-bottom)); }
+  .emote-opt { width: 66px; height: 56px; }
+}
+@media (max-height: 500px) {
+  #emote-panel { bottom: calc(70px + var(--safe-bottom)); grid-template-columns: repeat(8, 1fr); }
+  body.touch #emote-panel { bottom: calc(70px + var(--safe-bottom)); }
+  .emote-opt { width: 58px; height: 50px; }
+}
+
 /* ─── Small screens ─── */
 @media (max-width: 1000px) {
   #leaderboard { display: none; }
@@ -427,8 +466,8 @@ body.touch #interact-prompt { bottom: calc(256px + var(--safe-bottom)); }
   .tp { font-size: 13px; padding: 4px 8px; border-width: 2px; border-radius: 10px; }
   #profile-badge { display: none; }
   #hud-left { top: calc(48px + var(--safe-top)); width: 190px; }
-  #hud-right .menu-col { flex-direction: row; align-items: center; }
-  #weather-banner { left: auto; right: calc(10px + var(--safe-right)); top: calc(56px + var(--safe-top)); transform: none; padding: 3px 9px; gap: 6px; }
+  #hud-right .menu-col { flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end; max-width: 200px; }
+  #weather-banner { left: auto; right: calc(10px + var(--safe-right)); top: calc(106px + var(--safe-top)); transform: none; padding: 3px 9px; gap: 6px; }
   #weather-banner.visible { transform: none; }
   #weather-banner div { display: none; }
   .achieve-pop { top: 30%; right: 10px; }

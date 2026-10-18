@@ -23,6 +23,16 @@ A blocky 3D gardening game for kids, modeled on the Roblox game **Grow a Garden*
 | Hold an item | `1`–`9` (`0` = empty hands) | tap the hotbar |
 | Teleport | top bar, `G` = garden | top bar |
 | Menus | `B` shop · `I` backpack · `P` pets · `J` badges · `H` help · `M` music | buttons on the right |
+| Emotes (family world) | `T` | 👋 button |
+
+## Playing together (family worlds)
+On the start screen, tap **🌍 Play together with family** and type a secret code (8+ letters/numbers). Everyone who uses the same code shares one world:
+- up to 6 gardeners, each with their own garden around the market,
+- you see each other walk around and see each other's gardens grow,
+- kid-safe preset emotes only (no free chat),
+- your save is kept in the cloud too, so you can play the same gardener from another device.
+
+It uses Firebase Realtime Database (free Spark plan) with anonymous sign-in; the site itself stays on GitHub Pages. If Firebase can't be reached, the game simply plays on this device.
 
 ## Code layout
 There's no build step: plain HTML/CSS/JS, with Three.js loaded from a CDN.
@@ -35,6 +45,7 @@ There's no build step: plain HTML/CSS/JS, with Three.js loaded from a CDN.
 | `js/pets.js` | Blocky pet models |
 | `js/skins.js` | Player outfits |
 | `js/audio.js` | Synthesized sound effects and music (no audio files) |
+| `js/net.js` | Multiplayer: family worlds over Firebase |
 | `js/game.js` | World, gameplay, UI, saving |
 
 Saves live in the browser's `localStorage` (one per gardener). Saves from older versions are converted automatically: coins become Sheckles, crops go into the backpack, and plants move to the new garden.

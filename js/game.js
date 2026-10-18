@@ -39,7 +39,9 @@ const GARDENS = [
   { x: -32, z: -20, dir: -1 }, { x: 32, z: -20, dir: -1 },
   { x: -32, z: 20, dir: 1 }, { x: 0, z: 20, dir: 1 }, { x: 32, z: 20, dir: 1 },
 ];
-const MY_GARDEN = GARDENS[0];
+let MY_GARDEN = GARDENS[0];   // your garden — in a family world each gardener gets their own slot
+let mySlot = 0;
+let netMode = false;            // playing in an online family world
 // Two dirt beds per garden with a path between them (local coords)
 const BED_X0 = 1.6, BED_X1 = 12.6, BED_Z = 10.4;
 const STALLS = {
@@ -55,7 +57,7 @@ const TELEPORTS = {
   sell:  { x: STALLS.sell.x,  z: -3.2, yaw: Math.PI },
   gear:  { x: STALLS.gear.x,  z: -3.2, yaw: Math.PI },
   pets:  { x: STALLS.pets.x,  z: -3.2, yaw: Math.PI },
-  garden:{ x: MY_GARDEN.x,    z: MY_GARDEN.z + GARDEN_D / 2 - 2, yaw: 0 },
+  get garden() { const g = MY_GARDEN; return { x: g.x, z: g.z - g.dir * (GARDEN_D / 2 - 2), yaw: g.dir < 0 ? 0 : Math.PI }; },
 };
 
 // ─── Game State (saved per profile) ───
@@ -64,6 +66,7 @@ function newId() { return (++uid).toString(36) + Math.floor(Math.random() * 1296
 function freshState() {
   return {
     version: SAVE_VERSION,
+    slot: 0,                 // which garden the coordinates below belong to
     sheckles: 50,
     seeds: { carrot: 3, strawberry: 1 },
     gear: { shovel: 1 },
@@ -101,7 +104,6 @@ let skyMat, sunMesh, moonMesh, stars;
 let started = false;
 let dayTime = 0.3, nightFactor = 0;
 let weather = null;                  // { id, left }
-let weatherTimer = 120;
 let moonlitTimer = 20, moonlitCount = 0;
 let lightningTimer = 8, meteorTimer = 6;
 let autoSaveTimer = 0;
@@ -942,9 +944,9 @@ function animatePlaced(time, dt) {
 }
 
 // ─── Neighbor gardens: the other gardeners on this device ───
-const neighborMeshes = [];
+const neighborMeshes = new Map();   // garden slot → merged mesh
 const gardenSigns = [];
-function buildGardenSigns(names) {
+function buildGardenSigns(names, mine) {
   gardenSigns.forEach(s => scene.remove(s));
   gardenSigns.length = 0;
   GARDENS.forEach((g, i) => {
@@ -952,9 +954,9 @@ function buildGardenSigns(names) {
     const sign = new THREE.Group();
     const b = new VoxelBatch(4);
     b.box(0.15, 1.6, 0.15, 0x6D4C41, -2.6, 0.8, 0); b.box(0.15, 1.6, 0.15, 0x6D4C41, 2.6, 0.8, 0);
-    b.box(5.6, 1.0, 0.12, i === 0 ? 0xFFF59D : 0xFFF8E1, 0, 1.75, 0);
+    b.box(5.6, 1.0, 0.12, i === mine ? 0xFFF59D : 0xFFF8E1, 0, 1.75, 0);
     sign.add(voxelMesh(b));
-    const t = textSprite(names[i] ? `${names[i]}'s Garden` : 'Empty Garden', i === 0 ? '#2E7D32' : '#5D4037', true);
+    const t = textSprite(names[i] ? `${names[i]}'s Garden` : 'Empty Garden', i === mine ? '#2E7D32' : '#5D4037', true);
     t.position.set(0, 1.75, g.dir < 0 ? 0.1 : -0.1);
     t.scale.multiplyScalar(1.25);
     sign.add(t);
@@ -964,9 +966,67 @@ function buildGardenSigns(names) {
   });
 }
 
+// Merge a whole garden (plants + fruit) into one mesh — used for other gardeners' gardens
+function buildGardenMesh(plants) {
+  const parts = [];
+  const fruitBatch = new VoxelBatch(6);
+  plants.slice(0, MAX_PLANTS).forEach(p => {
+    const seed = getSeedData(p.s);
+    if (!seed) return;
+    const prog = plantProgress(p);
+    const built = makePlantGeometry(p, seed, prog, prog >= 1);
+    const m4 = new THREE.Matrix4();
+    const sc = seed.roblox ? (SELF_SCALING.includes(p.s) ? 1 : 0.35 + 0.65 * prog) : CLASSIC_SCALE;
+    m4.compose(new THREE.Vector3(p.x, seed.roblox ? DIRT_Y : DIRT_Y - 0.32 * CLASSIC_SCALE, p.z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, p.r || 0, 0)), new THREE.Vector3(sc, sc, sc));
+    parts.push({ geometry: built.geometry, matrix: m4 });
+    if (seed.multi && prog >= 1) {
+      const shape = FRUIT_SHAPES[p.s] || [0.25, 0.25, 0.25];
+      const cr = Math.cos(p.r || 0), sr = Math.sin(p.r || 0);
+      (p.fruits || []).forEach((f, i) => {
+        const slot = built.slots[i];
+        if (!f || !slot) return;
+        const sz = sizeFactor(seed, f.kg) * Math.min(1, 0.25 + 0.75 * f.age / seed.fruitTime);
+        const lx2 = slot[0] * cr + slot[2] * sr, lz2 = -slot[0] * sr + slot[2] * cr;
+        const top = topMutation(f.m);
+        const c = top && top !== 'rainbow' ? lerpColor(seed.fruitColor, MUTATIONS[top].tint, 0.6) : (top === 'rainbow' ? 0xFF80AB : seed.fruitColor);
+        fruitBatch.box(shape[0] * sz, shape[1] * sz, shape[2] * sz, c, p.x + lx2, DIRT_Y + slot[1], p.z + lz2);
+      });
+    }
+  });
+  if (!fruitBatch.isEmpty()) parts.push({ geometry: fruitBatch.build(), matrix: new THREE.Matrix4() });
+  if (!parts.length) return null;
+  const merged = VoxelBatch.merge(parts);
+  parts.forEach(pt => pt.geometry.dispose());
+  const mesh = new THREE.Mesh(merged, MATS.plant);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+function setNeighborMesh(gi, plants) {
+  const old = neighborMeshes.get(gi);
+  if (old) { scene.remove(old); old.geometry.dispose(); neighborMeshes.delete(gi); }
+  if (!plants || !plants.length) return;
+  const mesh = buildGardenMesh(plants);
+  if (mesh) { scene.add(mesh); neighborMeshes.set(gi, mesh); }
+}
+function clearNeighborMeshes() { [...neighborMeshes.keys()].forEach(gi => setNeighborMesh(gi, null)); }
+
+// Move a save's plants/gear/eggs from one garden slot to another
+function relocateState(state, fromSlot, toSlot) {
+  if ((fromSlot || 0) === (toSlot || 0)) return;
+  const a = GARDENS[fromSlot] || GARDENS[0], b = GARDENS[toSlot] || GARDENS[0];
+  const flip = a.dir === b.dir ? 1 : -1;
+  const move = o => { o.x = b.x + (o.x - a.x); o.z = b.z + (o.z - a.z) * flip; };
+  (state.plants || []).forEach(move);
+  (state.placed || []).forEach(move);
+  (state.placedEggs || []).forEach(move);
+}
+
+// Offline: the other gardeners saved on this device become your neighbors
 function buildNeighborGardens() {
-  neighborMeshes.forEach(m => { scene.remove(m); m.geometry.dispose(); });
-  neighborMeshes.length = 0;
+  if (netMode) { rebuildOnlineGardens(); return; }
+  clearNeighborMeshes();
   const names = [];
   const me = getProfiles().find(p => p.id === activeProfileId);
   names[0] = me ? me.name : 'My';
@@ -976,47 +1036,11 @@ function buildNeighborGardens() {
     names[gi] = prof.name;
     const save = readSave(prof.id);
     if (!save) return;
-    const plants = migrateSaveToV3(JSON.parse(JSON.stringify(save))).plants;
-    const g = GARDENS[gi];
-    const parts = [];
-    const fruitBatch = new VoxelBatch(6);
-    plants.slice(0, 120).forEach(p => {
-      const seed = getSeedData(p.s);
-      if (!seed) return;
-      const prog = plantProgress(p);
-      const built = makePlantGeometry(p, seed, prog, prog >= 1);
-      // place in the neighbor's garden (gardens are mirrored for the north row)
-      const lx = p.x - MY_GARDEN.x, lz = (p.z - MY_GARDEN.z) * (g.dir === MY_GARDEN.dir ? 1 : -1);
-      const m4 = new THREE.Matrix4();
-      let s = seed.roblox ? (SELF_SCALING.includes(p.s) ? 1 : 0.35 + 0.65 * prog) : CLASSIC_SCALE;
-      m4.compose(new THREE.Vector3(g.x + lx, seed.roblox ? DIRT_Y : DIRT_Y - 0.32 * CLASSIC_SCALE, g.z + lz),
-        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, p.r || 0, 0)), new THREE.Vector3(s, s, s));
-      parts.push({ geometry: built.geometry, matrix: m4 });
-      if (seed.multi && prog >= 1) {
-        const shape = FRUIT_SHAPES[p.s] || [0.25, 0.25, 0.25];
-        const cr = Math.cos(p.r || 0), sr = Math.sin(p.r || 0);
-        (p.fruits || []).forEach((f, i) => {
-          const slot = built.slots[i];
-          if (!f || !slot) return;
-          const sz = sizeFactor(seed, f.kg) * Math.min(1, 0.25 + 0.75 * f.age / seed.fruitTime);
-          const lx2 = slot[0] * cr + slot[2] * sr, lz2 = -slot[0] * sr + slot[2] * cr;
-          const top = topMutation(f.m);
-          const c = top && top !== 'rainbow' ? lerpColor(seed.fruitColor, MUTATIONS[top].tint, 0.6) : (top === 'rainbow' ? 0xFF80AB : seed.fruitColor);
-          fruitBatch.box(shape[0] * sz, shape[1] * sz, shape[2] * sz, c, g.x + lx + lx2, DIRT_Y + slot[1], g.z + lz + lz2);
-        });
-      }
-    });
-    if (!fruitBatch.isEmpty()) parts.push({ geometry: fruitBatch.build(), matrix: new THREE.Matrix4() });
-    if (!parts.length) return;
-    const merged = VoxelBatch.merge(parts);
-    parts.forEach(pt => pt.geometry.dispose());
-    const mesh = new THREE.Mesh(merged, MATS.plant);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    neighborMeshes.push(mesh);
+    const st = migrateSaveToV3(JSON.parse(JSON.stringify(save)));
+    relocateState(st, save.slot || 0, gi);
+    setNeighborMesh(gi, st.plants);
   });
-  buildGardenSigns(names);
+  buildGardenSigns(names, 0);
 }
 // ─── Butterflies (day) & fireflies (night) ───
 const butterflies = [];
@@ -1318,38 +1342,60 @@ function mutateSome(chancePerSec, mut, dt) {
 }
 
 // ─── Weather events ───
-function startWeather(id) {
+// Day/night and weather follow the real clock, so every player in a family
+// world sees the same sunset and the same thunderstorm at the same time.
+const WEATHER_SLOT = 360;
+let dayOffset = 0, forcedWeather = null;
+function globalDayTime(sec) {
+  const t = (sec != null ? sec : Date.now() / 1000) / DAY_LENGTH + dayOffset;
+  return ((t % 1) + 1) % 1;
+}
+function nightAt(sec) { return Math.sin((globalDayTime(sec) - 0.25) * Math.PI * 2) < -0.1; }
+function scheduledWeather(now) {
+  const slot = Math.floor(now / WEATHER_SLOT);
+  const r = seededRandom(slot * 7717 + 3);
+  r();
+  if (r() > 0.45) return null;
+  const slotStart = slot * WEATHER_SLOT;
+  const night = nightAt(slotStart + 60);
+  const opts = Object.entries(WEATHER).filter(([, w]) => !w.night || night);
+  const total = opts.reduce((acc, [, w]) => acc + w.weight, 0);
+  let x = r() * total, id = opts[0][0];
+  for (const [k, w] of opts) { x -= w.weight; if (x <= 0) { id = k; break; } }
   const def = WEATHER[id];
-  weather = { id, left: def.time[0] + Math.random() * (def.time[1] - def.time[0]), total: 0 };
-  weather.total = weather.left;
-  lightningTimer = 4; meteorTimer = 3;
-  Sfx.play(id === 'thunderstorm' ? 'thunder' : 'restock');
-  weatherBanner();
+  const dur = def.time[0] + r() * (def.time[1] - def.time[0]);
+  const start = slotStart + 20 + r() * (WEATHER_SLOT - dur - 40);
+  if (now >= start && now < start + dur) return { id, left: start + dur - now, total: dur };
+  return null;
+}
+function startWeather(id) { // used by the test hook to force an event
+  const def = WEATHER[id];
+  const dur = def.time[0] + Math.random() * (def.time[1] - def.time[0]);
+  forcedWeather = { id, until: Date.now() / 1000 + dur, total: dur };
+  updateWeather(0);
 }
 function updateWeather(dt) {
+  const now = Date.now() / 1000;
+  if (forcedWeather && now >= forcedWeather.until) forcedWeather = null;
+  const w = forcedWeather ? { id: forcedWeather.id, left: forcedWeather.until - now, total: forcedWeather.total } : scheduledWeather(now);
+  const prev = weather ? weather.id : null;
+  if (w && w.id !== prev) {
+    weather = w;
+    lightningTimer = 4; meteorTimer = 3;
+    Sfx.play(w.id === 'thunderstorm' ? 'thunder' : 'restock');
+    weatherBanner();
+  } else if (!w && prev) {
+    showToast(WEATHER[prev].emoji, `The ${WEATHER[prev].name} is over.`);
+    weather = null;
+    weatherBanner();
+  } else if (w) weather.left = w.left;
   if (weather) {
-    weather.left -= dt;
     const id = weather.id;
     if (id === 'rain' || id === 'thunderstorm') mutateSome(1 / 110, 'wet', dt);
     if (id === 'frost') mutateSome(1 / 110, 'chilled', dt);
     if (id === 'blood_moon') mutateSome(1 / 140, 'bloodlit', dt);
     if (id === 'thunderstorm') { lightningTimer -= dt; if (lightningTimer <= 0) { lightningTimer = 9 + Math.random() * 10; lightningStrike(); } }
     if (id === 'meteor_shower') { meteorTimer -= dt; if (meteorTimer <= 0) { meteorTimer = 6 + Math.random() * 6; launchMeteor(); } }
-    if (weather.left <= 0) {
-      showToast(WEATHER[id].emoji, `The ${WEATHER[id].name} is over.`);
-      weather = null;
-      weatherTimer = 150 + Math.random() * 150;
-      weatherBanner();
-    }
-  } else {
-    weatherTimer -= dt;
-    if (weatherTimer <= 0) {
-      const night = nightFactor > 0.6;
-      const opts = Object.entries(WEATHER).filter(([, w]) => !w.night || night);
-      const total = opts.reduce((a, [, w]) => a + w.weight, 0);
-      let r = Math.random() * total;
-      for (const [id, w] of opts) { r -= w.weight; if (r <= 0) { startWeather(id); break; } }
-    }
   }
   // Night: a few ripe fruits turn Moonlit
   if (nightFactor > 0.7 && (!weather || weather.id !== 'blood_moon')) {
@@ -2052,7 +2098,7 @@ function guideTargetPos() {
   if (STALLS[target]) return { x: STALLS[target].x, y: 4.6, z: STALL_Z };
   if (target === 'garden') {
     if (inMyGarden(playerPos.x, playerPos.z)) return null;
-    return { x: MY_GARDEN.x - 4, y: 2.2, z: MY_GARDEN.z + 6 };
+    return { x: MY_GARDEN.x - 4, y: 2.2, z: MY_GARDEN.z - MY_GARDEN.dir * 6 };
   }
   if (target === 'ripe') {
     const p = gameState.plants.find(plantRipe);
@@ -2080,7 +2126,7 @@ let rainBlend = 0, bloodBlend = 0, frostBlend = 0, meteorBlend = 0;
 const BLOOD_TOP = new THREE.Color(0x3a0008), BLOOD_HOR = new THREE.Color(0x8b1a1a), FROST_HOR = new THREE.Color(0xd8ecff), METEOR_TOP = new THREE.Color(0x2a0a4a);
 const GROUND_FROST = new THREE.Color(0xe8f4ff), WHITE = new THREE.Color(0xffffff);
 function updateDayNight(dt) {
-  dayTime = (dayTime + dt / DAY_LENGTH) % 1;
+  dayTime = globalDayTime();
   // Sun angle: rises at 0.25, sets at 0.75
   const ang = (dayTime - 0.25) * Math.PI * 2;
   const sunH = Math.sin(ang);
@@ -2369,11 +2415,23 @@ let leaderTimer = 0;
 function updateLeaderboard() {
   const box = $('#leaderboard-list');
   if (!box) return;
+  if (netMode) {
+    const online = new Set(remotePlayers.keys());
+    const me = myProfile();
+    const rows = [{ name: shortName(me.name), avatar: shortAvatar(me.avatar), s: gameState.sheckles, me: true, on: true }];
+    for (const [pid, prof] of worldProfiles) {
+      const g = worldGardens.get(pid);
+      rows.push({ name: prof.name, avatar: prof.avatar, s: g && isFinite(g.snap.s) ? g.snap.s : prof.s, on: online.has(pid) });
+    }
+    rows.sort((a, b) => b.s - a.s);
+    box.innerHTML = rows.slice(0, 6).map(r => `<div class="lb-row${r.me ? ' me' : ''}"><span>${r.on ? '<i class="dot"></i>' : ''}${esc(r.avatar)} ${esc(r.name)}</span><b>¢${fmtSheckles(r.s)}</b></div>`).join('');
+    return;
+  }
   const rows = getProfiles().map(p => {
     const s = p.id === activeProfileId ? gameState.sheckles : ((readSave(p.id) || {}).sheckles != null ? readSave(p.id).sheckles : Math.floor(((readSave(p.id) || {}).coins || 0) * 3));
     return { name: p.name, avatar: p.avatar, s, me: p.id === activeProfileId };
   }).sort((a, b) => b.s - a.s).slice(0, 6);
-  box.innerHTML = rows.map(r => `<div class="lb-row${r.me ? ' me' : ''}"><span>${r.avatar} ${r.name}</span><b>¢${fmtSheckles(r.s)}</b></div>`).join('');
+  box.innerHTML = rows.map(r => `<div class="lb-row${r.me ? ' me' : ''}"><span>${esc(r.avatar)} ${esc(r.name)}</span><b>¢${fmtSheckles(r.s)}</b></div>`).join('');
 }
 
 function weatherBanner() {
@@ -2481,7 +2539,7 @@ function renderTasks() {
 const PANEL_IDS = ['shop-panel', 'sell-panel', 'bag-panel', 'pets-panel', 'wardrobe-panel', 'achieve-panel', 'help-panel', 'gift-panel'];
 function isPanelOpen(id) { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }
 function isAnyPanelOpen() { return PANEL_IDS.some(isPanelOpen); }
-function closeAllPanels() { PANEL_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }
+function closeAllPanels() { PANEL_IDS.concat('emote-panel').forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }
 function openPanel(id) {
   closeAllPanels();
   $('#' + id).classList.remove('hidden');
@@ -2721,6 +2779,7 @@ function equipSkin(key) {
   const profiles = getProfiles();
   const prof = profiles.find(p => p.id === activeProfileId);
   if (prof) { prof.skin = key; saveProfiles(profiles); }
+  if (netMode) { Net.updateInfo({ sk: key }); Net.setProfileField(activeProfileId, { skin: key }); }
   buildPlayerModel();
   spawnParticles(playerPos.x, 1, playerPos.z, [0xFFFFFF, 0xB388FF, 0x80D8FF], 30, 4, 0.12);
   saveGame();
@@ -2822,10 +2881,35 @@ function readSave(id) {
   try { return JSON.parse(localStorage.getItem(SAVE_PREFIX + id)) || null; } catch (e) { return null; }
 }
 
+let cloudProfiles = null;      // profiles in the family world (null = not loaded / offline)
+let profileScreenToken = 0;
+function profileCard(p, shk, tag) {
+  const card = document.createElement('button');
+  card.className = 'profile-card' + (tag ? ' local-only' : '');
+  card.innerHTML = `<span class="profile-avatar">${esc(p.avatar)}</span><span class="profile-name">${esc(p.name)}</span><span class="profile-level">¢${fmtSheckles(shk)}</span>${tag ? `<span class="profile-tag">${tag}</span>` : ''}`;
+  card.addEventListener('click', () => selectProfile(p.id));
+  let pressTimer = null;
+  const del = () => {
+    const msg = cloudProfiles && !tag ? `Delete ${p.name}'s garden for EVERYONE in the family world? This cannot be undone!` : `Delete ${p.name}'s garden? This cannot be undone!`;
+    if (confirm(msg)) deleteProfile(p.id);
+  };
+  card.addEventListener('contextmenu', e => { e.preventDefault(); del(); });
+  card.addEventListener('touchstart', () => { pressTimer = setTimeout(del, 900); }, { passive: true });
+  card.addEventListener('touchend', () => clearTimeout(pressTimer));
+  card.addEventListener('touchmove', () => clearTimeout(pressTimer));
+  return card;
+}
+function localShk(id) {
+  const save = readSave(id);
+  return save ? (save.sheckles != null ? save.sheckles : (save.coins || 0) * 3) : 50;
+}
 function showProfileScreen() {
   const existing = document.getElementById('profile-screen');
   if (existing) existing.remove();
   migrateOldSave();
+  const token = ++profileScreenToken;
+  const world = Net.world;
+  cloudProfiles = null;
   const profiles = getProfiles();
   const overlay = document.createElement('div');
   overlay.id = 'profile-screen';
@@ -2833,33 +2917,94 @@ function showProfileScreen() {
     <div class="profile-container">
       <div class="logo-emoji">🌱</div>
       <h1>Grow a Garden</h1>
-      <p class="subtitle">${profiles.length ? "Who's playing?" : 'Make your gardener to start!'}</p>
+      <div id="world-bar"></div>
+      <p class="subtitle" id="profile-subtitle">${profiles.length || world ? "Who's playing?" : 'Make your gardener to start!'}</p>
       <div class="profile-grid" id="profile-grid"></div>
       <button class="btn big" id="new-profile-btn">＋ New Gardener</button>
-      ${profiles.length ? '<p class="profile-hint">Right-click or long-press a gardener to delete it</p>' : ''}
+      <p class="profile-hint" id="profile-hint">${profiles.length ? 'Right-click or long-press a gardener to delete it' : ''}</p>
     </div>`;
   document.body.appendChild(overlay);
   const grid = document.getElementById('profile-grid');
-  profiles.forEach(p => {
-    const save = readSave(p.id);
-    const shk = save ? (save.sheckles != null ? save.sheckles : (save.coins || 0) * 3) : 50;
-    const card = document.createElement('button');
-    card.className = 'profile-card';
-    card.innerHTML = `<span class="profile-avatar">${p.avatar}</span><span class="profile-name">${p.name}</span><span class="profile-level">¢${fmtSheckles(shk)}</span>`;
-    card.addEventListener('click', () => selectProfile(p.id));
-    let pressTimer = null;
-    const del = () => { if (confirm(`Delete ${p.name}'s garden? This cannot be undone!`)) deleteProfile(p.id); };
-    card.addEventListener('contextmenu', e => { e.preventDefault(); del(); });
-    card.addEventListener('touchstart', () => { pressTimer = setTimeout(del, 900); }, { passive: true });
-    card.addEventListener('touchend', () => clearTimeout(pressTimer));
-    card.addEventListener('touchmove', () => clearTimeout(pressTimer));
-    grid.appendChild(card);
-  });
+  const bar = document.getElementById('world-bar');
   document.getElementById('new-profile-btn').addEventListener('click', showNewProfileModal);
+  const renderLocal = () => { grid.innerHTML = ''; getProfiles().forEach(p => grid.appendChild(profileCard(p, localShk(p.id)))); };
+
+  if (!world) {
+    bar.innerHTML = `<button class="btn world-btn" id="world-join-btn">🌍 Play together with family</button>`;
+    document.getElementById('world-join-btn').addEventListener('click', showWorldModal);
+    renderLocal();
+    return;
+  }
+  bar.innerHTML = `<div class="world-pill"><span>🌍 Family world <b>${esc(world)}</b></span><span id="world-status" class="world-status">Connecting…</span><button class="btn small alt" id="world-leave-btn">Leave</button></div>`;
+  document.getElementById('world-leave-btn').addEventListener('click', () => {
+    if (!confirm('Leave the family world? You will play on this device only. (You can join again with the same code.)')) return;
+    Net.leaveWorld();
+    showProfileScreen();
+  });
+  grid.innerHTML = '<div class="profile-loading">🌱 Loading your family…</div>';
+  withTimeout(Net.fetchProfiles(), 14000).then(list => {
+    if (token !== profileScreenToken) return;
+    cloudProfiles = list;
+    setText($('#world-status'), `🟢 ${list.length}/${MAX_WORLD_GARDENERS} gardens`);
+    grid.innerHTML = '';
+    const ids = new Set(list.map(p => p.id));
+    list.sort((a, b) => (a.slot | 0) - (b.slot | 0)).forEach(p => grid.appendChild(profileCard({ id: p.id, name: shortName(p.name), avatar: shortAvatar(p.avatar) }, +p.s || 0)));
+    getProfiles().filter(p => !ids.has(p.id)).forEach(p => grid.appendChild(profileCard(p, localShk(p.id), '📱 Tap to bring into the world')));
+    if (!grid.children.length) setText($('#profile-subtitle'), 'Make your gardener to start!');
+    else setText($('#profile-hint'), 'Right-click or long-press a gardener to delete it');
+  }).catch(() => {
+    if (token !== profileScreenToken) return;
+    cloudProfiles = null;
+    setText($('#world-status'), '🔴 Offline — playing on this device');
+    renderLocal();
+  });
 }
 
+function showWorldModal() {
+  const modal = document.createElement('div');
+  modal.id = 'new-profile-modal';
+  const suggestion = 'GARDEN-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  modal.innerHTML = `
+    <div class="profile-modal-box">
+      <h2>🌍 Play together</h2>
+      <p class="world-explain">Everyone in your family types the <b>same secret code</b> on their own device. Then you all play in one world — each with your own garden — and you can see each other!</p>
+      <input type="text" id="world-code-input" placeholder="SECRET-CODE" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <p class="world-explain small">At least ${Net.MIN_CODE} letters or numbers. Make it hard to guess and <b>only share it with your family</b>.</p>
+      <button class="btn small alt" id="world-make-btn">✨ Make a code for me</button>
+      <div class="modal-buttons">
+        <button class="btn big" id="world-go-btn">Join world 🌍</button>
+        <button class="btn alt" id="world-cancel-btn">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const input = document.getElementById('world-code-input');
+  const go = () => {
+    const code = Net.cleanCode(input.value);
+    if (code.length < Net.MIN_CODE) { input.classList.add('shake'); setTimeout(() => input.classList.remove('shake'), 400); input.focus(); return; }
+    if (!Net.available) { alert("Can't reach the internet right now — try again when you're online."); return; }
+    Net.setWorld(code);
+    modal.remove();
+    Sfx.play('unlock');
+    showProfileScreen();
+  };
+  input.addEventListener('input', () => { const c = Net.cleanCode(input.value); if (c !== input.value) input.value = c; });
+  input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') go(); });
+  document.getElementById('world-make-btn').addEventListener('click', () => { input.value = suggestion; input.select(); });
+  document.getElementById('world-go-btn').addEventListener('click', go);
+  document.getElementById('world-cancel-btn').addEventListener('click', () => modal.remove());
+  setTimeout(() => input.focus(), 50);
+}
+
+function showConnecting(text) {
+  let el = document.getElementById('net-overlay');
+  if (!el) { el = document.createElement('div'); el.id = 'net-overlay'; document.body.appendChild(el); }
+  el.innerHTML = `<div class="net-box"><div class="net-spin">🌍</div><div>${esc(text)}</div></div>`;
+}
+function hideConnecting() { const el = document.getElementById('net-overlay'); if (el) el.remove(); }
+
 function showNewProfileModal() {
-  if (getProfiles().length >= MAX_PROFILES) { alert('Maximum 10 gardeners! Long-press one to delete it.'); return; }
+  if (cloudProfiles && cloudProfiles.length >= MAX_WORLD_GARDENERS) { alert(`This family world already has ${MAX_WORLD_GARDENERS} gardens — it's full! Long-press a gardener to delete it.`); return; }
+  if (!cloudProfiles && getProfiles().length >= MAX_PROFILES) { alert('Maximum 10 gardeners! Long-press one to delete it.'); return; }
   const modal = document.createElement('div');
   modal.id = 'new-profile-modal';
   modal.innerHTML = `
@@ -2914,25 +3059,44 @@ function showNewProfileModal() {
   setTimeout(() => input.focus(), 50);
 }
 
-function deleteProfile(id) {
+async function deleteProfile(id) {
+  if (cloudProfiles && cloudProfiles.some(p => p.id === id)) {
+    try { await Net.deleteProfile(id); } catch (e) { alert("Couldn't reach the family world — try again in a moment."); return; }
+  }
   saveProfiles(getProfiles().filter(p => p.id !== id));
   localStorage.removeItem(SAVE_PREFIX + id);
   showProfileScreen();
 }
 
-function selectProfile(id) {
+let selecting = false;
+async function selectProfile(id) {
+  if (selecting) return;
   Sfx.unlock();
   Sfx.play('click');
+  netMode = false; mySlot = 0;
+  const modal = document.getElementById('new-profile-modal'); if (modal) modal.remove();
+  if (Net.world && Net.available && cloudProfiles) {
+    selecting = true;
+    showConnecting('Joining your family world…');
+    let slot = -1, offline = false;
+    try { slot = await withTimeout(joinWorldAs(id), 20000); } catch (e) { offline = true; }
+    hideConnecting();
+    selecting = false;
+    if (offline && !getProfiles().some(p => p.id === id)) { alert("Couldn't reach the family world — check the internet and try again!"); return; }
+    if (!offline && slot < 0) return;
+    if (offline) setTimeout(() => showToast('📴', "Couldn't reach the family world — playing on this device for now"), 800);
+    else { mySlot = slot; netMode = true; }
+  }
   activeProfileId = id;
   const ps = document.getElementById('profile-screen'); if (ps) ps.remove();
-  const modal = document.getElementById('new-profile-modal'); if (modal) modal.remove();
   const p = getProfiles().find(pr => pr.id === id);
   if (p) { setText($('#badge-avatar'), p.avatar); setText($('#badge-name'), p.name); }
   startProfile();
 }
 
 function switchProfile() {
-  if (started) saveGame();
+  if (started) saveGame(true);
+  stopNetSession();
   started = false;
   closeAllPanels();
   document.body.classList.remove('playing');
@@ -2944,12 +3108,13 @@ function switchProfile() {
 // ════════════════════════════════════════════
 //  SAVE / LOAD (+ upgrading saves from older versions)
 // ════════════════════════════════════════════
-function saveGame() {
+function saveGame(force) {
   if (!activeProfileId) return;
   try {
     const data = Object.assign({}, gameState, { savedAt: Date.now(), version: SAVE_VERSION });
     if (carrying) data.plants = gameState.plants; // a carried plant stays saved where it was
     localStorage.setItem(getSaveKey(), JSON.stringify(data));
+    if (netMode) Net.uploadSave(activeProfileId, data, force);
   } catch (e) { /* storage full / private mode */ }
 }
 
@@ -3028,7 +3193,7 @@ function migrateSaveToV3(data) {
     const frac = Math.min(1, grown / (pl.growTime || seed.grow));
     st.plants.push({
       id: newId(), s: pl.seedId,
-      x: MY_GARDEN.x + [-11, -7.6, -4.2, 4.2, 7.6, 11][c], z: MY_GARDEN.z + (-8.5 + r * 3.4),
+      x: GARDENS[0].x + [-11, -7.6, -4.2, 4.2, 7.6, 11][c], z: GARDENS[0].z + (-8.5 + r * 3.4),
       r: (i * 1.7) % 6.28, age: frac * seed.grow, grow: seed.grow, kg: 0,
       m: pl.mutation && mutMap[pl.mutation] ? [mutMap[pl.mutation]] : [], fruits: seed.multi ? [] : null, water: 0,
     });
@@ -3192,6 +3357,7 @@ function bindInput() {
       case 'KeyJ': togglePanel('achieve-panel', openAchievements); return;
       case 'KeyH': togglePanel('help-panel', openHelp); return;
       case 'KeyM': Sfx.toggle('music'); refreshSoundButtons(); return;
+      case 'KeyT': toggleEmotePanel(); return;
     }
     if (isAnyPanelOpen()) return;
     switch (e.code) {
@@ -3259,6 +3425,7 @@ function bindUI() {
   on('#sfx-btn', () => { Sfx.toggle('sfx'); refreshSoundButtons(); Sfx.play('click'); });
   on('#music-btn', () => { Sfx.toggle('music'); refreshSoundButtons(); });
   on('#switch-profile-btn', switchProfile);
+  on('#emote-btn', toggleEmotePanel);
   on('#tasks-title', () => $('#tasks').classList.toggle('collapsed'));
   on('#leaderboard-title', () => $('#leaderboard').classList.toggle('collapsed'));
   document.querySelectorAll('.panel-close').forEach(b => b.addEventListener('click', () => { closeAllPanels(); Sfx.play('click'); }));
@@ -3296,6 +3463,354 @@ function updateSnow(dt, time) {
 }
 
 // ════════════════════════════════════════════
+//  MULTIPLAYER — family worlds (see net.js)
+//  Everyone in the world sees each other walking around, each other's
+//  gardens growing, and can wave with kid-safe preset emotes.
+// ════════════════════════════════════════════
+const MAX_WORLD_GARDENERS = GARDENS.length;
+const EMOTES = [['👋', 'Hi!'], ['❤️', ''], ['😂', 'LOL'], ['🌱', 'Nice garden!'], ['🛒', 'To the shop!'], ['⭐', 'Wow!'], ['🎉', 'Yay!'], ['🙏', 'Thank you!']];
+const remotePlayers = new Map();   // pid → { model, label, bubble, ... }
+const worldProfiles = new Map();   // pid → { name, avatar, skin, slot, s }
+const worldGardens = new Map();    // pid → { snap, t }
+let myBubble = null;
+let publishKey = '', publishTimer = 0, publishCooldown = 0;
+let gardenRebuildTimer = 0, gardenRebuildNext = 0, signsKey = '';
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+const shortName = n => String(n || 'Gardener').slice(0, 12);
+const shortAvatar = a => String(a || '🌻').slice(0, 8);
+const validSkin = k => (CHARACTER_SKINS[k] ? k : DEFAULT_SKIN);
+const validSlot = s => Number.isInteger(s) && s >= 0 && s < GARDENS.length;
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+function myProfile() { return getProfiles().find(p => p.id === activeProfileId) || { name: 'Gardener', avatar: '🌻' }; }
+function myInfo() {
+  const p = myProfile();
+  return { n: shortName(p.name), a: shortAvatar(p.avatar), sk: currentSkin(), x: +playerPos.x.toFixed(2), z: +playerPos.z.toFixed(2), y: 0, r: +playerFacing.toFixed(2), mv: 0 };
+}
+
+// Join the world as this gardener: claim a garden, pick the newest save.
+// Resolves to the garden slot, or -1 if the gardener can't join right now.
+async function joinWorldAs(id) {
+  await Net.connect();
+  if (await Net.isPlayingElsewhere(id)) {
+    alert('This gardener is already playing on another device! Pick a different gardener, or close the game there first.');
+    return -1;
+  }
+  const cloud = await Net.fetchProfiles();
+  const mine = cloud.find(p => p.id === id);
+  const taken = new Set(cloud.filter(p => p.id !== id && validSlot(p.slot)).map(p => p.slot));
+  let slot = mine && validSlot(mine.slot) && !taken.has(mine.slot) ? mine.slot : -1;
+  if (slot < 0) for (let i = 0; i < GARDENS.length; i++) if (!taken.has(i)) { slot = i; break; }
+  if (slot < 0) {
+    alert(`This family world already has ${MAX_WORLD_GARDENERS} gardens — it's full! Delete a gardener you don't use anymore to make room.`);
+    return -1;
+  }
+  // Use whichever save is newer: the one on this device or the one in the cloud
+  const cloudSave = await Net.loadSave(id);
+  const localSave = readSave(id);
+  if (cloudSave && (!localSave || (cloudSave.savedAt || 0) > (localSave.savedAt || 0))) {
+    try { localStorage.setItem(SAVE_PREFIX + id, JSON.stringify(cloudSave)); } catch (e) { /* storage full */ }
+  }
+  const profiles = getProfiles();
+  let prof = profiles.find(p => p.id === id);
+  if (!prof) { prof = { id }; profiles.push(prof); }
+  if (mine) Object.assign(prof, { name: shortName(mine.name), avatar: shortAvatar(mine.avatar), skin: validSkin(mine.skin) });
+  saveProfiles(profiles);
+  const save = readSave(id);
+  await Net.upsertProfile({ id, name: prof.name, avatar: prof.avatar, skin: prof.skin || DEFAULT_SKIN, slot, s: save ? save.sheckles || 0 : 50 });
+  return slot;
+}
+
+function startNetSession() {
+  worldProfiles.clear(); worldGardens.clear();
+  publishKey = ''; publishTimer = 0; publishCooldown = 0; signsKey = '';
+  Net.join(activeProfileId, myInfo(), { player: onRemotePlayer, playerLeft: removeRemote, garden: onRemoteGarden, profile: onWorldProfile });
+  document.body.classList.add('online');
+  updateOnlineCount();
+  publishGarden(true);
+  Net.uploadSave(activeProfileId, Object.assign({}, gameState, { savedAt: Date.now() }), true);
+}
+function stopNetSession() {
+  if (!netMode) return;
+  Net.leave();
+  [...remotePlayers.keys()].forEach(removeRemote);
+  worldProfiles.clear(); worldGardens.clear();
+  clearNeighborMeshes();
+  netMode = false;
+  document.body.classList.remove('online');
+  $('#emote-panel').classList.add('hidden');
+}
+
+// ─── Other players ───
+function onRemotePlayer(pid, v) {
+  if (!v || typeof v !== 'object') return;
+  if (v.t && Date.now() - v.t > 30000) return;   // a ghost left behind by a crash
+  let r = remotePlayers.get(pid);
+  const skin = validSkin(v.sk), name = shortName(v.n), avatar = shortAvatar(v.a);
+  if (!r) {
+    r = { x: +v.x || 0, z: +v.z || 0, y: 0, r: +v.r || 0, walk: 0, et: v.et || 0, bubbleLeft: 0 };
+    remotePlayers.set(pid, r);
+    showToast(avatar, `${name} is here!`);
+    Sfx.play('pop');
+  }
+  if (r.skin !== skin) {
+    if (r.model) scene.remove(r.model);
+    r.skin = skin;
+    r.model = buildCharacter(skin);
+    r.model.position.set(r.x, r.y, r.z);
+    scene.add(r.model);
+  }
+  const labelText = `${avatar} ${name}`;
+  if (r.labelText !== labelText) {
+    if (r.label) { scene.remove(r.label); r.label.material.map.dispose(); r.label.material.dispose(); }
+    r.labelText = labelText;
+    r.label = textSprite(labelText, '#FFFFFF');
+    r.label.scale.multiplyScalar(0.85);
+    scene.add(r.label);
+  }
+  r.name = name; r.avatar = avatar;
+  r.tx = isFinite(v.x) ? clamp(+v.x, -WORLD_X, WORLD_X) : r.x;
+  r.tz = isFinite(v.z) ? clamp(+v.z, -WORLD_Z, WORLD_Z) : r.z;
+  r.ty = isFinite(v.y) ? clamp(+v.y, 0, 5) : 0;
+  r.tr = isFinite(v.r) ? +v.r : r.r;
+  r.mv = !!v.mv;
+  r.last = Date.now();
+  if (v.et && v.et !== r.et) {
+    r.et = v.et;
+    const i = v.emote | 0;
+    if (EMOTES[i] && Date.now() - v.et < 15000) showBubble(r, i);
+  }
+  updateOnlineCount();
+}
+function removeRemote(pid) {
+  const r = remotePlayers.get(pid);
+  if (!r) return;
+  [r.model, r.label, r.bubble].forEach(o => { if (o) scene.remove(o); });
+  [r.label, r.bubble].forEach(o => { if (o) { o.material.map.dispose(); o.material.dispose(); } });
+  remotePlayers.delete(pid);
+  if (started) showToast('👋', `${r.name || 'A gardener'} left`);
+  updateOnlineCount();
+}
+function updateRemotePlayers(dt) {
+  const k = 1 - Math.exp(-dt * 10);
+  const now = Date.now();
+  for (const [pid, r] of remotePlayers) {
+    if (now - r.last > 25000) { removeRemote(pid); continue; }
+    const px = r.x, pz = r.z;
+    r.x = lerp(r.x, r.tx, k); r.z = lerp(r.z, r.tz, k); r.y = lerp(r.y, r.ty, k);
+    let d = r.tr - r.r; d = Math.atan2(Math.sin(d), Math.cos(d)); r.r += d * k;
+    const spd = Math.hypot(r.x - px, r.z - pz) / Math.max(dt, 1e-4);
+    const u = r.model.userData;
+    if (spd > 0.4 && r.y < 0.05) {
+      r.walk += dt * Math.min(spd, 10) * 2.1;
+      const sw = Math.sin(r.walk) * Math.min(0.9, spd * 0.12);
+      if (u.armL) u.armL.rotation.x = sw;
+      if (u.armR) u.armR.rotation.x = -sw;
+      if (u.legL) u.legL.rotation.x = -sw;
+      if (u.legR) u.legR.rotation.x = sw;
+    } else ['armL', 'armR', 'legL', 'legR'].forEach(n => { if (u[n]) u[n].rotation.x = lerp(u[n].rotation.x, 0, Math.min(1, dt * 10)); });
+    r.model.position.set(r.x, r.y + (spd > 0.4 ? Math.abs(Math.cos(r.walk)) * 0.06 : 0), r.z);
+    r.model.rotation.y = r.r;
+    r.label.position.set(r.x, r.y + 2.9, r.z);
+    tickBubble(r, dt, r.x, r.y, r.z);
+  }
+  if (myBubble) tickBubble(myBubble, dt, playerPos.x, playerY, playerPos.z);
+}
+function updateOnlineCount() {
+  setText($('#online-count'), String(remotePlayers.size + 1));
+}
+
+// ─── Emotes (preset only — no free typing, so it stays kid-safe) ───
+function showBubble(holder, i) {
+  const [emoji, word] = EMOTES[i];
+  if (holder.bubble) { scene.remove(holder.bubble); holder.bubble.material.map.dispose(); holder.bubble.material.dispose(); }
+  holder.bubble = textSprite(word ? `${emoji} ${word}` : emoji, '#1b1b1b', true);
+  drawBubbleBack(holder.bubble);
+  holder.bubbleLeft = 4;
+  scene.add(holder.bubble);
+}
+// Speech-bubble background behind the emote text (re-draws the sprite canvas)
+function drawBubbleBack(sprite) {
+  const src = sprite.material.map.image;
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height + 18;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = src.height;
+  ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(30, 4); ctx.lineTo(w - 30, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, h / 2);
+  ctx.quadraticCurveTo(w - 4, h - 4, w - 30, h - 4); ctx.lineTo(w / 2 + 12, h - 4); ctx.lineTo(w / 2, h + 14); ctx.lineTo(w / 2 - 12, h - 4);
+  ctx.lineTo(30, h - 4); ctx.quadraticCurveTo(4, h - 4, 4, h / 2); ctx.quadraticCurveTo(4, 4, 30, 4);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.drawImage(src, 0, 0);
+  sprite.material.map.dispose();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  sprite.material.map = t;
+  sprite.scale.set(sprite.scale.x, sprite.scale.y * c.height / src.height, 1);
+}
+function tickBubble(holder, dt, x, y, z) {
+  if (!holder.bubble) return;
+  holder.bubbleLeft -= dt;
+  if (holder.bubbleLeft <= 0) {
+    scene.remove(holder.bubble); holder.bubble.material.map.dispose(); holder.bubble.material.dispose();
+    holder.bubble = null;
+    return;
+  }
+  const pop = Math.min(1, (4 - holder.bubbleLeft) * 6);
+  holder.bubble.position.set(x, y + 3.6 + (1 - pop) * -0.3, z);
+  holder.bubble.material.opacity = Math.min(1, holder.bubbleLeft * 2);
+}
+function sendEmote(i) {
+  if (!EMOTES[i]) return;
+  myBubble = myBubble || {};
+  showBubble(myBubble, i);
+  Net.sendEmote(i);
+  Sfx.play('pop');
+  $('#emote-panel').classList.add('hidden');
+  if (i === 0 && playerModel && playerModel.userData.armR) playerModel.userData.armR.rotation.z = 2.6;
+}
+function toggleEmotePanel() {
+  if (!netMode) return;
+  const p = $('#emote-panel');
+  if (!p.children.length) {
+    EMOTES.forEach(([emoji, word], i) => {
+      const b = document.createElement('button');
+      b.className = 'emote-opt';
+      b.innerHTML = `<span>${emoji}</span>${word ? `<small>${word}</small>` : ''}`;
+      b.addEventListener('click', e => { e.stopPropagation(); sendEmote(i); });
+      p.appendChild(b);
+    });
+  }
+  p.classList.toggle('hidden');
+}
+
+// ─── Gardens: publish mine, show everyone else's ───
+const r2 = v => Math.round(v * 100) / 100;
+function gardenSnapshot() {
+  return {
+    slot: mySlot,
+    s: Math.floor(gameState.sheckles),
+    p: gameState.plants.map(p => {
+      const o = { s: p.s, x: r2(p.x), z: r2(p.z), r: r2(p.r || 0), a: Math.round(p.age), g: p.grow };
+      if (p.kg) o.k = r2(p.kg);
+      if (p.m && p.m.length) o.m = p.m.slice(0, 6);
+      if (p.fruits) o.f = p.fruits.map(f => f ? [Math.round(f.age), r2(f.kg), (f.m || []).slice(0, 6)] : 0);
+      return o;
+    }),
+  };
+}
+function publishGarden(force) {
+  if (!netMode) return;
+  // Only re-send when something you'd notice changed (planted, ripened, harvested, mutated)
+  const key = Math.floor(gameState.sheckles) + '|' + gameState.plants.map(p => p.id + (plantRipe(p) ? 'R' : '') + (p.m || []).join('') +
+    (p.fruits ? p.fruits.map(f => f ? (f.age >= getSeedData(p.s).fruitTime ? 2 : 1) + (f.m || []).join('') : 0).join('') : '')).join(',');
+  if (!force && key === publishKey && publishTimer < 60) return;
+  if (!force && publishCooldown > 0) return;
+  publishKey = key; publishTimer = 0; publishCooldown = 3;
+  Net.publishGarden(activeProfileId, gardenSnapshot());
+}
+// Turn a snapshot back into plants, grown forward by however long ago it was sent
+function snapshotPlants(snap, sentAt, toSlot) {
+  const elapsed = clamp((Date.now() - sentAt) / 1000, 0, 3 * 86400);
+  const plants = [];
+  (Array.isArray(snap.p) ? snap.p : []).slice(0, MAX_PLANTS).forEach(o => {
+    const seed = o && getSeedData(o.s);
+    if (!seed || !isFinite(o.x) || !isFinite(o.z)) return;
+    const grow = +o.g || seed.grow;
+    const before = +o.a || 0;
+    const age = Math.min(grow, before + elapsed);
+    const p = { s: o.s, x: +o.x, z: +o.z, r: +o.r || 0, age, grow, kg: +o.k || seed.kg, m: Array.isArray(o.m) ? o.m.filter(k => MUTATIONS[k]) : [] };
+    if (seed.multi) {
+      const left = elapsed - (age - before);
+      p.fruits = (Array.isArray(o.f) ? o.f : []).slice(0, seed.maxFruits).map(f => f ? { age: Math.min(seed.fruitTime, (+f[0] || 0) + left), kg: +f[1] || seed.kg, m: Array.isArray(f[2]) ? f[2].filter(k => MUTATIONS[k]) : [] } : null);
+      if (age >= grow) while (p.fruits.length < seed.maxFruits) p.fruits.push({ age: Math.min(seed.fruitTime, left), kg: seed.kg, m: [] });
+    }
+    plants.push(p);
+  });
+  const st = { plants };
+  relocateState(st, validSlot(snap.slot) ? snap.slot : toSlot, toSlot);
+  return st.plants;
+}
+function gardenStillGrowing(plants) {
+  return plants.some(p => p.age < p.grow || (p.fruits && p.fruits.some(f => !f || f.age < getSeedData(p.s).fruitTime)));
+}
+function ownerOfSlot(slot) {
+  for (const [pid, prof] of worldProfiles) if (pid !== activeProfileId && prof.slot === slot) return pid;
+  return null;
+}
+function rebuildOnlineGarden(slot) {
+  if (slot === mySlot) return;
+  const pid = ownerOfSlot(slot);
+  const g = pid && worldGardens.get(pid);
+  const plants = g ? snapshotPlants(g.snap, g.t, slot) : null;
+  setNeighborMesh(slot, plants);
+  return plants;
+}
+function rebuildOnlineSigns() {
+  const names = [];
+  for (const [, prof] of worldProfiles) if (validSlot(prof.slot)) names[prof.slot] = shortName(prof.name);
+  names[mySlot] = shortName(myProfile().name);
+  const key = names.join('|') + '#' + mySlot;
+  if (key === signsKey) return;
+  signsKey = key;
+  buildGardenSigns(names, mySlot);
+}
+function rebuildOnlineGardens() {
+  rebuildOnlineSigns();
+  GARDENS.forEach((g, i) => rebuildOnlineGarden(i));
+}
+// Every few seconds re-grow one neighbor garden (round robin keeps it cheap)
+function tickOnlineGardens(dt) {
+  gardenRebuildTimer -= dt;
+  if (gardenRebuildTimer > 0) return;
+  gardenRebuildTimer = 5;
+  for (let n = 0; n < GARDENS.length; n++) {
+    const slot = (gardenRebuildNext + n) % GARDENS.length;
+    const pid = slot !== mySlot && ownerOfSlot(slot);
+    const g = pid && worldGardens.get(pid);
+    if (g && g.growing) {
+      gardenRebuildNext = slot + 1;
+      const plants = rebuildOnlineGarden(slot);
+      g.growing = !!plants && gardenStillGrowing(plants);
+      return;
+    }
+  }
+}
+function onRemoteGarden(pid, snap, t) {
+  if (pid === activeProfileId) return;
+  if (!snap) worldGardens.delete(pid);
+  else worldGardens.set(pid, { snap, t: Math.min(t || Date.now(), Date.now()), growing: true });
+  const prof = worldProfiles.get(pid);
+  if (prof && validSlot(prof.slot)) {
+    const plants = rebuildOnlineGarden(prof.slot);
+    const g = worldGardens.get(pid);
+    if (g) g.growing = !!plants && gardenStillGrowing(plants);
+  }
+}
+function onWorldProfile(pid, v) {
+  if (pid === activeProfileId) return;
+  const old = worldProfiles.get(pid);
+  if (!v) worldProfiles.delete(pid);
+  else worldProfiles.set(pid, { name: shortName(v.name), avatar: shortAvatar(v.avatar), skin: validSkin(v.skin), slot: validSlot(v.slot) ? v.slot : -1, s: +v.s || 0 });
+  rebuildOnlineSigns();
+  updateLeaderboard();
+  const now = worldProfiles.get(pid);
+  if (old && validSlot(old.slot) && (!now || now.slot !== old.slot)) rebuildOnlineGarden(old.slot);
+  if (now && validSlot(now.slot) && (!old || now.slot !== old.slot)) rebuildOnlineGarden(now.slot);
+}
+function updateNet(dt) {
+  if (!netMode) return;
+  Net.sendState({ x: playerPos.x, z: playerPos.z, y: playerY, r: playerFacing, mv: Math.hypot(playerVel.x, playerVel.z) > 0.3 });
+  updateRemotePlayers(dt);
+  publishTimer += dt;
+  publishCooldown -= dt;
+  if (Math.floor(publishTimer) !== Math.floor(publishTimer - dt)) publishGarden(false);
+  tickOnlineGardens(dt);
+}
+
+// ════════════════════════════════════════════
 //  MAIN LOOP
 // ════════════════════════════════════════════
 let secondTimer = 0;
@@ -3310,6 +3825,7 @@ function animate() {
     updateWeather(dt);
     updatePets(dt, time);
     updateGuide(time, dt);
+    updateNet(dt);
     autoSaveTimer += dt;
     if (autoSaveTimer >= AUTO_SAVE_SEC) { autoSaveTimer = 0; saveGame(); }
     secondTimer -= dt;
@@ -3344,20 +3860,25 @@ function animate() {
 
 function startProfile() {
   const result = loadGame();
-  playerPos.set(TELEPORTS.garden.x, 0, TELEPORTS.garden.z - 2.5);
+  MY_GARDEN = GARDENS[mySlot] || GARDENS[0];
+  relocateState(gameState, gameState.slot || 0, mySlot);
+  gameState.slot = mySlot;
+  const tp = TELEPORTS.garden;
+  playerPos.set(tp.x, 0, tp.z + MY_GARDEN.dir * 2.5);
   playerVel.set(0, 0, 0);
   playerY = 0; playerVY = 0; onGround = true;
-  yaw = 0; pitch = 0.55; camDist = isMobile ? 12 : 11;
-  playerFacing = Math.PI;
-  camPos.set(playerPos.x, 8, playerPos.z + 12);
+  yaw = tp.yaw; pitch = 0.55; camDist = isMobile ? 12 : 11;
+  playerFacing = yaw + Math.PI;
+  camPos.set(playerPos.x + Math.sin(yaw) * 12, 8, playerPos.z + Math.cos(yaw) * 12);
   moveTarget = null; focus = null; carrying = null; shovelArmed = null;
-  dayTime = 0.3; weather = null; weatherTimer = 90 + Math.random() * 90; moonlitCount = 0;
+  weather = null; moonlitCount = 0;
   [...plantViews.keys()].forEach(removePlantView);
   [...petEntities.keys()].forEach(id => { scene.remove(petEntities.get(id).model); petEntities.delete(id); });
   buildPlayerModel();
   refreshAllPlants();
   refreshPlaced();
   syncPetEntities();
+  if (netMode) startNetSession();
   buildNeighborGardens();
   updateEggDisplay();
   fillTasks();
@@ -3381,9 +3902,9 @@ function startProfile() {
   }
 }
 
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && started) saveGame(); });
-window.addEventListener('beforeunload', () => { if (started) saveGame(); });
-window.addEventListener('pagehide', () => { if (started) saveGame(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && started) saveGame(true); });
+window.addEventListener('beforeunload', () => { if (started) saveGame(true); });
+window.addEventListener('pagehide', () => { if (started) saveGame(true); });
 
 function boot() {
   initRenderer();
@@ -3407,7 +3928,7 @@ window.__garden = {
   get state() { return gameState; },
   worldToScreen(x, y, z) { return worldToScreen(x, y, z); },
   fastForward(sec) { for (let t = 0; t < sec; t += 0.5) updateGarden(0.5); refreshAllPlants(); },
-  setTime(t) { dayTime = t; },
+  setTime(t) { dayOffset = 0; dayOffset = t - globalDayTime(); },
   startWeather(id) { startWeather(id); },
   strike() { lightningStrike(); },
   meteor() { launchMeteor(); },
@@ -3417,6 +3938,7 @@ window.__garden = {
   get focus() { return focus; },
   petTick(sec) { for (const e of petEntities.values()) e.timer = Math.min(e.timer, 0.01); updatePets(0.05, 0); void sec; },
   get player() { return { x: playerPos.x, z: playerPos.z, target: moveTarget && { x: moveTarget.x, z: moveTarget.z } }; },
+  get net() { return { netMode, mySlot, world: Net.world, remotes: [...remotePlayers.entries()].map(([id, r]) => ({ id, name: r.name, x: r.x, z: r.z, bubble: !!r.bubble })), neighbors: [...neighborMeshes.keys()], profiles: [...worldProfiles.entries()].map(([id, p]) => Object.assign({ id }, p)) }; },
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
