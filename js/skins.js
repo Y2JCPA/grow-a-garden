@@ -8,10 +8,11 @@
 
 const CHARACTER_SKINS = {
   farmer:  { name: 'Farmer',  emoji: '🧑‍🌾', cost: 0 },
-  ninja:   { name: 'Ninja',   emoji: '🥷',   cost: 1000 },
-  sonic:   { name: 'Sonic',   emoji: '🦔',   cost: 1000 },
-  kakashi: { name: 'Kakashi', emoji: '🥷',   cost: 1500 },
-  mando:   { name: 'Mando',   emoji: '⚔️',   cost: 2000 },
+  noob:    { name: 'Noob',    emoji: '🙂',   cost: 0 },
+  ninja:   { name: 'Ninja',   emoji: '🥷',   cost: 10000 },
+  sonic:   { name: 'Sonic',   emoji: '🦔',   cost: 10000 },
+  kakashi: { name: 'Kakashi', emoji: '🥷',   cost: 15000 },
+  mando:   { name: 'Mando',   emoji: '⚔️',   cost: 25000 },
 };
 const DEFAULT_SKIN = 'farmer';
 
@@ -707,8 +708,28 @@ function buildKakashiSkin(model) {
   model.userData = { armL, armR, legL, legR };
 }
 
+// The classic Roblox "Noob": yellow head and arms, blue shirt, green pants
+function buildNoobSkin(model) {
+  const yellow = 0xF5CD30, blue = 0x0D69AC, green = 0xA4BD47;
+  const m = c => new THREE.MeshLambertMaterial({ color: c });
+  const add = (w, h, d, c, x, y, z) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m(c)); mesh.position.set(x, y, z); model.add(mesh); return mesh; };
+  add(0.46, 0.46, 0.46, yellow, 0, 1.55, 0);
+  add(0.07, 0.1, 0.03, 0x111111, -0.1, 1.6, 0.24);
+  add(0.07, 0.1, 0.03, 0x111111, 0.1, 1.6, 0.24);
+  add(0.2, 0.04, 0.03, 0x111111, 0, 1.46, 0.24);
+  add(0.04, 0.04, 0.03, 0x111111, -0.11, 1.48, 0.24);
+  add(0.04, 0.04, 0.03, 0x111111, 0.11, 1.48, 0.24);
+  add(0.5, 0.6, 0.3, blue, 0, 1.0, 0);
+  const armL = add(0.22, 0.6, 0.24, yellow, -0.36, 1.0, 0);
+  const armR = add(0.22, 0.6, 0.24, yellow, 0.36, 1.0, 0);
+  const legL = add(0.24, 0.7, 0.28, green, -0.13, 0.35, 0);
+  const legR = add(0.24, 0.7, 0.28, green, 0.13, 0.35, 0);
+  model.userData = { armL, armR, legL, legR };
+}
+
 const SKIN_BUILDERS = {
   farmer: buildFarmerSkin,
+  noob: buildNoobSkin,
   ninja: buildNinjaSkin,
   sonic: buildSonicSkin,
   mando: buildMandoSkin,

@@ -14,45 +14,52 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- ─── HUD: left (player, level, tasks) ─── -->
+  <!-- ─── Top bar: teleport buttons (like Roblox Grow a Garden) ─── -->
+  <div id="hud-top" class="hud">
+    <div id="tp-bar">
+      <button class="tp seeds" data-tp="seeds">🌱 Seeds</button>
+      <button class="tp sell" data-tp="sell">💰 Sell</button>
+      <button class="tp garden" data-tp="garden">🏡 Garden</button>
+      <button class="tp gear" data-tp="gear">⚙️ Gear</button>
+      <button class="tp pets" data-tp="pets">🥚 Pets</button>
+    </div>
+  </div>
+  <div id="weather-banner"></div>
+
+  <!-- ─── Left: player, money, tasks ─── -->
   <div id="hud-left" class="hud">
     <div id="profile-badge" class="hud-card">
       <span id="badge-avatar" class="badge-avatar">🌻</span>
-      <div class="badge-info">
-        <div class="badge-top"><span id="badge-name" class="badge-name">Gardener</span><span class="level-pill">⭐ <span id="level-num">1</span></span></div>
-        <div class="xp-bar"><div id="xp-fill"></div><span id="xp-text"></span></div>
-        <div id="level-title" class="level-title"></div>
-      </div>
+      <span id="badge-name" class="badge-name">Gardener</span>
+      <span id="time-indicator">☀️</span>
       <button id="switch-profile-btn" class="icon-btn small" title="Switch gardener">↩</button>
     </div>
+    <div id="money" class="hud-card">
+      <span class="sheckles"><span class="cent">¢</span><span id="coin-amount">0</span></span>
+      <span class="fruit-pill" title="Fruit in backpack">🎒 <span id="fruit-count">0</span></span>
+    </div>
     <div id="tasks" class="hud-card">
-      <div id="tasks-title">📋 Garden Tasks</div>
+      <div id="tasks-title">📋 Tasks</div>
       <div id="tasks-list"></div>
     </div>
   </div>
 
-  <!-- ─── HUD: top (coins, water, time) ─── -->
-  <div id="hud-top" class="hud">
-    <div class="hud-card stat" id="coin-display"><span class="stat-icon">🪙</span><span id="coin-amount">100</span></div>
-    <div class="hud-card stat" id="water-display">
-      <span class="stat-icon">💧</span>
-      <div class="water-bar"><div id="water-fill"></div></div>
-      <span id="water-amount">100</span>
-    </div>
-    <div class="hud-card stat time"><span id="time-indicator">☀️</span></div>
-  </div>
-
-  <!-- ─── HUD: right (menu buttons) ─── -->
+  <!-- ─── Right: leaderboard + menu ─── -->
   <div id="hud-right" class="hud">
-    <button class="icon-btn" id="shop-btn" title="Shop (B)">🛒<span class="lbl">Shop</span></button>
-    <button class="icon-btn" id="sell-btn" title="Sell crops">💰<span class="lbl">Sell</span></button>
-    <button class="icon-btn" id="bag-btn" title="Bag (I)">🎒<span class="lbl">Bag</span></button>
-    <button class="icon-btn" id="wardrobe-btn" title="Wardrobe">👕<span class="lbl">Outfits</span></button>
-    <button class="icon-btn" id="achieve-btn" title="Achievements (J)">🏅<span class="lbl">Awards</span></button>
-    <div class="btn-pair">
-      <button class="icon-btn small" id="sfx-btn" title="Sound effects">🔊</button>
-      <button class="icon-btn small" id="music-btn" title="Music (M)">🎵</button>
-      <button class="icon-btn small" id="help-btn" title="How to play (H)">❓</button>
+    <div id="leaderboard" class="hud-card">
+      <div id="leaderboard-title">🏆 Sheckles</div>
+      <div id="leaderboard-list"></div>
+    </div>
+    <div class="menu-col">
+      <button class="icon-btn" id="bag-btn" title="Backpack (I)">🎒<span class="lbl">Backpack</span></button>
+      <button class="icon-btn" id="pets-btn" title="Pets (P)">🐾<span class="lbl">Pets</span></button>
+      <button class="icon-btn" id="wardrobe-btn" title="Outfits">👕<span class="lbl">Outfits</span></button>
+      <button class="icon-btn" id="achieve-btn" title="Badges (J)">🏅<span class="lbl">Badges</span></button>
+      <div class="btn-pair">
+        <button class="icon-btn small" id="sfx-btn" title="Sound effects">🔊</button>
+        <button class="icon-btn small" id="music-btn" title="Music (M)">🎵</button>
+        <button class="icon-btn small" id="help-btn" title="How to play (H)">❓</button>
+      </div>
     </div>
   </div>
 
@@ -65,44 +72,59 @@
   <div id="touch-controls">
     <div id="touch-move"><div id="touch-move-stick"></div></div>
     <button class="touch-btn" id="touch-interact"><span>✋</span></button>
-    <button class="touch-btn small" id="touch-water">💧</button>
     <button class="touch-btn small" id="touch-jump">⬆️</button>
-    <button class="touch-btn small" id="touch-potion" style="display:none">🧪</button>
   </div>
 
   <!-- ─── Panels ─── -->
   <div class="panel-overlay hidden" id="shop-panel">
     <div class="panel wide">
-      <div class="panel-header shop-header">
-        <div class="shop-title"><span class="shop-face">🧑‍🌾</span><div><h2>Shlomo's Seeds</h2><p>"Shalom! What are we growing today?"</p></div></div>
+      <div class="panel-header shop-header" id="shop-head">
+        <h2 id="shop-title">🌱 Seed Shop</h2>
         <button class="panel-close" aria-label="Close">✕</button>
       </div>
       <div id="shop-tabs" class="tabs">
         <button class="tab active" data-tab="seeds">🌱 Seeds</button>
-        <button class="tab" data-tab="upgrades">⭐ Upgrades</button>
-        <button class="tab" data-tab="sell">💰 Sell</button>
+        <button class="tab" data-tab="gear">⚙️ Gear</button>
+        <button class="tab" data-tab="pets">🥚 Eggs</button>
       </div>
       <div class="panel-body" id="shop-body"></div>
     </div>
   </div>
 
+  <div class="panel-overlay hidden" id="sell-panel">
+    <div class="panel">
+      <div class="panel-header sell-header">
+        <div class="shop-title"><span class="shop-face">🧑‍🌾</span><div><h2>Steven's Sell Stand</h2><p>"I'll buy all your fruit — mutations pay extra!"</p></div></div>
+        <button class="panel-close" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-body" id="sell-body"></div>
+    </div>
+  </div>
+
   <div class="panel-overlay hidden" id="bag-panel">
     <div class="panel">
-      <div class="panel-header"><h2>🎒 My Bag</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-header"><h2>🎒 Backpack</h2><button class="panel-close" aria-label="Close">✕</button></div>
       <div class="panel-body" id="bag-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="pets-panel">
+    <div class="panel wide">
+      <div class="panel-header pets-header"><h2>🐾 My Pets</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-body" id="pets-body"></div>
     </div>
   </div>
 
   <div class="panel-overlay hidden" id="wardrobe-panel">
     <div class="panel">
-      <div class="panel-header"><h2>👕 Wardrobe</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-header"><h2>👕 Outfits</h2><button class="panel-close" aria-label="Close">✕</button></div>
       <div class="panel-body" id="wardrobe-body"></div>
     </div>
   </div>
 
   <div class="panel-overlay hidden" id="achieve-panel">
     <div class="panel">
-      <div class="panel-header"><h2>🏅 Achievements</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-header"><h2>🏅 Badges</h2><button class="panel-close" aria-label="Close">✕</button></div>
       <div class="panel-body" id="achieve-body"></div>
     </div>
   </div>
@@ -119,28 +141,27 @@
       <div class="panel-header"><h2>❓ How to Play</h2><button class="panel-close" aria-label="Close">✕</button></div>
       <div class="panel-body help">
         <ol class="steps">
-          <li><span>🌱</span>Walk to a dirt patch and <b>plant</b> a seed</li>
-          <li><span>💧</span><b>Water</b> it — wet plants grow faster! Refill at the well</li>
-          <li><span>🧺</span>When it sparkles, <b>harvest</b> it</li>
-          <li><span>💰</span><b>Sell</b> crops to Shlomo for coins</li>
-          <li><span>🛒</span>Buy better seeds, upgrades and new garden plots</li>
+          <li><span>🌱</span>Buy seeds at the <b>Seed Shop</b> — new stock every 5 minutes!</li>
+          <li><span>🏡</span>Go to your garden and <b>plant anywhere on the dirt</b></li>
+          <li><span>🧺</span><b>Harvest</b> fruit when it sparkles. Trees and bushes keep growing more!</li>
+          <li><span>💰</span><b>Sell</b> your fruit to Steven. Heavier fruit is worth more</li>
+          <li><span>🥚</span>Buy <b>pet eggs</b>, hatch them in your garden — pets help you grow</li>
         </ol>
         <div class="tips">
-          <p>✨ <b>Golden</b> and 🌈 <b>Rainbow</b> plants are super rare and worth a LOT!</p>
-          <p>🌧️ Crops harvested after rain are 💧 <b>Wet</b> (1.5x). At night you might get 🌙 <b>Moonlit</b> crops (2x)!</p>
-          <p>♻️ Some plants grow back after you harvest them.</p>
-          <p>🐕 Stay near Buddy — he digs up treasure!</p>
+          <p>✨ <b>Gold</b> (20x) and 🌈 <b>Rainbow</b> (50x) fruit are super rare!</p>
+          <p>🌧️ Rain → 💧 Wet (2x) • ❄️ Frost → Chilled, or 🧊 Frozen (10x) if Wet • ⛈️ Lightning → ⚡ Shocked (100x)</p>
+          <p>🌙 Night → Moonlit • 🩸 Blood Moon → Bloodlit • 🌠 Meteors → Celestial (120x)</p>
+          <p>💦 Sprinklers make nearby plants grow faster and mutate more. 🚿 Watering cans speed up one plant.</p>
+          <p>⭐ Favorite a fruit in your backpack to keep it when you sell.</p>
         </div>
         <div class="controls desktop-only">
-          <p><kbd>W A S D</kbd> / arrows move • <kbd>Shift</kbd> run • <kbd>Space</kbd> jump</p>
-          <p><kbd>E</kbd> plant / harvest / talk • <kbd>Q</kbd> water • <kbd>F</kbd> grow potion</p>
-          <p><kbd>1-9</kbd> pick seed • <kbd>B</kbd> shop • <kbd>I</kbd> bag • <kbd>J</kbd> awards • <kbd>M</kbd> music</p>
-          <p>🖱️ Drag to look around • scroll to zoom • <b>click anything to walk there!</b></p>
+          <p><kbd>W A S D</kbd> move • <kbd>Shift</kbd> run • <kbd>Space</kbd> jump • <kbd>E</kbd> plant / harvest / use</p>
+          <p><kbd>1-9</kbd> hold an item • <kbd>0</kbd> empty hands • <kbd>G</kbd> go to garden • <kbd>B</kbd> shop • <kbd>I</kbd> backpack • <kbd>P</kbd> pets</p>
+          <p>🖱️ Click the dirt to plant there • click anything to walk to it • drag to look • scroll to zoom</p>
         </div>
         <div class="controls touch-only">
-          <p>🕹️ Joystick to move (push all the way to run)</p>
-          <p>👆 <b>Tap anything</b> to walk there and use it!</p>
-          <p>✋ Big button does the right thing • 💧 water • drag to look • pinch to zoom</p>
+          <p>🕹️ Joystick to move • 👆 <b>tap the dirt to plant</b>, tap anything to use it</p>
+          <p>✋ Big button does the right thing • drag to look • pinch to zoom</p>
         </div>
       </div>
     </div>
@@ -150,6 +171,7 @@
   <script src="js/data.js"></script>
   <script src="js/voxel.js"></script>
   <script src="js/plants.js"></script>
+  <script src="js/pets.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/game.js"></script>

@@ -538,3 +538,223 @@ function buildPlantGeometry(seedId, seed, progress, isReady) {
 
   return batch.build();
 }
+
+/* ─────────────────────────────────────────────
+   Roblox "Grow a Garden" seed models (world units).
+   buildSeedModel() returns { geometry, slots } — slots are where fruit grows
+   on multi-harvest plants (fruit is drawn separately so each one can have
+   its own size and mutation).
+   ───────────────────────────────────────────── */
+const FRUIT_SHAPES = {
+  strawberry: [0.2, 0.22, 0.2], blueberry: [0.14, 0.14, 0.14], tomato: [0.26, 0.24, 0.26],
+  corn: [0.18, 0.46, 0.18], apple: [0.3, 0.3, 0.3], coconut: [0.4, 0.4, 0.4], cactus: [0.22, 0.3, 0.22],
+  dragon_fruit: [0.32, 0.4, 0.32], mango: [0.3, 0.38, 0.28], grape: [0.3, 0.42, 0.3], pepper: [0.14, 0.42, 0.14],
+  cacao: [0.24, 0.4, 0.24], beanstalk: [0.18, 0.55, 0.18],
+};
+
+function buildSeedModel(seedId, seed, progress, ripe) {
+  const b = new VoxelBatch(5);
+  const slots = [];
+  const p = Math.max(0, Math.min(1, progress));
+  const leaf = 0x43A047, leafD = 0x2E7D32, leafL = 0x66BB6A, wood = 0x6D4C41;
+  const col = ripe || !seed.topColor ? seed.color : lerpColor(0x7CB342, seed.color, Math.min(1, p * 1.2));
+
+  // Sprout stage looks the same for every seed
+  if (p < 0.15) {
+    const h = 0.12 + p * 1.5;
+    b.box(0.06, h, 0.06, 0x7CB342, 0, h / 2, 0);
+    b.box(0.2, 0.04, 0.08, 0x8BC34A, 0.07, h, 0);
+    b.box(0.08, 0.04, 0.2, 0x8BC34A, -0.03, h - 0.03, 0.05);
+    return { geometry: b.build(), slots };
+  }
+
+  switch (seedId) {
+    case 'carrot': {
+      for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2;
+        b.box(0.06, 0.45, 0.06, i % 2 ? leaf : leafL, Math.cos(a) * 0.06, 0.32, Math.sin(a) * 0.06, Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35);
+      }
+      b.box(0.26, 0.16, 0.26, col, 0, 0.06, 0);
+      b.box(0.2, 0.06, 0.2, lerpColor(col, 0xffffff, 0.15), 0, 0.15, 0);
+      break;
+    }
+    case 'orange_tulip': case 'daffodil': {
+      const tulip = seedId === 'orange_tulip';
+      b.box(0.06, 0.75, 0.06, leafD, 0, 0.375, 0);
+      b.box(0.08, 0.4, 0.2, leaf, 0.06, 0.22, 0, 0, 0, -0.3);
+      b.box(0.08, 0.35, 0.2, leaf, -0.06, 0.2, 0, 0, 0, 0.3);
+      if (tulip) {
+        for (let i = 0; i < 4; i++) {
+          const a = i / 4 * Math.PI * 2;
+          b.box(0.16, 0.3, 0.06, col, Math.cos(a) * 0.09, 0.88, Math.sin(a) * 0.09, 0, -a + Math.PI / 2, 0);
+        }
+        b.box(0.16, 0.12, 0.16, lerpColor(col, 0x000000, 0.15), 0, 0.76, 0);
+      } else {
+        for (let i = 0; i < 6; i++) {
+          const a = i / 6 * Math.PI * 2;
+          b.box(0.22, 0.04, 0.12, col, Math.cos(a) * 0.14, 0.82, Math.sin(a) * 0.14, 0, -a, 0);
+        }
+        b.box(0.14, 0.18, 0.14, seed.topColor, 0, 0.9, 0);
+      }
+      break;
+    }
+    case 'watermelon': case 'pumpkin': {
+      for (let i = 0; i < 4; i++) {
+        const a = i / 4 * Math.PI * 2 + 0.4;
+        b.box(0.7, 0.05, 0.12, leafD, Math.cos(a) * 0.45, 0.04, Math.sin(a) * 0.45, 0, -a, 0);
+        b.box(0.3, 0.04, 0.3, leaf, Math.cos(a) * 0.7, 0.07, Math.sin(a) * 0.7);
+      }
+      const s = 0.3 + p * 0.7;
+      if (seedId === 'watermelon') {
+        b.box(0.9 * s, 0.62 * s, 0.62 * s, col, 0, 0.31 * s, 0);
+        for (let i = -1; i <= 1; i++) b.box(0.92 * s, 0.64 * s, 0.07 * s, 0x1B5E20, 0, 0.31 * s, i * 0.2 * s);
+      } else {
+        b.box(0.8 * s, 0.55 * s, 0.6 * s, col, 0, 0.28 * s, 0);
+        b.box(0.6 * s, 0.6 * s, 0.8 * s, lerpColor(col, 0x000000, 0.08), 0, 0.3 * s, 0);
+        b.box(0.08, 0.18, 0.08, 0x558B2F, 0, 0.62 * s, 0);
+      }
+      break;
+    }
+    case 'bamboo': {
+      [[0, 0, 3.2], [0.3, 0.15, 2.6], [-0.25, 0.2, 2.9], [0.1, -0.3, 2.3]].forEach(([x, z, h]) => {
+        const hh = h * (0.3 + p * 0.7);
+        b.box(0.16, hh, 0.16, col, x, hh / 2, z);
+        for (let y = 0.5; y < hh; y += 0.55) b.box(0.19, 0.05, 0.19, 0x558B2F, x, y, z);
+        b.box(0.35, 0.03, 0.1, leafL, x + 0.2, hh * 0.8, z, 0, 0.5, 0.3);
+        b.box(0.35, 0.03, 0.1, leafL, x - 0.2, hh * 0.65, z, 0, -0.4, -0.3);
+      });
+      break;
+    }
+    case 'mushroom': {
+      const s = 0.35 + p * 0.65;
+      b.box(0.45 * s, 0.9 * s, 0.45 * s, 0xFFF3E0, 0, 0.45 * s, 0);
+      b.box(1.5 * s, 0.35 * s, 1.5 * s, col, 0, 1.0 * s, 0);
+      b.box(1.0 * s, 0.25 * s, 1.0 * s, col, 0, 1.28 * s, 0);
+      [[0.4, 0.3], [-0.45, 0.1], [0.1, -0.5], [-0.2, 0.5], [0.5, -0.35]].forEach(([x, z]) => b.box(0.2 * s, 0.05, 0.2 * s, 0xFFFFFF, x * s, 1.19 * s, z * s));
+      [[0.2, 0.2], [-0.25, -0.15]].forEach(([x, z]) => b.box(0.18 * s, 0.05, 0.18 * s, 0xFFFFFF, x * s, 1.42 * s, z * s));
+      break;
+    }
+    case 'strawberry': case 'blueberry': case 'pepper': {
+      const berry = seedId !== 'pepper';
+      const w = seedId === 'blueberry' ? 0.9 : 0.8, h = seedId === 'blueberry' ? 0.75 : seedId === 'pepper' ? 0.9 : 0.4;
+      b.box(w, h * 0.7, w, leafD, 0, h * 0.35, 0);
+      b.box(w * 0.8, h * 0.3, w * 1.1, leaf, 0, h * 0.75, 0);
+      b.box(w * 1.1, h * 0.3, w * 0.75, leafL, 0, h * 0.6, 0);
+      if (seedId === 'strawberry') [[0.3, 0.3], [-0.35, 0.1], [0.05, -0.38]].forEach(([x, z]) => b.box(0.1, 0.05, 0.1, 0xFFFFFF, x, h + 0.03, z));
+      const n = seed.maxFruits;
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2 + 0.3;
+        const r = w * 0.58;
+        slots.push([Math.cos(a) * r, berry ? h * (0.35 + (i % 2) * 0.3) : h * 0.45, Math.sin(a) * r]);
+      }
+      break;
+    }
+    case 'tomato': {
+      b.box(0.08, 1.7, 0.08, 0xA1887F, 0, 0.85, 0);
+      for (let y = 0.25; y < 1.6; y += 0.35) {
+        b.box(0.5, 0.2, 0.22, y % 0.7 < 0.35 ? leaf : leafD, 0.12, y, 0, 0, 0, 0.3);
+        b.box(0.22, 0.2, 0.5, leafL, -0.08, y + 0.15, 0.06, 0.3, 0, 0);
+      }
+      for (let i = 0; i < seed.maxFruits; i++) {
+        const a = i * 2.1;
+        slots.push([Math.cos(a) * 0.3, 0.35 + i * 0.22, Math.sin(a) * 0.3]);
+      }
+      break;
+    }
+    case 'corn': {
+      b.box(0.14, 2.2, 0.14, col, 0, 1.1, 0);
+      for (let i = 0; i < 5; i++) {
+        const a = i * 1.3;
+        b.box(0.7, 0.04, 0.14, i % 2 ? leaf : leafL, Math.cos(a) * 0.3, 0.4 + i * 0.35, Math.sin(a) * 0.3, 0, -a, 0.35);
+      }
+      b.box(0.06, 0.3, 0.06, 0xD7CCC8, 0, 2.35, 0);
+      for (let i = 0; i < seed.maxFruits; i++) {
+        const a = i / seed.maxFruits * Math.PI * 2;
+        slots.push([Math.cos(a) * 0.17, 1.0 + (i % 2) * 0.35, Math.sin(a) * 0.17]);
+      }
+      break;
+    }
+    case 'apple': case 'mango': case 'cacao': {
+      const trunkH = seedId === 'cacao' ? 2.0 : 1.5;
+      b.box(0.32, trunkH, 0.32, wood, 0, trunkH / 2, 0);
+      if (seedId === 'cacao') {
+        b.box(1.5, 0.6, 1.5, leafD, 0, trunkH + 0.3, 0);
+        b.box(0.9, 0.4, 0.9, leaf, 0.2, trunkH + 0.75, -0.1);
+        for (let i = 0; i < seed.maxFruits; i++) {
+          const a = i / seed.maxFruits * Math.PI * 2;
+          slots.push([Math.cos(a) * 0.24, 0.6 + i * 0.32, Math.sin(a) * 0.24]);
+        }
+      } else {
+        const c1 = seedId === 'mango' ? 0x2E7D32 : leaf;
+        b.box(2.0, 1.2, 2.0, c1, 0, trunkH + 0.6, 0);
+        b.box(1.4, 0.6, 1.4, lerpColor(c1, 0xffffff, 0.12), 0.1, trunkH + 1.45, -0.1);
+        b.box(0.8, 0.3, 2.2, c1, 0, trunkH + 0.5, 0);
+        for (let i = 0; i < seed.maxFruits; i++) {
+          const a = i / seed.maxFruits * Math.PI * 2 + 0.4;
+          slots.push(seedId === 'mango'
+            ? [Math.cos(a) * 0.8, trunkH - 0.15, Math.sin(a) * 0.8]
+            : [Math.cos(a) * 1.05, trunkH + 0.35 + (i % 2) * 0.45, Math.sin(a) * 1.05]);
+        }
+      }
+      break;
+    }
+    case 'coconut': {
+      let x = 0, y = 0;
+      for (let i = 0; i < 7; i++) { b.box(0.32, 0.5, 0.32, i % 2 ? 0x8D6E63 : 0x795548, x, y + 0.25, 0); x += 0.07; y += 0.45; }
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        b.box(1.3, 0.06, 0.32, i % 2 ? leaf : leafL, x + Math.cos(a) * 0.6, y + 0.05, Math.sin(a) * 0.6, 0, -a, -0.35);
+      }
+      for (let i = 0; i < seed.maxFruits; i++) {
+        const a = i / seed.maxFruits * Math.PI * 2 + 0.6;
+        slots.push([x + Math.cos(a) * 0.3, y - 0.3, Math.sin(a) * 0.3]);
+      }
+      break;
+    }
+    case 'cactus': case 'dragon_fruit': {
+      const green = seedId === 'cactus' ? 0x2E7D32 : 0x558B2F;
+      if (seedId === 'cactus') {
+        b.box(0.5, 2.0, 0.5, green, 0, 1.0, 0);
+        b.box(0.5, 0.3, 0.3, green, 0.35, 0.9, 0); b.box(0.3, 0.7, 0.3, green, 0.5, 1.3, 0);
+        b.box(0.5, 0.3, 0.3, green, -0.35, 1.2, 0); b.box(0.3, 0.6, 0.3, green, -0.5, 1.55, 0);
+        for (let y = 0.3; y < 2; y += 0.4) b.box(0.52, 0.04, 0.52, 0x1B5E20, 0, y, 0);
+        slots.push([0, 2.15, 0], [0.5, 1.8, 0], [-0.5, 2.0, 0]);
+      } else {
+        for (let i = 0; i < 4; i++) {
+          const a = i / 4 * Math.PI * 2 + 0.3;
+          b.box(0.22, 1.3, 0.22, green, Math.cos(a) * 0.25, 0.6, Math.sin(a) * 0.25, Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35);
+          slots.push([Math.cos(a) * 0.55, 1.35, Math.sin(a) * 0.55]);
+        }
+        b.box(0.4, 0.5, 0.4, green, 0, 0.25, 0);
+      }
+      break;
+    }
+    case 'grape': {
+      b.box(0.14, 1.8, 0.14, 0x8D6E63, -0.7, 0.9, 0); b.box(0.14, 1.8, 0.14, 0x8D6E63, 0.7, 0.9, 0);
+      b.box(1.6, 0.12, 0.14, 0xA1887F, 0, 1.8, 0);
+      b.box(1.3, 0.2, 0.5, leaf, 0, 1.92, 0); b.box(0.6, 0.18, 0.6, leafL, -0.4, 2.02, 0.1); b.box(0.6, 0.18, 0.6, leafD, 0.45, 2.0, -0.1);
+      b.box(0.08, 1.7, 0.08, 0x6D4C41, 0, 0.85, 0.05);
+      for (let i = 0; i < seed.maxFruits; i++) slots.push([-0.56 + i * 0.28, 1.5, (i % 2 ? 0.12 : -0.12)]);
+      break;
+    }
+    case 'beanstalk': {
+      const H = 4.5 * (0.35 + p * 0.65);
+      for (let y = 0, i = 0; y < H; y += 0.4, i++) {
+        const a = i * 0.7;
+        b.box(0.3, 0.45, 0.3, i % 2 ? 0x43A047 : 0x388E3C, Math.cos(a) * 0.15, y + 0.22, Math.sin(a) * 0.15);
+        if (i % 2 === 0) b.box(0.55, 0.05, 0.3, leafL, Math.cos(a) * 0.45, y + 0.3, Math.sin(a) * 0.45, 0, -a, 0.2);
+      }
+      b.box(0.7, 0.4, 0.7, 0x76FF03, 0, H + 0.2, 0);
+      for (let i = 0; i < seed.maxFruits; i++) {
+        const a = i * 1.9;
+        slots.push([Math.cos(a) * 0.35, 0.9 + i * 0.7, Math.sin(a) * 0.35]);
+      }
+      break;
+    }
+    default: {
+      b.box(0.1, 0.6, 0.1, leafD, 0, 0.3, 0);
+      b.box(0.35, 0.3, 0.35, col, 0, 0.7, 0);
+    }
+  }
+  return { geometry: b.build(), slots };
+}

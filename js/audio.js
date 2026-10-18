@@ -81,6 +81,11 @@ const Sfx = (function() {
     potion:  t => { tone(300, t, 0.5, { slideTo: 1200, type: 'triangle', vol: 0.18 }); sounds.sparkle(t + 0.3); },
     unlock:  t => { tone(N.E5, t, 0.12, { type: 'triangle', vol: 0.2 }); tone(N.A5, t + 0.1, 0.3, { type: 'triangle', vol: 0.22 }); },
     jump:    t => tone(300, t, 0.12, { slideTo: 520, vol: 0.08 }),
+    thunder: t => { noise(t, 1.6, { freq: 300, freqTo: 60, filter: 'lowpass', q: 0.5, vol: 0.6 }); noise(t, 0.25, { freq: 2500, vol: 0.25 }); },
+    hatch:   t => { [0, 0.15, 0.3].forEach(d => noise(t + d, 0.08, { freq: 3000, vol: 0.2 })); [N.C5, N.E5, N.G5, N.C6, N.E6].forEach((f, i) => tone(f, t + 0.5 + i * 0.08, 0.3, { type: 'triangle', vol: 0.25 })); },
+    sell:    t => { [N.E5, N.G5, N.C6].forEach((f, i) => tone(f, t + i * 0.06, 0.18, { type: 'square', vol: 0.07 })); },
+    meteor:  t => { tone(1400, t, 0.8, { slideTo: 200, type: 'sawtooth', vol: 0.06 }); noise(t + 0.7, 0.4, { freq: 400, filter: 'lowpass', vol: 0.3 }); },
+    restock: t => { [N.G5, N.E5, N.C6].forEach((f, i) => tone(f, t + i * 0.1, 0.2, { type: 'triangle', vol: 0.15 })); },
     gift:    t => { [N.C5, N.G5, N.E5, N.C6, N.G5, N.C6].forEach((f, i) => tone(f, t + i * 0.09, 0.25, { type: 'triangle', vol: 0.22 })); },
   };
 

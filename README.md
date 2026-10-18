@@ -1,38 +1,40 @@
 # 🌱 Grow a Garden 3D
 
-A cozy, blocky (Minecraft-style) gardening game for kids that runs in any browser — desktop, tablet or phone.
-Plant seeds, water them, harvest crops, sell them to Shlomo, level up, and grow your garden.
+A blocky 3D gardening game for kids, modeled on the Roblox game **Grow a Garden**. It runs in any browser (desktop, tablet or phone) with nothing to install.
 
 **Play:** https://y2jcpa.github.io/grow-a-garden/
 
-## How to play
-1. 🌱 Walk to a dirt patch and **plant** a seed (`E`, the big ✋ button, or just tap/click the plot)
-2. 💧 **Water** it — well-watered plants grow 1.5× faster. Refill the can at the well
-3. 🧺 **Harvest** when it sparkles
-4. 💰 **Sell** crops to Shlomo, then buy better seeds, upgrades and new garden plots
-
-Extras: ✨ Golden / 🌈 Rainbow crops (rare, worth 3×/6×), 💧 Wet crops after rain, 🌙 Moonlit crops at night,
-♻️ plants that regrow, garden tasks, levels, a daily gift, achievements, outfits, and Buddy the dog who digs up treasure.
+## How it plays (like Roblox Grow a Garden)
+- **Market street** in the middle: 🌱 Seed Shop (Shlomo), 💰 Sell stand (Steven), ⚙️ Gear Shop and 🥚 Pet Eggs. The top bar teleports you: **Seeds · Sell · Garden · Gear · Pets**.
+- **Your garden** is a big dirt patch; plant anywhere. Other gardeners on the same device are your neighbors, and their gardens show up next to yours, with a Sheckles leaderboard.
+- **Shops restock every 5 minutes** with limited stock. Rarer seeds show up less often: Common → Uncommon → Rare → Legendary → Mythical → Divine → Prismatic (Carrot … Beanstalk).
+- **Multi-harvest plants** (strawberry, apple, coconut, grape, beanstalk…) keep growing new fruit. Every fruit has its own **weight (kg)**, and heavier fruit is worth more.
+- **Mutations**: ✨ Gold 20x, 🌈 Rainbow 50x, 💧 Wet, ❄️ Chilled, 🧊 Frozen, 🌙 Moonlit, 🐝 Pollinated, 🩸 Bloodlit, ⚡ Shocked 100x, 🌠 Celestial 120x.
+- **Weather events**: Rain, Thunderstorm (lightning), Frost, Blood Moon, Meteor Shower.
+- **Gear**: Watering Can, Trowel (move plants), Basic/Advanced/Godly/Master Sprinklers, Lightning Rod, Shovel.
+- **Pet eggs** hatch in your garden. Up to 3 equipped pets wander your garden and help: digging up seeds, growing plants faster, turning fruit Gold, and more. Buddy the dog is everyone's first pet.
+- Plus tasks, a daily gift, badges, and outfits (including the classic Roblox Noob).
 
 ## Controls
 | | Desktop | Touch |
 |---|---|---|
-| Move | `WASD` / arrows (`Shift` to run) | joystick (push all the way to run) |
-| Do the obvious thing | `E` or click anything | ✋ button or tap anything |
-| Water / potion | `Q` / `F` | 💧 / 🧪 |
-| Look / zoom | drag / scroll | drag / pinch |
-| Menus | `B` shop · `I` bag · `J` awards · `H` help · `M` music | buttons on the right |
+| Move | `WASD` / arrows (`Shift` run, `Space` jump) | joystick |
+| Plant / harvest / use | `E`, or click the dirt / a plant | tap the dirt / a plant, or the ✋ button |
+| Hold an item | `1`–`9` (`0` = empty hands) | tap the hotbar |
+| Teleport | top bar, `G` = garden | top bar |
+| Menus | `B` shop · `I` backpack · `P` pets · `J` badges · `H` help · `M` music | buttons on the right |
 
 ## Code layout
-No build step — plain HTML/CSS/JS with Three.js from a CDN.
+There's no build step: plain HTML/CSS/JS, with Three.js loaded from a CDN.
 
 | File | What's in it |
 |---|---|
-| `js/data.js` | Seeds, holidays, rarity, mutations, levels, upgrades, tutorial tasks |
-| `js/voxel.js` | Pixel-art textures and `VoxelBatch` (merges many blocks into one draw call) |
-| `js/plants.js` | A blocky model for every seed |
-| `js/skins.js` | Player outfits (Farmer, Ninja, Sonic, Kakashi, Mando) |
-| `js/audio.js` | Synthesized sound effects + gentle background music (no audio files) |
+| `js/data.js` | Seeds, rarities, mutations, gear, pets, eggs, weather, holidays |
+| `js/voxel.js` | Pixel textures and `VoxelBatch` (merges many blocks into one draw call) |
+| `js/plants.js` | A model for every seed, plus fruit attachment points |
+| `js/pets.js` | Blocky pet models |
+| `js/skins.js` | Player outfits |
+| `js/audio.js` | Synthesized sound effects and music (no audio files) |
 | `js/game.js` | World, gameplay, UI, saving |
 
-Saves live in the browser's `localStorage` (one per gardener profile). Older saves are upgraded automatically.
+Saves live in the browser's `localStorage` (one per gardener). Saves from older versions are converted automatically: coins become Sheckles, crops go into the backpack, and plants move to the new garden.

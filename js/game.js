@@ -1,65 +1,93 @@
 /* ============================================
    GROW A GARDEN 3D — Main Game (Three.js)
-   Depends on: three.js, data.js, voxel.js, plants.js, skins.js, audio.js
+   Plays like the Roblox game "Grow a Garden": plant anywhere in your
+   garden, collect fruit with weights and mutations, sell to Steven,
+   buy from restocking shops, hatch pet eggs, survive weather events.
+   Depends on: three.js, data.js, voxel.js, plants.js, pets.js, skins.js, audio.js
    ============================================ */
 (function() {
 'use strict';
 
 // ─── Constants ───
-const WORLD_SIZE = 64;          // walkable area (square)
-const PLOT_SIZE = 2;            // each plot is 2x2
-const PLOT_STEP = 3;            // plot spacing (2 + 1 gap)
-const FULL_GRID = 6;            // 6x6 possible plots; the middle 4x4 are free
-const BASE_PLOTS = 16;
-const TOTAL_PLOTS = FULL_GRID * FULL_GRID;
+const WORLD_X = 50, WORLD_Z = 38;    // walkable half-extents
 const PLAYER_HEIGHT = 1.7;
-const WALK_SPEED = 5.5;
+const WALK_SPEED = 6;
 const RUN_MULT = 1.6;
 const JUMP_FORCE = 7.5;
 const GRAVITY = 20;
-const PLOT_REACH = 2.3;
-const PLANT_SCALE = 1.3;        // plants are drawn a bit bigger than their model units
-const PLANT_Y = 0.32 * (1 - PLANT_SCALE); // keeps the scaled plant's base on the soil (models start at y=0.32)
-const CAM_MIN = 4, CAM_MAX = 14;
-const SHOP_POS = { x: -14, z: 0 };
-const SHOP_DIST = 3.6;
-const WELL_POS = { x: 14, z: 0 };
-const WELL_DIST = 2.8;
-const POND_POS = { x: 15, z: -15 };
-const DOG_DIST = 2.2;
-const DAY_LENGTH = 420;         // seconds for a full day
+const REACH = 1.9;                    // how close you must be to a plant
+const CAM_MIN = 4, CAM_MAX = 22;
+const DAY_LENGTH = 420;
+const DIRT_Y = 0.12;                  // top of the garden dirt
+const CLASSIC_SCALE = 1.3;            // older seed models are drawn a bit bigger
+const MAX_FRUITS = 200;               // backpack size (like Roblox)
+const MAX_PLANTS = 120;
+const MAX_EGGS_PLACED = 3;
+const MAX_PETS_EQUIPPED = 3;
+const SHOP_RESTOCK = 300;             // seconds between seed / gear restocks
+const EGG_RESTOCK = 600;
 const PROFILES_KEY = 'garden3d_profiles';
 const SAVE_PREFIX = 'garden3d_save_';
 const MAX_PROFILES = 10;
 const AUTO_SAVE_SEC = 10;
-const BASE_CAN = 100;
+const SAVE_VERSION = 3;
+
+// ─── Map: a market street in the middle, three gardens on each side ───
+const GARDEN_D = 24;
+const GARDENS = [
+  { x: 0, z: -20, dir: -1 },   // yours (south, facing the market)
+  { x: -32, z: -20, dir: -1 }, { x: 32, z: -20, dir: -1 },
+  { x: -32, z: 20, dir: 1 }, { x: 0, z: 20, dir: 1 }, { x: 32, z: 20, dir: 1 },
+];
+const MY_GARDEN = GARDENS[0];
+// Two dirt beds per garden with a path between them (local coords)
+const BED_X0 = 1.6, BED_X1 = 12.6, BED_Z = 10.4;
+const STALLS = {
+  seeds: { x: -15, label: "🌱 Seeds", npc: 'Shlomo', colors: [0x2E7D32, 0xFFFFFF], shirt: 0xFFF9C4, apron: 0x388E3C, hat: 'straw' },
+  sell:  { x: -5,  label: '💰 Sell',  npc: 'Steven', colors: [0xF9A825, 0xFFFFFF], shirt: 0x43A047, apron: 0x795548, hat: 'cap' },
+  gear:  { x: 5,   label: '⚙️ Gear',  npc: 'Gear Shop', colors: [0x1565C0, 0xFFFFFF], shirt: 0x90CAF9, apron: 0x1565C0, hat: 'cap' },
+  pets:  { x: 15,  label: '🥚 Pet Eggs', npc: 'Pet Shop', colors: [0x8E24AA, 0xFFFFFF], shirt: 0xF8BBD0, apron: 0x8E24AA, hat: 'straw' },
+};
+const STALL_Z = 1.2;           // stall center z; customers stand around z = -2.5
+const STALL_REACH = 3.2;
+const TELEPORTS = {
+  seeds: { x: STALLS.seeds.x, z: -3.2, yaw: Math.PI },
+  sell:  { x: STALLS.sell.x,  z: -3.2, yaw: Math.PI },
+  gear:  { x: STALLS.gear.x,  z: -3.2, yaw: Math.PI },
+  pets:  { x: STALLS.pets.x,  z: -3.2, yaw: Math.PI },
+  garden:{ x: MY_GARDEN.x,    z: MY_GARDEN.z + GARDEN_D / 2 - 2, yaw: 0 },
+};
 
 // ─── Game State (saved per profile) ───
+let uid = Date.now() % 100000;
+function newId() { return (++uid).toString(36) + Math.floor(Math.random() * 1296).toString(36); }
 function freshState() {
   return {
-    coins: 100,
-    inventory: { daisy: 3, sunflower: 2 }, // seeds (plantable)
-    harvested: {},       // crops (sellable) — key: seedId or "seedId|mutation"
-    plots: new Array(TOTAL_PLOTS).fill(null),
-    unlockedPlots: [],   // indices >= 16 that were bought
-    selectedSeed: 'daisy',
-    unlockedSkins: ['farmer'],
-    waterCan: BASE_CAN,
+    version: SAVE_VERSION,
+    sheckles: 50,
+    seeds: { carrot: 3, strawberry: 1 },
+    gear: { shovel: 1 },
+    eggs: {},
+    fruits: [],              // backpack: {s, kg, m: [mutations], fav}
+    plants: [],              // {id, s, x, z, r, age, grow, kg, m, fruits[], water}
+    placed: [],              // sprinklers / lightning rods: {id, gear, x, z, left, uses}
+    placedEggs: [],          // {id, egg, x, z, left, total}
+    pets: [{ id: 'buddy', type: 'dog', name: 'Buddy', age: 0 }],
+    equipped: ['buddy'],
+    selected: 'seed:carrot',
+    shop: { slot: -1, seeds: {}, gearSlot: -1, gear: {}, eggSlot: -1, eggs: [] },
+    unlockedSkins: ['farmer', 'noob'],
     achievements: [],
-    totalCoinsEarned: 0,
-    totalHarvested: 0,
-    harvestedTypes: [],
-    decorations: [],
-    xp: 0,
-    level: 1,
-    upgrades: {},
-    potions: 0,
     tasks: [],
     tutorialStep: 0,
     tasksDone: 0,
     lastDaily: '',
     dailyStreak: 0,
-    buddyFinds: 0,
+    totalHarvested: 0,
+    totalEarned: 0,
+    harvestedTypes: [],
+    petsHatched: [],
+    perks: {},
   };
 }
 let gameState = freshState();
@@ -71,32 +99,32 @@ let scene, camera, renderer, clock;
 let sunLight, hemiLight, ambientLight;
 let skyMat, sunMesh, moonMesh, stars;
 let started = false;
-let dayTime = 0.3;              // 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset
-let nightFactor = 0;            // 0 day → 1 night
-let currentWeather = 'sunny';
-let weatherTimer = 90;
+let dayTime = 0.3, nightFactor = 0;
+let weather = null;                  // { id, left }
+let weatherTimer = 120;
+let moonlitTimer = 20, moonlitCount = 0;
+let lightningTimer = 8, meteorTimer = 6;
 let autoSaveTimer = 0;
 let isMobile = false;
 
-const playerPos = new THREE.Vector3(0, 0, 13);
+const playerPos = new THREE.Vector3(TELEPORTS.garden.x, 0, TELEPORTS.garden.z + 1);
 const playerVel = new THREE.Vector3();
 let playerY = 0, playerVY = 0, onGround = true;
 let playerModel = null, playerFacing = Math.PI, walkCycle = 0;
-let yaw = 0, pitch = 0.35, camDist = 8;
-const camPos = new THREE.Vector3(0, 8, 20);
+let yaw = 0, pitch = 0.45, camDist = 10;
+const camPos = new THREE.Vector3(0, 10, 0);
 const keys = { f: false, b: false, l: false, r: false, run: false };
 const touchMove = { x: 0, y: 0 };
-let moveTarget = null;          // click / tap-to-walk target {x, z, reach, action}
-
-const colliders = [];           // {x, z, r} circles the player can't walk through
-const plotViews = [];           // per plot 3D objects
-let focus = null;               // what the player is next to: {kind, index}
+let moveTarget = null;
+const colliders = [];
+let focus = null;
+let carrying = null;                 // plant picked up with the trowel
+let shovelArmed = null;              // {plantId, until} — dig needs a second press
 
 // ─── DOM helpers ───
 const $ = sel => document.querySelector(sel);
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function lerp(a, b, t) { return a + (b - a) * t; }
-function fmt(n) { return Math.floor(n).toLocaleString(); }
 const textCache = new WeakMap();
 function setText(el, txt) { if (el && textCache.get(el) !== txt) { textCache.set(el, txt); el.textContent = txt; } }
 function setHTML(el, html) { if (el && textCache.get(el) !== html) { textCache.set(el, html); el.innerHTML = html; } }
@@ -166,7 +194,7 @@ function confetti(count) {
 }
 
 function coinFly(fromX, fromY, n) {
-  const target = $('#coin-display').getBoundingClientRect();
+  const target = $('#money').getBoundingClientRect();
   for (let i = 0; i < Math.min(n || 4, 8); i++) {
     const c = document.createElement('span');
     c.className = 'coin-fly';
@@ -180,23 +208,10 @@ function coinFly(fromX, fromY, n) {
     setTimeout(() => c.remove(), 1100 + i * 60);
   }
   setTimeout(() => {
-    const box = $('#coin-display');
+    const box = $('#money');
     box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
   }, 650);
 }
-
-// ─── Plot layout ───
-// Indices 0-15 are the original 4x4 garden (row-major), 16-35 the outer ring.
-const PLOT_CELLS = (function() {
-  const cells = [];
-  for (let r = 1; r <= 4; r++) for (let c = 1; c <= 4; c++) cells.push({ r, c });
-  for (let r = 0; r < FULL_GRID; r++) for (let c = 0; c < FULL_GRID; c++) {
-    if (r === 0 || r === FULL_GRID - 1 || c === 0 || c === FULL_GRID - 1) cells.push({ r, c });
-  }
-  return cells.map(({ r, c }) => ({ x: -7.5 + c * PLOT_STEP, z: -7.5 + r * PLOT_STEP }));
-})();
-function getPlotWorldPos(i) { return PLOT_CELLS[i]; }
-function isPlotUnlocked(i) { return i < BASE_PLOTS || gameState.unlockedPlots.includes(i); }
 
 // ─── Renderer / Scene ───
 function initRenderer() {
@@ -215,8 +230,11 @@ function initRenderer() {
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
   clock = new THREE.Clock();
 
+  const fitFov = () => { camera.fov = camera.aspect < 0.8 ? 72 : 55; camera.updateProjectionMatrix(); };
+  fitFov();
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
+    fitFov();
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
@@ -305,26 +323,27 @@ function initLighting() {
 
 }
 
+
 // ─── Shared materials ───
 const MATS = {};
 function initMaterials() {
   const noise = Tex.get('noise');
   MATS.voxel = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise });
   MATS.plant = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise });
-  MATS.golden = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise, color: 0xffd54f, emissive: 0x5a3a00 });
-  MATS.rainbow = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise, emissive: 0x222222 });
-  MATS.soil = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('soil'), color: 0xffffff });
-  MATS.soilWet = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('soil'), color: 0xb09888 });
-  MATS.soilDry = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('soil'), color: 0xd8c9a0 });
+  MATS.dirt = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('dirt') });
   MATS.path = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('path') });
-  const wt = Tex.get('water');
-  MATS.water = new THREE.MeshLambertMaterial({ map: wt, transparent: true, opacity: 0.85 });
-  MATS.glow = {};
-  Object.entries(RARITY).forEach(([k, r]) => {
-    MATS.glow[k] = new THREE.MeshBasicMaterial({ color: r.glow, transparent: true, opacity: 0.8, depthWrite: false });
+  MATS.fruit = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  MATS.fruitGlow = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  MATS.ghost = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false });
+  MATS.ring = new THREE.MeshBasicMaterial({ color: 0x4FC3F7, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide });
+  MATS.water = new THREE.MeshLambertMaterial({ map: Tex.get('water'), transparent: true, opacity: 0.85 });
+  MATS.lamp = new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xfff3c4, emissive: 0x000000 });
+  // single-harvest crops are tinted by their strongest mutation
+  MATS.mut = {};
+  Object.entries(MUTATIONS).forEach(([k, m]) => {
+    MATS.mut[k] = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise, color: m.tint, emissive: m.glow ? new THREE.Color(m.tint).multiplyScalar(0.35) : 0x000000 });
   });
-  MATS.highlight = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
-  MATS.lampOn = new THREE.MeshBasicMaterial({ color: 0xffe08a });
+  MATS.mut.gold.emissive.setHex(0x5a3a00);
 }
 
 function voxelMesh(batch, mat, opts) {
@@ -334,8 +353,235 @@ function voxelMesh(batch, mat, opts) {
   return m;
 }
 
+// ─── World ───
+function addCollider(x, z, r) { colliders.push({ x, z, r }); }
+
+function buildGardenGround(g, b, dirt) {
+  // two dirt beds with a path between them, wooden edging all around
+  [-1, 1].forEach(side => {
+    const cx = g.x + side * (BED_X0 + BED_X1) / 2, w = BED_X1 - BED_X0;
+    dirt.box(w, DIRT_Y + 0.05, BED_Z * 2, 0xffffff, cx, (DIRT_Y - 0.05) / 2, g.z);
+    b.box(w + 0.3, 0.22, 0.2, 0x8D6E63, cx, 0.11, g.z - BED_Z - 0.1);
+    b.box(w + 0.3, 0.22, 0.2, 0x8D6E63, cx, 0.11, g.z + BED_Z + 0.1);
+    b.box(0.2, 0.22, BED_Z * 2, 0x795548, cx - w / 2 - 0.05, 0.11, g.z);
+    b.box(0.2, 0.22, BED_Z * 2, 0x795548, cx + w / 2 + 0.05, 0.11, g.z);
+  });
+}
+
+function buildWorld() {
+  const grass = Tex.get('grass').clone();
+  grass.needsUpdate = true;
+  grass.repeat.set(130, 100);
+  MATS.ground = new THREE.MeshLambertMaterial({ map: grass });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 200), MATS.ground);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const rand = seededRandom(4321);
+  const statics = new VoxelBatch(4);
+  const decor = new VoxelBatch(4);
+  const paths = new VoxelBatch(1.5);
+  const dirt = new VoxelBatch(1.2);
+  const lamps = new VoxelBatch(4);
+
+  // Market street + paths into each garden
+  paths.box(WORLD_X * 2, 0.04, 11, 0xffffff, 0, 0.02, 0);
+  GARDENS.forEach(g => {
+    paths.box(3, 0.04, GARDEN_D + 2, 0xf2ead8, g.x, 0.02, g.z);
+    buildGardenGround(g, statics, dirt);
+  });
+  // curbs along the street
+  for (let x = -WORLD_X; x < WORLD_X; x += 4) {
+    [-5.6, 5.6].forEach(z => decor.box(3.9, 0.12, 0.25, 0xBDBDBD, x + 2, 0.06, z));
+  }
+  // Street lamps
+  [-42, -24, -9, 9, 24, 42].forEach(x => {
+    [-6.2, 6.2].forEach(z => {
+      statics.box(0.18, 3, 0.18, 0x37474F, x, 1.5, z);
+      statics.box(0.5, 0.1, 0.5, 0x263238, x, 3.05, z);
+      lamps.box(0.36, 0.42, 0.36, 0xffffff, x, 2.78, z);
+      addCollider(x, z, 0.3);
+    });
+  });
+  // Flower boxes between gardens
+  [-16, 16].forEach(x => [-20, 20].forEach(z => {
+    for (let k = -2; k <= 2; k++) {
+      statics.box(1.2, 0.5, 1.2, 0x8D6E63, x, 0.25, z + k * 4);
+      const c = [0xFF80AB, 0xFFEB3B, 0xB388FF, 0xFF7043][(k + 4) % 4];
+      decor.box(0.9, 0.25, 0.9, 0x66BB6A, x, 0.6, z + k * 4);
+      decor.box(0.25, 0.2, 0.25, c, x - 0.2, 0.8, z + k * 4 + 0.2);
+      decor.box(0.25, 0.2, 0.25, c, x + 0.25, 0.8, z + k * 4 - 0.15);
+    }
+  }));
+
+  // Fountain in the middle of the market
+  const fz = 2.5;
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2;
+    statics.box(0.9, 0.55, 0.45, 0xB0BEC5, Math.cos(a) * 1.7, 0.27, fz + Math.sin(a) * 1.7, 0, -a, 0);
+  }
+  statics.box(0.5, 1.6, 0.5, 0xCFD8DC, 0, 0.8, fz);
+  statics.box(1.2, 0.2, 1.2, 0xB0BEC5, 0, 1.6, fz);
+  statics.box(0.3, 0.6, 0.3, 0xCFD8DC, 0, 1.95, fz);
+  const pool = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.55, 0.1, 20), MATS.water);
+  pool.position.set(0, 0.4, fz);
+  scene.add(pool);
+  addCollider(0, fz, 2.1);
+
+  // Big welcome sign over the street
+  [-9.5, 9.5].forEach(x => statics.box(0.35, 5.2, 0.35, 0x6D4C41, x, 2.6, 6.3));
+  statics.box(19.4, 0.3, 0.3, 0x6D4C41, 0, 5.25, 6.3);
+  statics.box(7.5, 1.3, 0.2, 0xFFF8E1, 0, 6.05, 6.3);
+  const title = textSprite('🌱 Grow a Garden 🌱', '#2E7D32', true);
+  title.position.set(0, 6.05, 6.15);
+  title.scale.multiplyScalar(2.1);
+  scene.add(title);
+
+  // Trees: a forest ring around the map + a few between the gardens
+  const treeTypes = ['oak', 'oak', 'pine', 'birch', 'apple', 'blossom'];
+  for (let i = 0; i < 220; i++) {
+    let x, z;
+    if (rand() < 0.5) { x = (rand() - 0.5) * 2 * (WORLD_X + 22); z = (rand() > 0.5 ? 1 : -1) * (WORLD_Z + 3 + rand() * 25); }
+    else { z = (rand() - 0.5) * 2 * (WORLD_Z + 22); x = (rand() > 0.5 ? 1 : -1) * (WORLD_X + 3 + rand() * 25); }
+    buildTree(statics, x, z, treeTypes[Math.floor(rand() * treeTypes.length)], rand);
+  }
+  [[-48, -8], [48, -8], [-48, 8], [48, 8], [-16, -34], [16, -34], [-16, 34], [16, 34]].forEach(([x, z]) => {
+    buildTree(statics, x, z, treeTypes[Math.floor(rand() * treeTypes.length)], rand);
+    addCollider(x, z, 0.8);
+  });
+  // Hills on the horizon
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2 + rand() * 0.1;
+    const d = 110 + rand() * 20;
+    const w = 20 + rand() * 18, h = 3 + rand() * 7;
+    statics.box(w, h, w, 0x5b9e45, Math.cos(a) * d, h / 2, Math.sin(a) * d * 0.8, 0, a, 0);
+  }
+  // Grass tufts & wildflowers outside the gardens
+  const flowerColors = [0xFFEB3B, 0xFF80AB, 0xFFFFFF, 0xB388FF, 0xFF7043];
+  for (let i = 0; i < 500; i++) {
+    const x = (rand() - 0.5) * 2 * WORLD_X, z = (rand() - 0.5) * 2 * WORLD_Z;
+    if (Math.abs(z) < 7) continue;
+    if (GARDENS.some(g => Math.abs(x - g.x) < BED_X1 + 0.6 && Math.abs(z - g.z) < BED_Z + 0.6)) continue;
+    if (rand() < 0.65) {
+      const c = rand() > 0.5 ? 0x7CB342 : 0x8BC34A;
+      decor.box(0.08, 0.32, 0.08, c, x, 0.16, z); decor.box(0.08, 0.24, 0.08, c, x + 0.12, 0.12, z + 0.05);
+    } else {
+      decor.box(0.05, 0.28, 0.05, 0x558B2F, x, 0.14, z);
+      decor.box(0.2, 0.1, 0.2, flowerColors[Math.floor(rand() * flowerColors.length)], x, 0.3, z);
+    }
+  }
+
+  scene.add(voxelMesh(statics));
+  scene.add(voxelMesh(decor, MATS.voxel, { noCast: true }));
+  scene.add(voxelMesh(paths, MATS.path, { noCast: true }));
+  const dirtMesh = voxelMesh(dirt, MATS.dirt, { noCast: true });
+  scene.add(dirtMesh);
+  scene.add(new THREE.Mesh(lamps.build(), MATS.lamp));
+  buildClouds(rand);
+  Object.entries(STALLS).forEach(([id, def]) => buildStall(id, def));
+}
+
+// ─── Market stalls with their shopkeepers ───
+const stallModels = {};
+let eggDisplay = null;
+function buildVendor(def) {
+  const v = new THREE.Group();
+  const mats = {};
+  const mat = c => mats[c] || (mats[c] = new THREE.MeshLambertMaterial({ color: c }));
+  const part = (w, h, d, c, x, y, z, parent) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c));
+    m.position.set(x, y, z); m.castShadow = true; (parent || v).add(m); return m;
+  };
+  const skin = def.npc === 'Steven' ? 0xF1C27D : 0xC8956C;
+  const head = new THREE.Group(); head.position.set(0, 1.55, 0); v.add(head);
+  part(0.5, 0.5, 0.5, skin, 0, 0, 0, head);
+  part(0.08, 0.1, 0.05, 0x222222, -0.12, 0.04, 0.25, head);
+  part(0.08, 0.1, 0.05, 0x222222, 0.12, 0.04, 0.25, head);
+  part(0.22, 0.05, 0.05, 0x8B4513, 0, -0.12, 0.25, head);
+  if (def.npc === 'Shlomo') part(0.42, 0.14, 0.06, 0x5D4037, 0, -0.2, 0.24, head);
+  if (def.hat === 'straw') { part(0.9, 0.06, 0.9, 0xF9A825, 0, 0.27, 0, head); part(0.5, 0.3, 0.5, 0xF9A825, 0, 0.43, 0, head); part(0.52, 0.08, 0.52, def.apron, 0, 0.32, 0, head); }
+  else { part(0.54, 0.18, 0.54, def.apron, 0, 0.32, 0, head); part(0.5, 0.06, 0.3, def.apron, 0, 0.25, 0.3, head); }
+  part(0.5, 0.6, 0.3, def.shirt, 0, 1.0, 0);
+  part(0.4, 0.5, 0.05, def.apron, 0, 0.95, 0.18);
+  const armL = new THREE.Group(); armL.position.set(-0.35, 1.25, 0); v.add(armL);
+  part(0.2, 0.55, 0.2, def.shirt, 0, -0.25, 0, armL); part(0.18, 0.15, 0.18, skin, 0, -0.58, 0, armL);
+  const armR = new THREE.Group(); armR.position.set(0.35, 1.25, 0); v.add(armR);
+  part(0.2, 0.55, 0.2, def.shirt, 0, -0.25, 0, armR); part(0.18, 0.15, 0.18, skin, 0, -0.58, 0, armR);
+  part(0.22, 0.5, 0.25, 0x37474F, -0.13, 0.45, 0);
+  part(0.22, 0.5, 0.25, 0x37474F, 0.13, 0.45, 0);
+  v.userData = { head, armL, armR };
+  return v;
+}
+
+function buildStall(id, def) {
+  const g = new THREE.Group();
+  const b = new VoxelBatch(4);
+  const [c1, c2] = def.colors;
+  b.box(3.4, 0.15, 1.0, 0x5D4037, 0, 1.0, 1.0);
+  b.box(3.2, 0.9, 0.12, 0x8D6E63, 0, 0.5, 1.45);
+  [[-1.6, 0.55], [1.6, 0.55], [-1.6, 1.45], [1.6, 1.45]].forEach(([x, z]) => b.box(0.15, 1.0, 0.15, 0x6D4C41, x, 0.5, z));
+  [[-1.7, -0.6], [1.7, -0.6], [-1.7, 1.55], [1.7, 1.55]].forEach(([x, z]) => b.box(0.14, 2.7, 0.14, 0x8D6E63, x, 1.35, z));
+  for (let i = 0; i < 7; i++) b.box(0.52, 0.12, 2.7, i % 2 ? c2 : c1, -1.56 + i * 0.52, 2.75, 0.45, 0.12, 0, 0);
+  b.box(3.7, 0.3, 0.08, c1, 0, 2.55, 1.82);
+  b.box(3.5, 2.3, 0.12, 0xBCAAA4, 0, 1.15, -0.65);
+  b.box(2.8, 0.75, 0.1, 0xFFF8E1, 0, 3.3, 0.45);
+  if (id === 'seeds') {
+    [[0xFFD600, -1.1], [0xE91E63, -0.4], [0xFF7043, 0.4], [0x7E57C2, 1.1]].forEach(([c, x]) => { b.box(0.4, 0.32, 0.32, 0xD7CCC8, x, 1.24, 1.05); b.box(0.34, 0.08, 0.26, c, x, 1.43, 1.05); });
+  } else if (id === 'sell') {
+    b.box(0.7, 0.08, 0.5, 0xB0BEC5, -0.9, 1.12, 1.0); b.box(0.06, 0.4, 0.06, 0x78909C, -0.9, 1.3, 1.0); b.box(0.5, 0.05, 0.3, 0xB0BEC5, -0.9, 1.5, 1.0);
+    [[0xE53935, 0.3], [0xFFD54F, 0.7], [0x43A047, 1.1]].forEach(([c, x]) => { b.box(0.38, 0.22, 0.38, 0xA1887F, x, 1.18, 1.0); b.box(0.3, 0.12, 0.3, c, x, 1.32, 1.0); });
+    b.box(0.5, 0.5, 0.1, 0xFFD54F, 1.0, 2.1, 1.5);
+  } else if (id === 'gear') {
+    b.box(0.4, 0.3, 0.25, 0x4FC3F7, -1.0, 1.24, 1.0); b.box(0.25, 0.06, 0.06, 0x4FC3F7, -0.72, 1.32, 1.0);
+    b.box(0.2, 0.5, 0.2, 0x90A4AE, -0.2, 1.33, 1.0); b.box(0.5, 0.06, 0.1, 0x546E7A, -0.2, 1.6, 1.0);
+    b.box(0.08, 0.5, 0.08, 0x8D6E63, 0.6, 1.33, 1.0); b.box(0.25, 0.25, 0.06, 0x9E9E9E, 0.6, 1.62, 1.0);
+    b.box(0.06, 0.8, 0.06, 0xFFD54F, 1.2, 1.5, 1.0);
+  }
+  g.add(voxelMesh(b));
+  const sign = textSprite(def.label, '#4E342E', true);
+  sign.position.set(0, 3.3, 0.6);
+  sign.scale.multiplyScalar(1.5);
+  g.add(sign);
+  const vendor = buildVendor(def);
+  g.add(vendor);
+  if (id === 'pets') { eggDisplay = new THREE.Group(); eggDisplay.position.set(0, 1.08, 1.0); g.add(eggDisplay); }
+  g.position.set(def.x, 0, STALL_Z);
+  g.rotation.y = Math.PI; // faces the player's garden (−z)
+  scene.add(g);
+  stallModels[id] = { group: g, vendor };
+  addCollider(def.x, STALL_Z, 1.8);
+  addCollider(def.x - 1.4, STALL_Z, 1.1);
+  addCollider(def.x + 1.4, STALL_Z, 1.1);
+}
+
+function eggMesh(eggId, scale) {
+  const e = EGGS[eggId];
+  const b = new VoxelBatch(8);
+  b.box(0.5, 0.55, 0.5, e.color, 0, 0.3, 0);
+  b.box(0.4, 0.15, 0.4, e.color, 0, 0.62, 0);
+  b.box(0.36, 0.14, 0.36, e.color, 0, 0.06, 0);
+  b.box(0.12, 0.12, 0.52, e.spot, 0.1, 0.4, 0);
+  b.box(0.52, 0.1, 0.1, e.spot, 0, 0.22, 0.12);
+  const m = new THREE.Mesh(b.build(), MATS.voxel);
+  m.castShadow = true;
+  m.scale.setScalar(scale || 1);
+  return m;
+}
+
+function updateStalls(time) {
+  Object.entries(stallModels).forEach(([id, s]) => {
+    const u = s.vendor.userData;
+    const near = focus && focus.kind === 'stall' && focus.id === id;
+    s.vendor.position.y = Math.sin(time * 2 + s.group.position.x) * 0.02;
+    u.armR.rotation.z = near ? 2.6 + Math.sin(time * 9) * 0.35 : lerp(u.armR.rotation.z, 0, 0.1);
+    const dx = playerPos.x - s.group.position.x, dz = playerPos.z - s.group.position.z;
+    let ang = Math.atan2(dx, dz) - s.group.rotation.y;
+    u.head.rotation.y = clamp(Math.atan2(Math.sin(ang), Math.cos(ang)), -0.8, 0.8);
+  });
+}
 // Canvas text label shown as a 3D sprite (cheaper and smoother than moving DOM labels)
-function textSprite(text, color) {
+function textSprite(text, color, plain) {
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d');
   const font = 'bold 44px "Fredoka", "Segoe UI", system-ui, sans-serif';
@@ -343,12 +589,14 @@ function textSprite(text, color) {
   const w = Math.ceil(ctx.measureText(text).width) + 40;
   c.width = w; c.height = 72;
   ctx.font = font;
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  const r = 30;
-  ctx.beginPath();
-  ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, 36);
-  ctx.quadraticCurveTo(w - 4, 68, w - r, 68); ctx.lineTo(r, 68); ctx.quadraticCurveTo(4, 68, 4, 36);
-  ctx.quadraticCurveTo(4, 4, r, 4); ctx.fill();
+  if (!plain) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    const r = 30;
+    ctx.beginPath();
+    ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, 36);
+    ctx.quadraticCurveTo(w - 4, 68, w - r, 68); ctx.lineTo(r, 68); ctx.quadraticCurveTo(4, 68, 4, 36);
+    ctx.quadraticCurveTo(4, 4, r, 4); ctx.fill();
+  }
   ctx.fillStyle = color || '#FFE082';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, w / 2, 38);
@@ -357,20 +605,6 @@ function textSprite(text, color) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, fog: false }));
   s.scale.set(w / 72 * 0.55, 0.55, 1);
   return s;
-}
-
-// ─── World ───
-function addCollider(x, z, r) { colliders.push({ x, z, r }); }
-
-function isReserved(x, z) {
-  // Keep trees/decor off the garden, paths, shop, well, pond and spawn
-  if (Math.abs(x) < 12 && Math.abs(z) < 12) return true;
-  if (Math.abs(z) < 3 && Math.abs(x) < 20) return true;          // east/west paths
-  if (Math.abs(x) < 3 && z > 0 && z < 22) return true;           // south path
-  if (Math.hypot(x - SHOP_POS.x, z - SHOP_POS.z) < 5) return true;
-  if (Math.hypot(x - WELL_POS.x, z - WELL_POS.z) < 4) return true;
-  if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < 7) return true;
-  return false;
 }
 
 function buildTree(b, x, z, type, rand) {
@@ -407,155 +641,6 @@ function buildTree(b, x, z, type, rand) {
   }
 }
 
-function buildWorld() {
-  // Ground: one big textured plane (pixel grass)
-  const grass = Tex.get('grass').clone();
-  grass.needsUpdate = true;
-  grass.repeat.set(110, 110);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshLambertMaterial({ map: grass }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  ground.name = 'ground';
-  scene.add(ground);
-
-  const rand = seededRandom(1234);
-  const statics = new VoxelBatch(4);   // trees, fences, rocks, hills…
-  const decor = new VoxelBatch(4);     // small things that don't need to cast shadows
-  const paths = new VoxelBatch(2);
-
-  // Paths (garden → shop, → well, → south)
-  for (let x = -12; x <= 12; x += 1) {
-    if (Math.abs(x) < 9.6) continue;
-    paths.box(1, 0.04, 2.2, 0xffffff, x, 0.02, 0);
-  }
-  for (let x = -18; x <= -12; x += 1) paths.box(1, 0.04, 2.2, 0xffffff, x, 0.02, 0);
-  for (let x = 12; x <= 17; x += 1) paths.box(1, 0.04, 2.2, 0xffffff, x, 0.02, 0);
-  for (let z = 10; z <= 22; z += 1) paths.box(2.2, 0.04, 1, 0xffffff, 0, 0.02, z);
-  // Stepping stones inside the garden between plot rows
-  for (let z = -7.5; z <= 7.5; z += 3) {
-    for (let x = -6; x <= 6; x += 3) { if (Math.abs(x) > 0.1) paths.box(0.6, 0.03, 0.6, 0xe0e0e0, x, 0.02, z + 1.5); }
-  }
-
-  // Garden fence (6x6 area) with gates in the middle of each side
-  const half = 7.5 + 1 + 0.9;
-  const fenceWood = 0xA1887F, fenceDark = 0x8D6E63;
-  for (let t = -half; t <= half + 0.01; t += 1.5) {
-    const sides = [[t, -half], [t, half], [-half, t], [half, t]];
-    sides.forEach(([x, z]) => {
-      if (Math.abs(x) < 1.6 && Math.abs(Math.abs(z) - half) < 0.01) return; // north/south gates
-      if (Math.abs(z) < 1.6 && Math.abs(Math.abs(x) - half) < 0.01) return; // east/west gates
-      statics.box(0.25, 1.0, 0.25, fenceDark, x, 0.5, z);
-      statics.box(0.33, 0.08, 0.33, fenceWood, x, 1.02, z);
-    });
-  }
-  [-half, half].forEach(edge => {
-    [[-half, -1.6], [1.6, half]].forEach(([a, b2]) => {
-      const len = b2 - a, mid = (a + b2) / 2;
-      [0.35, 0.75].forEach(h => {
-        statics.box(len, 0.12, 0.1, fenceWood, mid, h, edge);   // north/south rails
-        statics.box(0.1, 0.12, len, fenceWood, edge, h, mid);   // east/west rails
-      });
-    });
-  });
-  // Lantern posts at the corners and gates (glow at night)
-  const lanternSpots = [[-half, -half], [half, -half], [-half, half], [half, half], [-1.8, half], [1.8, half]];
-  const lampBatch = new VoxelBatch(4);
-  lanternSpots.forEach(([x, z]) => {
-    statics.box(0.2, 2.0, 0.2, 0x4E342E, x, 1.0, z);
-    statics.box(0.5, 0.08, 0.5, 0x3E2723, x, 2.05, z);
-    lampBatch.box(0.32, 0.36, 0.32, 0xffffff, x, 1.85, z);
-  });
-  const lamps = new THREE.Mesh(lampBatch.build(), new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xfff3c4, emissive: 0x000000 }));
-  lamps.name = 'lamps';
-  scene.add(lamps);
-  MATS.lamps = lamps.material;
-
-  // Trees: a ring inside the walkable area + a dense forest outside it
-  const treeTypes = ['oak', 'oak', 'pine', 'birch', 'apple', 'blossom'];
-  let placed = 0, tries = 0;
-  while (placed < 34 && tries < 2000) {
-    tries++;
-    const x = (rand() - 0.5) * (WORLD_SIZE - 6);
-    const z = (rand() - 0.5) * (WORLD_SIZE - 6);
-    if (isReserved(x, z)) continue;
-    if (colliders.some(c => Math.hypot(c.x - x, c.z - z) < 4.5)) continue;
-    buildTree(statics, x, z, treeTypes[Math.floor(rand() * treeTypes.length)], rand);
-    addCollider(x, z, 0.8);
-    placed++;
-  }
-  for (let i = 0; i < 140; i++) {
-    const a = rand() * Math.PI * 2;
-    const d = 36 + rand() * 40;
-    buildTree(statics, Math.cos(a) * d, Math.sin(a) * d, rand() > 0.45 ? 'pine' : 'oak', rand);
-  }
-  // Rolling blocky hills on the horizon
-  for (let i = 0; i < 40; i++) {
-    const a = (i / 40) * Math.PI * 2 + rand() * 0.1;
-    const d = 100 + rand() * 25;
-    const w = 18 + rand() * 16, hgt = 3 + rand() * 6;
-    for (let s = 0; s < 3; s++) {
-      const sw = w * (1 - s * 0.28), sh = hgt * (1 - s * 0.3);
-      statics.box(sw, sh, sw, s === 0 ? 0x5b9e45 : 0x67ad4e, Math.cos(a) * d, sh / 2 + s * hgt * 0.3, Math.sin(a) * d, 0, a, 0);
-    }
-  }
-
-  // Rocks, bushes, grass tufts and wildflowers
-  const flowerColors = [0xFFEB3B, 0xFF80AB, 0xFFFFFF, 0xB388FF, 0xFF7043, 0x81D4FA];
-  for (let i = 0; i < 420; i++) {
-    const x = (rand() - 0.5) * 70, z = (rand() - 0.5) * 70;
-    if (isReserved(x, z)) continue;
-    const kind = rand();
-    if (kind < 0.55) { // grass tuft
-      const g = rand() > 0.5 ? 0x7CB342 : 0x8BC34A;
-      decor.box(0.08, 0.35, 0.08, g, x, 0.17, z);
-      decor.box(0.08, 0.25, 0.08, g, x + 0.12, 0.12, z + 0.05);
-      decor.box(0.08, 0.3, 0.08, g, x - 0.1, 0.15, z - 0.06);
-    } else if (kind < 0.85) { // flower
-      decor.box(0.05, 0.3, 0.05, 0x558B2F, x, 0.15, z);
-      decor.box(0.2, 0.1, 0.2, flowerColors[Math.floor(rand() * flowerColors.length)], x, 0.33, z);
-      decor.box(0.08, 0.11, 0.08, 0xFFF59D, x, 0.34, z);
-    } else if (kind < 0.93) { // rock
-      const s = 0.4 + rand() * 0.6;
-      statics.box(s, s * 0.6, s * 0.8, rand() > 0.5 ? 0x9E9E9E : 0x8D8D8D, x, s * 0.3, z, 0, rand() * 3, 0);
-    } else { // bush
-      const s = 0.8 + rand() * 0.6;
-      statics.box(s, s * 0.8, s, 0x43A047, x, s * 0.4, z);
-      if (rand() > 0.5) statics.box(0.15, 0.15, 0.15, 0xE91E63, x + s * 0.4, s * 0.6, z);
-    }
-  }
-
-  // Pond with lily pads + stones around it
-  for (let i = 0; i < 22; i++) {
-    const a = (i / 22) * Math.PI * 2;
-    statics.box(1.1, 0.35, 1.1, i % 2 ? 0x9E9E9E : 0xB0B0B0, POND_POS.x + Math.cos(a) * 5.3, 0.15, POND_POS.z + Math.sin(a) * 4.3, 0, a, 0);
-  }
-  const pondBed = new VoxelBatch(2);
-  pondBed.box(10, 0.1, 8, 0x3E6E8E, POND_POS.x, 0.01, POND_POS.z);
-  scene.add(voxelMesh(pondBed, MATS.voxel, { noCast: true }));
-  const waterTex = MATS.water.map.clone();
-  waterTex.needsUpdate = true;
-  waterTex.repeat.set(5, 4);
-  MATS.pond = new THREE.MeshLambertMaterial({ map: waterTex, transparent: true, opacity: 0.85 });
-  const pond = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 8), MATS.pond);
-  pond.position.set(POND_POS.x, 0.1, POND_POS.z);
-  pond.receiveShadow = true;
-  scene.add(pond);
-  [[-2, 1], [1.5, -1.5], [2.5, 1.8]].forEach(([dx, dz]) => decor.box(0.7, 0.04, 0.7, 0x66BB6A, POND_POS.x + dx, 0.17, POND_POS.z + dz));
-  decor.box(0.18, 0.12, 0.18, 0xF8BBD0, POND_POS.x - 2, 0.22, POND_POS.z + 1);
-  addCollider(POND_POS.x, POND_POS.z, 4.2);
-
-  // Bench by the pond
-  statics.box(2.2, 0.12, 0.6, 0x8D6E63, POND_POS.x - 7.2, 0.55, POND_POS.z + 2, 0, 0.6, 0);
-  statics.box(2.2, 0.5, 0.1, 0x8D6E63, POND_POS.x - 7.4, 0.85, POND_POS.z + 1.75, 0, 0.6, 0);
-
-  scene.add(voxelMesh(statics));
-  scene.add(voxelMesh(decor, MATS.voxel, { noCast: true }));
-  const pathMesh = voxelMesh(paths, MATS.path, { noCast: true });
-  scene.add(pathMesh);
-
-  buildClouds(rand);
-}
-
 const clouds = [];
 function buildClouds(rand) {
   for (let i = 0; i < 9; i++) {
@@ -572,319 +657,350 @@ function buildClouds(rand) {
   }
 }
 
-// ─── Shlomo's seed stand ───
-let shopModel = null, shlomo = null;
-function buildShop() {
-  shopModel = new THREE.Group();
-  const b = new VoxelBatch(4);
-  // Counter (in front of Shlomo, local +z faces the garden)
-  b.box(3.2, 0.15, 1.0, 0x5D4037, 0, 1.0, 1.0);
-  b.box(3.0, 0.9, 0.12, 0x8D6E63, 0, 0.5, 1.45);
-  for (let i = -1; i <= 1; i++) b.box(0.9, 0.12, 0.14, 0xA1887F, i * 1.0, 0.75, 1.52);
-  [[-1.5, 0.55], [1.5, 0.55], [-1.5, 1.45], [1.5, 1.45]].forEach(([x, z]) => b.box(0.15, 1.0, 0.15, 0x6D4C41, x, 0.5, z));
-  // Canopy poles + striped awning
-  [[-1.6, -0.6], [1.6, -0.6], [-1.6, 1.5], [1.6, 1.5]].forEach(([x, z]) => b.box(0.14, 2.7, 0.14, 0x8D6E63, x, 1.35, z));
-  for (let i = 0; i < 7; i++) {
-    b.box(0.5, 0.12, 2.6, i % 2 ? 0xFFFFFF : 0xE53935, -1.5 + i * 0.5, 2.75, 0.45, 0.12, 0, 0);
-  }
-  b.box(3.5, 0.3, 0.08, 0xE53935, 0, 2.55, 1.75);
-  // Seed sacks and crates on the counter
-  [[0xFFD600, -1.1], [0xE91E63, -0.4], [0xFF7043, 0.4], [0x7E57C2, 1.1]].forEach(([c, x]) => {
-    b.box(0.4, 0.32, 0.32, 0xD7CCC8, x, 1.24, 1.05);
-    b.box(0.34, 0.08, 0.26, c, x, 1.43, 1.05);
+
+// ════════════════════════════════════════════
+//  GARDEN RENDERING
+// ════════════════════════════════════════════
+const SELF_SCALING = ['watermelon', 'pumpkin', 'mushroom', 'bamboo', 'beanstalk'];
+const SEED_RADIUS = {
+  carrot: 0.35, strawberry: 0.5, blueberry: 0.55, orange_tulip: 0.3, tomato: 0.5, corn: 0.55, daffodil: 0.3,
+  watermelon: 0.6, pumpkin: 0.6, apple: 1.1, bamboo: 0.6, coconut: 1.0, cactus: 0.65, dragon_fruit: 0.7,
+  mango: 1.1, grape: 0.9, mushroom: 0.8, pepper: 0.5, cacao: 0.9, beanstalk: 0.55,
+};
+function seedRadius(id) { return SEED_RADIUS[id] || 0.5; }
+
+const plantViews = new Map();     // plant id → view
+const placedViews = new Map();    // placed gear / egg id → view
+let fruitMesh, fruitGlowMesh, ghost, rangeRing, guideArrow;
+const FRUIT_CAP = 2500;
+const fDummy = new THREE.Object3D();
+const fColor = new THREE.Color();
+const tmpColor = new THREE.Color();
+let rainbowHue = 0;
+
+function buildGardenSystems() {
+  const box = new THREE.BoxGeometry(1, 1, 1);
+  fruitMesh = new THREE.InstancedMesh(box, MATS.fruit, FRUIT_CAP);
+  fruitGlowMesh = new THREE.InstancedMesh(box, MATS.fruitGlow, FRUIT_CAP);
+  [fruitMesh, fruitGlowMesh].forEach(m => {
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.castShadow = true;
+    m.frustumCulled = false;
+    m.count = 0;
+    m.setColorAt(0, fColor.set(0xffffff));
+    scene.add(m);
   });
-  // Crates beside the stall
-  b.box(0.8, 0.8, 0.8, 0xA1887F, 2.3, 0.4, 1.0);
-  b.box(0.7, 0.2, 0.7, 0x8BC34A, 2.3, 0.88, 1.0);
-  b.box(0.7, 0.7, 0.7, 0xA1887F, -2.3, 0.35, 0.8, 0, 0.3, 0);
-  b.box(0.6, 0.2, 0.6, 0xFF7043, -2.3, 0.78, 0.8, 0, 0.3, 0);
-  // Back wall + sign board
-  b.box(3.3, 2.3, 0.12, 0xBCAAA4, 0, 1.15, -0.65);
-  b.box(2.6, 0.7, 0.1, 0xFFF8E1, 0, 3.25, 0.45);
-  b.box(0.1, 0.5, 0.1, 0x6D4C41, -1.0, 3.0, 0.45);
-  b.box(0.1, 0.5, 0.1, 0x6D4C41, 1.0, 3.0, 0.45);
-  shopModel.add(voxelMesh(b));
-
-  // Sign text
-  const sign = textSprite("🌱 Shlomo's Seeds", '#5D4037');
-  sign.position.set(0, 3.25, 0.62);
-  sign.scale.multiplyScalar(1.45);
-  shopModel.add(sign);
-
-  // Shlomo himself
-  shlomo = new THREE.Group();
-  const mat = c => new THREE.MeshLambertMaterial({ color: c });
-  const part = (w, h, d, c, x, y, z, parent) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c));
-    m.position.set(x, y, z); m.castShadow = true; (parent || shlomo).add(m); return m;
-  };
-  const skin = 0xC8956C, shirt = 0xFFF9C4, apron = 0xD32F2F, straw = 0xF9A825;
-  const head = new THREE.Group(); head.position.set(0, 1.55, 0); shlomo.add(head);
-  part(0.5, 0.5, 0.5, skin, 0, 0, 0, head);
-  part(0.08, 0.1, 0.05, 0x222222, -0.12, 0.04, 0.25, head);
-  part(0.08, 0.1, 0.05, 0x222222, 0.12, 0.04, 0.25, head);
-  part(0.22, 0.06, 0.05, 0x8B4513, 0, -0.12, 0.25, head);
-  part(0.42, 0.14, 0.06, 0x5D4037, 0, -0.2, 0.24, head); // beard
-  part(0.9, 0.06, 0.9, straw, 0, 0.27, 0, head);
-  part(0.5, 0.3, 0.5, straw, 0, 0.43, 0, head);
-  part(0.52, 0.08, 0.52, apron, 0, 0.32, 0, head);
-  part(0.5, 0.6, 0.3, shirt, 0, 1.0, 0);
-  part(0.4, 0.5, 0.05, apron, 0, 0.95, 0.18);
-  const armL = new THREE.Group(); armL.position.set(-0.35, 1.25, 0); shlomo.add(armL);
-  part(0.2, 0.55, 0.2, shirt, 0, -0.25, 0, armL); part(0.18, 0.15, 0.18, skin, 0, -0.58, 0, armL);
-  const armR = new THREE.Group(); armR.position.set(0.35, 1.25, 0); shlomo.add(armR);
-  part(0.2, 0.55, 0.2, shirt, 0, -0.25, 0, armR); part(0.18, 0.15, 0.18, skin, 0, -0.58, 0, armR);
-  part(0.22, 0.5, 0.25, 0x37474F, -0.13, 0.45, 0);
-  part(0.22, 0.5, 0.25, 0x37474F, 0.13, 0.45, 0);
-  shlomo.userData = { head, armL, armR };
-  shopModel.add(shlomo);
-
-  shopModel.position.set(SHOP_POS.x, 0, SHOP_POS.z);
-  shopModel.rotation.y = Math.PI / 2; // local +z → world +x (toward the garden)
-  scene.add(shopModel);
-  addCollider(SHOP_POS.x, SHOP_POS.z, 1.9);
-  addCollider(SHOP_POS.x - 0.2, SHOP_POS.z + 1.6, 1.2);
-  addCollider(SHOP_POS.x - 0.2, SHOP_POS.z - 1.6, 1.2);
+  ghost = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.06, 20), MATS.ghost);
+  ghost.visible = false;
+  scene.add(ghost);
+  rangeRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), MATS.ring);
+  rangeRing.rotation.x = -Math.PI / 2;
+  rangeRing.visible = false;
+  scene.add(rangeRing);
+  guideArrow = new THREE.Sprite(Tex.emojiMaterial('👇', false));
+  guideArrow.material.depthTest = false;
+  guideArrow.renderOrder = 10;
+  guideArrow.scale.set(1.8, 1.8, 1);
+  guideArrow.visible = false;
+  scene.add(guideArrow);
 }
 
-function updateShlomo(time, near) {
-  if (!shlomo) return;
-  const u = shlomo.userData;
-  shlomo.position.y = Math.sin(time * 2) * 0.02;
-  // Wave when the player comes close
-  u.armR.rotation.z = near ? 2.6 + Math.sin(time * 9) * 0.35 : lerp(u.armR.rotation.z, 0, 0.1);
-  u.armL.rotation.x = Math.sin(time * 1.3) * 0.08;
-  // Look toward the player
-  const dx = playerPos.x - SHOP_POS.x, dz = playerPos.z - SHOP_POS.z;
-  const ang = Math.atan2(dx, dz) - shopModel.rotation.y;
-  u.head.rotation.y = clamp(Math.atan2(Math.sin(ang), Math.cos(ang)), -0.8, 0.8);
+function plantProgress(p) { return Math.min(1, p.age / p.grow); }
+function plantRipe(p) {
+  const seed = getSeedData(p.s);
+  if (!seed) return false;
+  if (!seed.multi) return p.age >= p.grow;
+  return p.age >= p.grow && p.fruits.some(f => f && f.age >= seed.fruitTime);
+}
+function ripeFruitCount(p) {
+  const seed = getSeedData(p.s);
+  if (!seed.multi) return p.age >= p.grow ? 1 : 0;
+  return p.age >= p.grow ? p.fruits.filter(f => f && f.age >= seed.fruitTime).length : 0;
+}
+function topMutation(m) {
+  if (!m || !m.length) return null;
+  if (m.includes('rainbow')) return 'rainbow';
+  if (m.includes('gold')) return 'gold';
+  return m.slice().sort((a, b) => MUTATIONS[b].mult - MUTATIONS[a].mult)[0];
+}
+function sizeFactor(seed, kg) { return clamp(Math.cbrt(kg / seed.kg), 0.7, 2.6); }
+
+function makePlantGeometry(p, seed, prog, ripe) {
+  if (seed.roblox) return buildSeedModel(p.s, seed, prog, ripe);
+  return { geometry: buildPlantGeometry(p.s, seed, prog, ripe), slots: [] };
 }
 
-// ─── Well ───
-let wellWater = null;
-function buildWell() {
-  const g = new THREE.Group();
-  const b = new VoxelBatch(4);
-  // Stone ring (hollow) built from blocks
-  for (let i = 0; i < 4; i++) {
-    const a = i * Math.PI / 2;
-    b.box(1.8, 0.9, 0.35, i % 2 ? 0x9E9E9E : 0xA8A8A8, Math.sin(a) * 0.72, 0.45, Math.cos(a) * 0.72, 0, a, 0);
+function refreshPlantView(p) {
+  const seed = getSeedData(p.s);
+  if (!seed) return;
+  let v = plantViews.get(p.id);
+  if (!v) {
+    v = { group: new THREE.Group(), mesh: null, key: '', slots: [], icon: null, iconOn: false, pop: 0, height: 1 };
+    v.icon = new THREE.Sprite(Tex.emojiMaterial(seed.emoji, true));
+    v.icon.scale.set(0.6, 0.6, 1);
+    v.icon.visible = false;
+    v.group.add(v.icon);
+    scene.add(v.group);
+    plantViews.set(p.id, v);
   }
-  b.box(1.9, 0.12, 0.4, 0xBDBDBD, 0, 0.94, 0.75); b.box(1.9, 0.12, 0.4, 0xBDBDBD, 0, 0.94, -0.75);
-  b.box(0.4, 0.12, 1.9, 0xBDBDBD, 0.75, 0.94, 0); b.box(0.4, 0.12, 1.9, 0xBDBDBD, -0.75, 0.94, 0);
-  b.box(0.15, 2.0, 0.15, 0x6D4C41, -0.85, 1.8, 0); b.box(0.15, 2.0, 0.15, 0x6D4C41, 0.85, 1.8, 0);
-  b.box(1.9, 0.1, 0.1, 0x5D4037, 0, 2.3, 0);
-  b.box(2.3, 0.12, 0.9, 0xA1887F, 0, 2.95, 0.35, -0.45, 0, 0);
-  b.box(2.3, 0.12, 0.9, 0x8D6E63, 0, 2.95, -0.35, 0.45, 0, 0);
-  b.box(0.04, 0.6, 0.04, 0xBCAAA4, 0, 1.95, 0);
-  b.box(0.32, 0.3, 0.32, 0x795548, 0, 1.55, 0);
-  b.box(0.36, 0.05, 0.36, 0x4E342E, 0, 1.7, 0);
-  g.add(voxelMesh(b));
-  wellWater = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.05, 1.1), MATS.water);
-  wellWater.position.y = 0.75;
-  g.add(wellWater);
-  g.position.set(WELL_POS.x, 0, WELL_POS.z);
-  scene.add(g);
-  addCollider(WELL_POS.x, WELL_POS.z, 1.2);
-  const label = textSprite('💧 Well', '#B3E5FC');
-  label.position.set(WELL_POS.x, 3.7, WELL_POS.z);
-  scene.add(label);
+  v.group.position.set(p.x, seed.roblox ? DIRT_Y : DIRT_Y - 0.32 * CLASSIC_SCALE, p.z);
+  const prog = plantProgress(p);
+  const grown = prog >= 1;
+  const top = seed.multi ? null : topMutation(p.m);
+  const stage = grown ? 'G' : Math.floor(prog * 6);
+  const key = stage + '|' + (top || '');
+  if (key !== v.key) {
+    if (v.mesh) { v.group.remove(v.mesh); v.mesh.geometry.dispose(); }
+    const built = makePlantGeometry(p, seed, prog, grown);
+    v.mesh = new THREE.Mesh(built.geometry, top ? MATS.mut[top] : MATS.plant);
+    v.mesh.castShadow = true;
+    v.mesh.receiveShadow = true;
+    v.mesh.rotation.y = p.r || 0;
+    v.slots = built.slots;
+    built.geometry.computeBoundingBox();
+    v.height = built.geometry.boundingBox.max.y;
+    v.group.add(v.mesh);
+    if (v.key) v.pop = 1;
+    v.key = key;
+  }
+  let s = 1;
+  if (!seed.roblox) s = CLASSIC_SCALE;
+  else if (!SELF_SCALING.includes(p.s)) s = 0.35 + 0.65 * prog;
+  if (!seed.multi && grown && p.kg) s *= sizeFactor(seed, p.kg);
+  v.baseScale = s;
+  if (!v.pop) v.mesh.scale.setScalar(s);
+  const ripe = ripeFruitCount(p) > 0;
+  v.iconOn = ripe;
+  v.icon.position.y = v.height * s + 0.7;
 }
 
-// ─── Buddy the dog ───
-let dog = null;
-const dogPos = new THREE.Vector3(3, 0, 12);
-const dogTarget = new THREE.Vector3(3, 0, 12);
-let dogWalk = 0, dogWanderTimer = 3, dogBarkTimer = 70, dogHop = 0;
-let dogTreasureTimer = 100, dogDigging = 0;
-function buildDog() {
-  dog = new THREE.Group();
-  const body = 0xCD853F, dark = 0x8B5A2B, belly = 0xF5DEB3;
-  const m = c => new THREE.MeshLambertMaterial({ color: c });
-  const add = (w, h, d, c, x, y, z, parent) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m(c));
-    mesh.position.set(x, y, z); mesh.castShadow = true; (parent || dog).add(mesh); return mesh;
-  };
-  const torso = new THREE.Group(); dog.add(torso);
-  add(0.6, 0.35, 0.32, body, 0, 0.38, 0, torso);
-  add(0.5, 0.1, 0.26, belly, 0, 0.22, 0, torso);
-  const head = new THREE.Group(); head.position.set(0.36, 0.55, 0); torso.add(head);
-  add(0.28, 0.28, 0.28, body, 0, 0, 0, head);
-  add(0.14, 0.11, 0.16, belly, 0.13, -0.05, 0, head);
-  add(0.06, 0.06, 0.07, 0x222222, 0.21, -0.02, 0, head);
-  add(0.04, 0.06, 0.05, 0x222222, 0.12, 0.06, 0.09, head);
-  add(0.04, 0.06, 0.05, 0x222222, 0.12, 0.06, -0.09, head);
-  add(0.02, 0.04, 0.06, 0xFF8A80, 0.2, -0.1, 0, head); // tongue
-  const earL = add(0.08, 0.17, 0.07, dark, -0.04, 0.05, 0.16, head); earL.rotation.x = 0.3;
-  const earR = add(0.08, 0.17, 0.07, dark, -0.04, 0.05, -0.16, head); earR.rotation.x = -0.3;
-  add(0.04, 0.06, 0.34, 0xE53935, -0.12, -0.14, 0, head); // red collar
-  const legs = [[0.2, 0.12], [0.2, -0.12], [-0.2, 0.12], [-0.2, -0.12]].map(([x, z]) => {
-    const p = new THREE.Group(); p.position.set(x, 0.22, z); dog.add(p);
-    add(0.09, 0.22, 0.09, body, 0, -0.11, 0, p); return p;
-  });
-  const tail = new THREE.Group(); tail.position.set(-0.3, 0.5, 0); torso.add(tail);
-  add(0.06, 0.22, 0.06, body, 0, 0.1, 0, tail); tail.rotation.z = 0.6;
-  dog.userData = { torso, head, legs, tail, earL, earR };
-  dog.scale.setScalar(1.3);
-  dog.position.copy(dogPos);
-  scene.add(dog);
-  const label = textSprite('🐕 Buddy');
-  label.position.set(0, 1.15, 0);
-  label.scale.multiplyScalar(0.55);
-  dog.add(label);
+function removePlantView(id) {
+  const v = plantViews.get(id);
+  if (!v) return;
+  scene.remove(v.group);
+  if (v.mesh) v.mesh.geometry.dispose();
+  plantViews.delete(id);
 }
 
-function updateDog(dt, time) {
-  if (!dog) return;
-  const u = dog.userData;
-  dogBarkTimer -= dt;
-  if (dogBarkTimer <= 0) {
-    dogBarkTimer = 50 + Math.random() * 70;
-    if (Math.hypot(playerPos.x - dogPos.x, playerPos.z - dogPos.z) < 14) {
-      Sfx.play('bark');
-      floatText(dogPos.x, 1.6, dogPos.z, 'Woof!', '#FFE082');
+function refreshAllPlants() {
+  const alive = new Set();
+  gameState.plants.forEach(p => { alive.add(p.id); if (!carrying || carrying.id !== p.id) refreshPlantView(p); });
+  [...plantViews.keys()].forEach(id => { if (!alive.has(id) || (carrying && carrying.id === id)) removePlantView(id); });
+}
+
+// Every fruit is one instance: size from its weight, color from its mutations
+function fruitColorFor(seed, f, ripeK) {
+  const top = topMutation(f.m);
+  if (top === 'rainbow') return fColor.setHSL((rainbowHue + f.kg * 0.37) % 1, 0.9, 0.6);
+  fColor.set(seed.fruitColor || seed.color);
+  if (ripeK < 1) fColor.lerp(tmpColor.set(0x8BC34A), (1 - ripeK) * 0.8);
+  if (top) fColor.lerp(tmpColor.set(MUTATIONS[top].tint), top === 'gold' ? 0.85 : 0.55);
+  return fColor;
+}
+
+function updateFruitInstances(time) {
+  rainbowHue = (time * 0.2) % 1;
+  let n = 0, g = 0;
+  for (const p of gameState.plants) {
+    if (!p.fruits || p.age < p.grow) continue;
+    const v = plantViews.get(p.id);
+    if (!v || !v.slots.length) continue;
+    const seed = getSeedData(p.s);
+    const shape = FRUIT_SHAPES[p.s] || [0.25, 0.25, 0.25];
+    const cr = Math.cos(p.r || 0), sr = Math.sin(p.r || 0);
+    for (let i = 0; i < p.fruits.length; i++) {
+      const f = p.fruits[i];
+      const slot = v.slots[i];
+      if (!f || !slot) continue;
+      const ripeK = Math.min(1, f.age / seed.fruitTime);
+      const sz = sizeFactor(seed, f.kg) * (0.25 + 0.75 * ripeK);
+      const lx = slot[0] * cr + slot[2] * sr, lz = -slot[0] * sr + slot[2] * cr;
+      fDummy.position.set(p.x + lx, DIRT_Y + slot[1] * (v.pop ? v.mesh.scale.y : 1), p.z + lz);
+      fDummy.rotation.set(0, (p.r || 0) + i, ripeK >= 1 ? Math.sin(time * 2 + i) * 0.06 : 0);
+      fDummy.scale.set(shape[0] * sz, shape[1] * sz, shape[2] * sz);
+      fDummy.updateMatrix();
+      const top = topMutation(f.m);
+      const glow = top && MUTATIONS[top].glow;
+      const mesh = glow ? fruitGlowMesh : fruitMesh;
+      const idx = glow ? g++ : n++;
+      if (idx >= FRUIT_CAP) continue;
+      mesh.setMatrixAt(idx, fDummy.matrix);
+      mesh.setColorAt(idx, fruitColorFor(seed, f, ripeK));
     }
   }
-  const dx = playerPos.x - dogPos.x, dz = playerPos.z - dogPos.z;
-  const distP = Math.hypot(dx, dz);
+  fruitMesh.count = Math.min(n, FRUIT_CAP);
+  fruitGlowMesh.count = Math.min(g, FRUIT_CAP);
+  [fruitMesh, fruitGlowMesh].forEach(m => { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; });
+}
 
-  // Treasure hunting: every couple of minutes Buddy digs something up
-  dogTreasureTimer -= dt;
-  if (dogDigging > 0) {
-    dogDigging -= dt;
-    u.torso.rotation.z = -0.35;
-    u.head.rotation.z = Math.sin(time * 25) * 0.15;
-    u.legs[0].rotation.z = Math.sin(time * 30) * 0.8;
-    u.legs[1].rotation.z = -Math.sin(time * 30) * 0.8;
-    if (Math.random() < 0.4) spawnParticles(dogPos.x + 0.4, 0.2, dogPos.z, 0x8D6E63, 1, 2, 0.12);
-    if (dogDigging <= 0) dogFindTreasure();
-    dog.position.copy(dogPos);
-    return;
-  }
-  if (dogTreasureTimer <= 0 && distP < 9 && started) {
-    dogTreasureTimer = 120 + Math.random() * 120;
-    dogDigging = 2.2;
-    return;
-  }
-
-  if (distP > 7) {
-    dogTarget.set(playerPos.x - dx / distP * 1.8, 0, playerPos.z - dz / distP * 1.8);
-  } else {
-    dogWanderTimer -= dt;
-    if (dogWanderTimer <= 0) {
-      dogWanderTimer = 3 + Math.random() * 5;
-      dogTarget.set(playerPos.x + (Math.random() - 0.5) * 7, 0, playerPos.z + (Math.random() - 0.5) * 7);
+function animatePlants(time, dt) {
+  MATS.mut.rainbow.color.setHSL(rainbowHue, 0.85, 0.65);
+  MATS.mut.rainbow.emissive.setHSL(rainbowHue, 0.9, 0.15);
+  let i = 0;
+  for (const p of gameState.plants) {
+    const v = plantViews.get(p.id);
+    if (!v || !v.mesh) continue;
+    i++;
+    if (v.pop > 0) {
+      v.pop = Math.max(0, v.pop - dt * 3);
+      const k = Math.sin(v.pop * Math.PI);
+      v.mesh.scale.set(v.baseScale * (1 + k * 0.15), v.baseScale * (1 + k * 0.25), v.baseScale * (1 + k * 0.15));
+    } else {
+      v.mesh.rotation.z = Math.sin(time * 1.2 + i) * 0.02;
     }
+    v.icon.visible = v.iconOn && Math.hypot(p.x - playerPos.x, p.z - playerPos.z) < 22;
+    if (v.icon.visible) v.icon.position.y = v.height * v.baseScale + 0.7 + Math.sin(time * 3 + i) * 0.08;
+    if (v.iconOn && Math.random() < dt * 1.5) spawnParticles(p.x + (Math.random() - 0.5), DIRT_Y + 0.3 + Math.random() * v.height * v.baseScale, p.z + (Math.random() - 0.5), 0xFFF59D, 1, 0.5, 0.06, { up: 0.6, grav: 0, life: 0.9 });
   }
-  const tx = dogTarget.x - dogPos.x, tz = dogTarget.z - dogPos.z;
-  const td = Math.hypot(tx, tz);
-  const moving = td > 0.35;
-  if (moving) {
-    const speed = distP > 7 ? 7.5 : 2.6;
-    const step = Math.min(td, speed * dt);
-    dogPos.x += tx / td * step;
-    dogPos.z += tz / td * step;
-    const targetRot = Math.atan2(tx, tz) - Math.PI / 2;
-    let diff = targetRot - dog.rotation.y;
-    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    dog.rotation.y += diff * Math.min(1, dt * 8);
-    dogWalk += dt * (speed > 3 ? 18 : 11);
-    const s = Math.sin(dogWalk) * 0.5;
-    u.legs[0].rotation.z = s; u.legs[3].rotation.z = s;
-    u.legs[1].rotation.z = -s; u.legs[2].rotation.z = -s;
-    u.torso.rotation.z = lerp(u.torso.rotation.z, 0, 0.2);
-    u.torso.position.y = Math.abs(Math.sin(dogWalk)) * 0.04;
+}
+
+// ─── Sprinklers, lightning rods and eggs placed in the garden ───
+function placedMesh(item) {
+  const b = new VoxelBatch(8);
+  if (item.gear === 'lightning_rod') {
+    b.box(0.5, 0.15, 0.5, 0x616161, 0, 0.07, 0);
+    b.box(0.1, 3.2, 0.1, 0x9E9E9E, 0, 1.6, 0);
+    b.box(0.2, 0.3, 0.2, 0xD4884A, 0, 3.3, 0);
+    b.box(0.06, 0.4, 0.06, 0xFFD54F, 0, 3.6, 0);
   } else {
-    // Sit and wag (faster when you're close)
-    u.legs.forEach(l => { l.rotation.z = lerp(l.rotation.z, 0, 0.2); });
-    u.torso.rotation.z = lerp(u.torso.rotation.z, 0.25, 0.1);
-    u.torso.position.y = lerp(u.torso.position.y, -0.05, 0.1);
-    // Turn to look at the player
-    const look = Math.atan2(dx, dz) - Math.PI / 2;
-    let diff = look - dog.rotation.y;
-    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    dog.rotation.y += diff * Math.min(1, dt * 3);
+    const c = { basic_sprinkler: 0x90A4AE, advanced_sprinkler: 0x4FC3F7, godly_sprinkler: 0xFFD54F, master_sprinkler: 0xAB47BC }[item.gear] || 0x90A4AE;
+    const big = item.gear === 'master_sprinkler' ? 1.3 : 1;
+    b.box(0.4 * big, 0.2, 0.4 * big, 0x546E7A, 0, 0.1, 0);
+    b.box(0.12, 0.7 * big, 0.12, c, 0, 0.45 * big, 0);
+    b.box(0.6 * big, 0.08, 0.12, c, 0, 0.82 * big, 0);
+    b.box(0.12, 0.08, 0.6 * big, c, 0, 0.82 * big, 0);
+    if (item.gear !== 'basic_sprinkler') b.box(0.2, 0.2, 0.2, 0xFFFFFF, 0, 0.95 * big, 0);
   }
-  u.tail.rotation.x = Math.sin(time * (distP < 3 ? 18 : 7)) * 0.6;
-  u.head.rotation.z = Math.sin(time * 1.7) * 0.08;
-  u.head.rotation.x = 0;
-
-  if (dogHop > 0) dogHop = Math.max(0, dogHop - dt * 2.5);
-  for (const c of colliders) pushOut(dogPos, c, 0.4);
-  const bound = WORLD_SIZE / 2 - 1.5;
-  dogPos.x = clamp(dogPos.x, -bound, bound);
-  dogPos.z = clamp(dogPos.z, -bound, bound);
-  dog.position.set(dogPos.x, Math.sin(dogHop * Math.PI) * 0.6, dogPos.z);
+  return new THREE.Mesh(b.build(), MATS.voxel);
 }
 
-function dogFindTreasure() {
-  const roll = Math.random();
-  let msg, icon;
-  if (roll < 0.12 && gameState.level >= 2) {
-    gameState.potions++;
-    msg = 'Buddy dug up a 🧪 Grow Potion!'; icon = '🧪';
-  } else if (roll < 0.55) {
-    const seeds = unlockedSeedIds();
-    const id = seeds[Math.floor(Math.random() * Math.min(seeds.length, 8))];
-    const n = 1 + Math.floor(Math.random() * 2);
-    gameState.inventory[id] = (gameState.inventory[id] || 0) + n;
-    const s = getSeedData(id);
-    msg = `Buddy found ${n} ${s.emoji} ${s.name} seed${n > 1 ? 's' : ''}!`; icon = s.emoji;
-  } else {
-    const c = 10 + Math.floor(Math.random() * 15) + gameState.level * 3;
-    addCoins(c);
-    msg = `Buddy found 🪙 ${c} coins!`; icon = '🪙';
-  }
-  gameState.buddyFinds = (gameState.buddyFinds || 0) + 1;
-  if (gameState.buddyFinds >= 5) checkAchievement('best_friends');
-  dogHop = 1;
-  Sfx.play('bark');
-  setTimeout(() => Sfx.play('sparkle'), 250);
-  spawnParticles(dogPos.x, 0.5, dogPos.z, 0xFFD54F, 14, 4, 0.12);
-  floatText(dogPos.x, 1.8, dogPos.z, icon, '#fff');
-  showToast('🐕', msg);
-  updateHUD(); updateHotbar(); saveGame();
-}
-
-function petDog() {
-  dogHop = 1;
-  Sfx.play('bark');
-  spawnParticles(dogPos.x, 1.0, dogPos.z, 0xFF5C8A, 10, 3, 0.12);
-  floatText(dogPos.x, 1.9, dogPos.z, '❤️', '#FF8A80');
-  showToast('❤️', 'Buddy loves you!');
-  checkAchievement('dog_lover');
-  taskEvent('pet', 1);
-}
-
-// ─── Ducks in the pond ───
-const ducks = [];
-function buildDucks() {
-  for (let i = 0; i < 3; i++) {
-    const g = new THREE.Group();
-    const b = new VoxelBatch(8);
-    const white = i === 2 ? 0xFFEB3B : 0xFAFAFA;
-    b.box(0.5, 0.28, 0.32, white, 0, 0.14, 0);
-    b.box(0.22, 0.24, 0.22, white, 0.24, 0.36, 0);
-    b.box(0.14, 0.06, 0.12, 0xFF9800, 0.4, 0.33, 0);
-    b.box(0.04, 0.05, 0.04, 0x222222, 0.3, 0.42, 0.11);
-    b.box(0.04, 0.05, 0.04, 0x222222, 0.3, 0.42, -0.11);
-    b.box(0.12, 0.12, 0.2, white, -0.27, 0.24, 0);
-    g.add(voxelMesh(b));
-    g.userData = { phase: i * 2.1, r: 1.6 + i * 0.9, speed: 0.25 + i * 0.07 };
-    if (i === 2) g.scale.setScalar(0.6);
-    scene.add(g);
-    ducks.push(g);
-  }
-}
-function updateDucks(time) {
-  ducks.forEach(d => {
-    const u = d.userData;
-    const a = time * u.speed + u.phase;
-    d.position.set(POND_POS.x + Math.cos(a) * u.r * 1.2, 0.08 + Math.sin(time * 3 + u.phase) * 0.02, POND_POS.z + Math.sin(a) * u.r * 0.9);
-    d.rotation.y = -a - Math.PI;
+function refreshPlaced() {
+  const alive = new Set();
+  gameState.placed.forEach(it => {
+    alive.add(it.id);
+    if (!placedViews.has(it.id)) {
+      const m = placedMesh(it);
+      m.castShadow = true;
+      m.position.set(it.x, DIRT_Y, it.z);
+      scene.add(m);
+      placedViews.set(it.id, { mesh: m, kind: 'gear' });
+    }
+  });
+  gameState.placedEggs.forEach(e => {
+    alive.add(e.id);
+    if (!placedViews.has(e.id)) {
+      const m = eggMesh(e.egg, 0.9);
+      m.position.set(e.x, DIRT_Y, e.z);
+      scene.add(m);
+      placedViews.set(e.id, { mesh: m, kind: 'egg' });
+    }
+  });
+  [...placedViews.keys()].forEach(id => {
+    if (!alive.has(id)) { const v = placedViews.get(id); scene.remove(v.mesh); v.mesh.geometry.dispose(); placedViews.delete(id); }
   });
 }
 
+function animatePlaced(time, dt) {
+  gameState.placed.forEach(it => {
+    const v = placedViews.get(it.id);
+    if (!v) return;
+    if (it.gear !== 'lightning_rod') {
+      v.mesh.rotation.y = time * 3;
+      const def = GEAR[it.gear];
+      if (Math.random() < dt * 30) {
+        const a = Math.random() * Math.PI * 2, sp = def.radius * 0.9;
+        spawnParticles(it.x, 0.9, it.z, [0x81D4FA, 0xB3E5FC], 1, 0, 0.07, { up: 3.5, life: 0.95, grav: 7 });
+        const p = particles[particleCursor];
+        p.vx = Math.cos(a) * sp; p.vz = Math.sin(a) * sp;
+      }
+    }
+  });
+  gameState.placedEggs.forEach(e => {
+    const v = placedViews.get(e.id);
+    if (!v) return;
+    const ready = e.left <= 0;
+    v.mesh.rotation.z = ready ? Math.sin(time * 12) * 0.15 : Math.sin(time * 2) * 0.03;
+    if (ready && Math.random() < dt * 4) spawnParticles(e.x, 0.8, e.z, 0xFFF59D, 1, 1, 0.07, { up: 1, grav: 0 });
+  });
+}
+
+// ─── Neighbor gardens: the other gardeners on this device ───
+const neighborMeshes = [];
+const gardenSigns = [];
+function buildGardenSigns(names) {
+  gardenSigns.forEach(s => scene.remove(s));
+  gardenSigns.length = 0;
+  GARDENS.forEach((g, i) => {
+    const z = g.z - g.dir * (GARDEN_D / 2 - 0.2);
+    const sign = new THREE.Group();
+    const b = new VoxelBatch(4);
+    b.box(0.15, 1.6, 0.15, 0x6D4C41, -2.6, 0.8, 0); b.box(0.15, 1.6, 0.15, 0x6D4C41, 2.6, 0.8, 0);
+    b.box(5.6, 1.0, 0.12, i === 0 ? 0xFFF59D : 0xFFF8E1, 0, 1.75, 0);
+    sign.add(voxelMesh(b));
+    const t = textSprite(names[i] ? `${names[i]}'s Garden` : 'Empty Garden', i === 0 ? '#2E7D32' : '#5D4037', true);
+    t.position.set(0, 1.75, g.dir < 0 ? 0.1 : -0.1);
+    t.scale.multiplyScalar(1.25);
+    sign.add(t);
+    sign.position.set(g.x + 6, 0, z);
+    scene.add(sign);
+    gardenSigns.push(sign);
+  });
+}
+
+function buildNeighborGardens() {
+  neighborMeshes.forEach(m => { scene.remove(m); m.geometry.dispose(); });
+  neighborMeshes.length = 0;
+  const names = [];
+  const me = getProfiles().find(p => p.id === activeProfileId);
+  names[0] = me ? me.name : 'My';
+  const others = getProfiles().filter(p => p.id !== activeProfileId).slice(0, GARDENS.length - 1);
+  others.forEach((prof, k) => {
+    const gi = k + 1;
+    names[gi] = prof.name;
+    const save = readSave(prof.id);
+    if (!save) return;
+    const plants = migrateSaveToV3(JSON.parse(JSON.stringify(save))).plants;
+    const g = GARDENS[gi];
+    const parts = [];
+    const fruitBatch = new VoxelBatch(6);
+    plants.slice(0, 120).forEach(p => {
+      const seed = getSeedData(p.s);
+      if (!seed) return;
+      const prog = plantProgress(p);
+      const built = makePlantGeometry(p, seed, prog, prog >= 1);
+      // place in the neighbor's garden (gardens are mirrored for the north row)
+      const lx = p.x - MY_GARDEN.x, lz = (p.z - MY_GARDEN.z) * (g.dir === MY_GARDEN.dir ? 1 : -1);
+      const m4 = new THREE.Matrix4();
+      let s = seed.roblox ? (SELF_SCALING.includes(p.s) ? 1 : 0.35 + 0.65 * prog) : CLASSIC_SCALE;
+      m4.compose(new THREE.Vector3(g.x + lx, seed.roblox ? DIRT_Y : DIRT_Y - 0.32 * CLASSIC_SCALE, g.z + lz),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(0, p.r || 0, 0)), new THREE.Vector3(s, s, s));
+      parts.push({ geometry: built.geometry, matrix: m4 });
+      if (seed.multi && prog >= 1) {
+        const shape = FRUIT_SHAPES[p.s] || [0.25, 0.25, 0.25];
+        const cr = Math.cos(p.r || 0), sr = Math.sin(p.r || 0);
+        (p.fruits || []).forEach((f, i) => {
+          const slot = built.slots[i];
+          if (!f || !slot) return;
+          const sz = sizeFactor(seed, f.kg) * Math.min(1, 0.25 + 0.75 * f.age / seed.fruitTime);
+          const lx2 = slot[0] * cr + slot[2] * sr, lz2 = -slot[0] * sr + slot[2] * cr;
+          const top = topMutation(f.m);
+          const c = top && top !== 'rainbow' ? lerpColor(seed.fruitColor, MUTATIONS[top].tint, 0.6) : (top === 'rainbow' ? 0xFF80AB : seed.fruitColor);
+          fruitBatch.box(shape[0] * sz, shape[1] * sz, shape[2] * sz, c, g.x + lx + lx2, DIRT_Y + slot[1], g.z + lz + lz2);
+        });
+      }
+    });
+    if (!fruitBatch.isEmpty()) parts.push({ geometry: fruitBatch.build(), matrix: new THREE.Matrix4() });
+    if (!parts.length) return;
+    const merged = VoxelBatch.merge(parts);
+    parts.forEach(pt => pt.geometry.dispose());
+    const mesh = new THREE.Mesh(merged, MATS.plant);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    neighborMeshes.push(mesh);
+  });
+  buildGardenSigns(names);
+}
 // ─── Butterflies (day) & fireflies (night) ───
 const butterflies = [];
 let fireflies = null;
@@ -898,7 +1014,7 @@ function buildCritters() {
     const wr = new THREE.Mesh(wingGeo, m); wr.position.x = 0.08;
     g.add(wl, wr);
     const a = Math.random() * Math.PI * 2;
-    g.userData = { wl, wr, cx: Math.cos(a) * (4 + Math.random() * 6), cz: Math.sin(a) * (4 + Math.random() * 6), phase: Math.random() * 6, speed: 0.4 + Math.random() * 0.4 };
+    g.userData = { wl, wr, cx: MY_GARDEN.x + Math.cos(a) * (4 + Math.random() * 7), cz: MY_GARDEN.z + Math.sin(a) * (3 + Math.random() * 6), phase: Math.random() * 6, speed: 0.4 + Math.random() * 0.4 };
     scene.add(g);
     butterflies.push(g);
   }
@@ -922,7 +1038,7 @@ function buildCritters() {
 function updateCritters(time) {
   const day = 1 - nightFactor;
   butterflies.forEach(b => {
-    b.visible = day > 0.4 && currentWeather !== 'rainy';
+    b.visible = day > 0.4 && !weather;
     if (!b.visible) return;
     const u = b.userData;
     const t = time * u.speed + u.phase;
@@ -960,7 +1076,7 @@ function buildRain() {
   scene.add(rain);
 }
 function updateRain(dt) {
-  rain.visible = currentWeather === 'rainy';
+  rain.visible = !!weather && (weather.id === 'rain' || weather.id === 'thunderstorm');
   if (!rain.visible) return;
   rain.position.set(playerPos.x, 0, playerPos.z);
   const a = rain.geometry.attributes.position.array;
@@ -1036,529 +1152,792 @@ function updateParticles(dt) {
   if (any) particleMesh.instanceMatrix.needsUpdate = true;
 }
 
-// ─── Garden plots (3D) ───
-let frameMesh = null, lockMesh = null, highlight = null, guideArrow = null, sprinklerModel = null;
-let SOIL_GEO = null, GLOW_GEO = null;
-
-function buildGardenPlots() {
-  plotViews.forEach(v => scene.remove(v.group));
-  plotViews.length = 0;
-  if (!SOIL_GEO) {
-    SOIL_GEO = new VoxelBatch(1.5).box(PLOT_SIZE - 0.2, 0.3, PLOT_SIZE - 0.2, 0xffffff, 0, 0.15, 0).build();
-    // "Ready!" border in the crop's rarity color
-    const gb = new VoxelBatch(1), gs = PLOT_SIZE - 0.2, gt = 0.16;
-    gb.box(gs, 0.05, gt, 0xffffff, 0, 0, -gs / 2 + gt / 2); gb.box(gs, 0.05, gt, 0xffffff, 0, 0, gs / 2 - gt / 2);
-    gb.box(gt, 0.05, gs - gt * 2, 0xffffff, -gs / 2 + gt / 2, 0, 0); gb.box(gt, 0.05, gs - gt * 2, 0xffffff, gs / 2 - gt / 2, 0, 0);
-    GLOW_GEO = gb.build();
-  }
-  for (let i = 0; i < TOTAL_PLOTS; i++) {
-    const p = getPlotWorldPos(i);
-    const group = new THREE.Group();
-    group.position.set(p.x, 0, p.z);
-    const soil = new THREE.Mesh(SOIL_GEO, MATS.soil);
-    soil.receiveShadow = true;
-    group.add(soil);
-    const glow = new THREE.Mesh(GLOW_GEO, MATS.glow.common);
-    glow.position.y = 0.33;
-    glow.visible = false;
-    group.add(glow);
-    const icon = new THREE.Sprite(Tex.emojiMaterial('💧', true));
-    icon.scale.set(0.7, 0.7, 1);
-    icon.visible = false;
-    group.add(icon);
-    scene.add(group);
-    plotViews.push({ group, soil, glow, icon, plant: null, key: '', pop: 0, iconEmoji: '' });
-  }
-  rebuildPlotFrames();
-  refreshAllPlots();
-}
-
-// Wooden borders around unlocked plots + "for sale" signs on locked ones (two draw calls total)
-function rebuildPlotFrames() {
-  if (frameMesh) { scene.remove(frameMesh); frameMesh.geometry.dispose(); }
-  if (lockMesh) { scene.remove(lockMesh); lockMesh.geometry.dispose(); }
-  const fb = new VoxelBatch(4), lb = new VoxelBatch(4);
-  const e = PLOT_SIZE / 2;
-  for (let i = 0; i < TOTAL_PLOTS; i++) {
-    const p = getPlotWorldPos(i);
-    if (isPlotUnlocked(i)) {
-      fb.box(PLOT_SIZE + 0.1, 0.38, 0.14, 0x8D6E63, p.x, 0.19, p.z - e);
-      fb.box(PLOT_SIZE + 0.1, 0.38, 0.14, 0x8D6E63, p.x, 0.19, p.z + e);
-      fb.box(0.14, 0.38, PLOT_SIZE - 0.1, 0x795548, p.x - e, 0.19, p.z);
-      fb.box(0.14, 0.38, PLOT_SIZE - 0.1, 0x795548, p.x + e, 0.19, p.z);
-    } else {
-      lb.box(PLOT_SIZE - 0.1, 0.06, PLOT_SIZE - 0.1, 0x7CB342, p.x, 0.03, p.z);
-      lb.box(0.1, 0.6, 0.1, 0x6D4C41, p.x, 0.3, p.z);
-      lb.box(0.55, 0.36, 0.07, 0xFFE082, p.x, 0.62, p.z + 0.06);
-      lb.box(0.2, 0.16, 0.09, 0x8D6E63, p.x, 0.62, p.z + 0.07);
-      // little stakes at the corners
-      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => lb.box(0.08, 0.35, 0.08, 0xBCAAA4, p.x + sx * (e - 0.1), 0.17, p.z + sz * (e - 0.1)));
-    }
-  }
-  frameMesh = voxelMesh(fb);
-  scene.add(frameMesh);
-  if (!lb.isEmpty()) { lockMesh = voxelMesh(lb); scene.add(lockMesh); } else lockMesh = null;
-  plotViews.forEach((v, i) => { v.soil.visible = isPlotUnlocked(i); });
-}
-
-function buildHighlight() {
-  const b = new VoxelBatch(1);
-  const s = PLOT_SIZE + 0.3, t = 0.12;
-  b.box(s, 0.05, t, 0xffffff, 0, 0, -s / 2); b.box(s, 0.05, t, 0xffffff, 0, 0, s / 2);
-  b.box(t, 0.05, s, 0xffffff, -s / 2, 0, 0); b.box(t, 0.05, s, 0xffffff, s / 2, 0, 0);
-  highlight = new THREE.Mesh(b.build(), MATS.highlight);
-  highlight.visible = false;
-  scene.add(highlight);
-
-  // Big bouncing pointing hand — easy to understand even for kids who can't read yet
-  guideArrow = new THREE.Sprite(Tex.emojiMaterial('👇', false));
-  guideArrow.material.depthTest = false;
-  guideArrow.renderOrder = 10;
-  guideArrow.scale.set(1.6, 1.6, 1);
-  guideArrow.visible = false;
-  scene.add(guideArrow);
-}
-
-function buildSprinkler() {
-  if (sprinklerModel || !gameState.upgrades.sprinkler) return;
-  const b = new VoxelBatch(8);
-  b.box(0.35, 0.2, 0.35, 0x90A4AE, 0, 0.1, 0);
-  b.box(0.12, 0.7, 0.12, 0xB0BEC5, 0, 0.5, 0);
-  b.box(0.5, 0.08, 0.1, 0x546E7A, 0, 0.88, 0);
-  b.box(0.1, 0.08, 0.5, 0x546E7A, 0, 0.88, 0);
-  sprinklerModel = voxelMesh(b);
-  sprinklerModel.position.set(0, 0, 0);
-  scene.add(sprinklerModel);
-}
-
-function plotVisualKey(plot) {
-  const prog = plotProgress(plot);
-  const ready = prog >= 1;
-  return plot.seedId + '|' + (ready ? 'R' : Math.floor(prog * 10)) + '|' + (plot.mutation || '');
-}
-
-function refreshPlot(i) {
-  const v = plotViews[i];
-  if (!v) return;
-  const plot = gameState.plots[i];
-  const unlocked = isPlotUnlocked(i);
-  v.soil.visible = unlocked;
-  if (!plot || !unlocked) {
-    if (v.plant) { v.group.remove(v.plant); v.plant.geometry.dispose(); v.plant = null; }
-    v.key = '';
-    v.glow.visible = false;
-    v.icon.visible = false;
-    v.soil.material = MATS.soil;
-    return;
-  }
-  const seed = getSeedData(plot.seedId);
-  if (!seed) return;
-  const prog = plotProgress(plot);
-  const ready = prog >= 1;
-  const key = plotVisualKey(plot);
-  if (key !== v.key) {
-    if (v.plant) { v.group.remove(v.plant); v.plant.geometry.dispose(); }
-    const mat = plot.mutation === 'golden' ? MATS.golden : plot.mutation === 'rainbow' ? MATS.rainbow : MATS.plant;
-    v.plant = new THREE.Mesh(buildPlantGeometry(plot.seedId, seed, Math.min(prog, 1), ready), mat);
-    v.plant.castShadow = true;
-    v.plant.scale.setScalar(PLANT_SCALE);
-    v.plant.position.y = PLANT_Y;
-    v.group.add(v.plant);
-    if (v.key) v.pop = 1; // little "boing" when the plant grows a stage
-    v.key = key;
-  }
-  v.glow.visible = ready;
-  if (ready) v.glow.material = MATS.glow[seed.rarity || 'common'] || MATS.glow.common;
-  const water = plot.waterLevel;
-  v.soil.material = water <= 0 ? MATS.soilDry : water > 50 ? MATS.soilWet : MATS.soil;
-  // Floating icon: seed emoji when ready, water drop when thirsty
-  let emoji = '';
-  if (ready) emoji = seed.emoji;
-  else if (water <= 15 && !gameState.upgrades.sprinkler) emoji = '💧';
-  if (emoji !== v.iconEmoji) {
-    v.iconEmoji = emoji;
-    if (emoji) v.icon.material = Tex.emojiMaterial(emoji, true);
-  }
-  v.icon.visible = !!emoji;
-}
-
-function refreshAllPlots() { for (let i = 0; i < TOTAL_PLOTS; i++) refreshPlot(i); }
-
-function animatePlots(time, dt) {
-  const hue = (time * 0.15) % 1;
-  MATS.rainbow.color.setHSL(hue, 0.8, 0.6);
-  MATS.rainbow.emissive.setHSL(hue, 0.9, 0.12);
-  const glowPulse = 0.65 + Math.sin(time * 4) * 0.3;
-  Object.values(MATS.glow).forEach(m => { m.opacity = glowPulse; });
-  for (let i = 0; i < plotViews.length; i++) {
-    const v = plotViews[i];
-    const plot = gameState.plots[i];
-    if (!v.plant || !plot) continue;
-    const ready = v.key.includes('|R|');
-    if (v.pop > 0) {
-      v.pop = Math.max(0, v.pop - dt * 3);
-      const s = PLANT_SCALE * (1 + Math.sin(v.pop * Math.PI) * 0.18);
-      v.plant.scale.set(s, PLANT_SCALE * (1 + Math.sin(v.pop * Math.PI) * 0.25), s);
-    } else if (ready) {
-      v.plant.position.y = PLANT_Y + Math.abs(Math.sin(time * 2.5 + i)) * 0.06;
-      v.plant.rotation.y = Math.sin(time * 1.5 + i * 0.5) * 0.08;
-    } else {
-      v.plant.rotation.z = Math.sin(time * 1.2 + i) * 0.025; // gentle breeze
-    }
-    if (v.icon.visible) v.icon.position.y = 2.3 + Math.sin(time * 3 + i) * 0.12;
-    if (plot.mutation && Math.random() < dt * 3) {
-      const p = getPlotWorldPos(i);
-      spawnParticles(p.x + (Math.random() - 0.5) * 1.2, 0.5 + Math.random(), p.z + (Math.random() - 0.5) * 1.2,
-        plot.mutation === 'golden' ? 0xFFE082 : [0xFF8A80, 0xFFFF8D, 0x80D8FF, 0xB9F6CA][Math.floor(Math.random() * 4)], 1, 0.6, 0.07, { up: 0.6, grav: 0, life: 1.1 });
-    }
-  }
-}
 
 // ════════════════════════════════════════════
 //  GAMEPLAY
 // ════════════════════════════════════════════
 
-function plotProgress(plot) { return Math.min(1, (plot.grown || 0) / plot.growTime); }
-function isReady(plot) { return plot && plotProgress(plot) >= 1; }
-function canCapacity() { return gameState.upgrades.big_can ? BASE_CAN * 2 : BASE_CAN; }
-function growRate(plot) {
-  let r = plot.waterLevel <= 0 ? 0.3 : plot.waterLevel > 50 ? 1.5 : 1;
-  if (currentWeather === 'rainy') r *= 1.2;
+// ─── Value of a fruit (Roblox-style formula) ───
+function fruitValue(f) {
+  const seed = getSeedData(f.s);
+  if (!seed) return 0;
+  const w = Math.max(0.6, Math.pow(f.kg / seed.kg, 2));
+  let growth = 1, env = 0;
+  (f.m || []).forEach(k => {
+    const m = MUTATIONS[k];
+    if (!m) return;
+    if (m.growth) growth = Math.max(growth, m.mult);
+    else env += m.mult - 1;
+  });
+  return Math.max(1, Math.round(seed.sell * w * growth * (1 + env) * (1 + petPower('sell') / 100)));
+}
+function fruitLabel(f) {
+  const seed = getSeedData(f.s);
+  const muts = (f.m || []).map(k => MUTATIONS[k] ? MUTATIONS[k].emoji : '').join('');
+  return `${muts}${seed ? seed.emoji + ' ' + seed.name : f.s}`;
+}
+function rollWeight(seed, bonus) {
+  let kg = seed.kg * (0.8 + Math.random() * 0.5);
+  if (Math.random() < 0.025) kg *= 2 + Math.random() * 1.5; // huge!
+  return Math.round(kg * (1 + bonus) * 100) / 100;
+}
+function addMutation(m, mut) {
+  if (!m || m.includes(mut)) return false;
+  if (mut === 'gold' && m.includes('rainbow')) return false;
+  if (mut === 'rainbow') { const i = m.indexOf('gold'); if (i >= 0) m.splice(i, 1); }
+  if (m.includes('frozen') && (mut === 'wet' || mut === 'chilled')) return false;
+  if ((mut === 'chilled' && m.includes('wet')) || (mut === 'wet' && m.includes('chilled'))) {
+    ['wet', 'chilled'].forEach(k => { const i = m.indexOf(k); if (i >= 0) m.splice(i, 1); });
+    mut = 'frozen';
+    if (m.includes('frozen')) return false;
+  }
+  m.push(mut);
+  return true;
+}
+
+// ─── Sprinklers / pets / weather that boost a plant ───
+function sprinklersAt(x, z) {
+  let grow = 0, mut = 1, size = 0;
+  for (const it of gameState.placed) {
+    const def = GEAR[it.gear];
+    if (!def.grow) continue;
+    if (Math.hypot(it.x - x, it.z - z) <= def.radius) { grow += def.grow; mut = Math.max(mut, def.mut); size = Math.max(size, def.size); }
+  }
+  return { grow, mut, size };
+}
+function growthRate(p) {
+  let r = 1 + sprinklersAt(p.x, p.z).grow + petPower('grow') / 100;
+  if (weather && (weather.id === 'rain' || weather.id === 'thunderstorm')) r *= 1.5;
+  if (p.water > 0) r *= 1.5;
   return r;
 }
-function unlockedSeedIds() { return SEED_LIST.filter(id => SEEDS[id].level <= gameState.level); }
-function cropKey(seedId, mutation) { return mutation ? seedId + '|' + mutation : seedId; }
-function parseCrop(key) { const [seedId, mutation] = key.split('|'); return { seedId, mutation: mutation || null }; }
-function hotSeedId() {
-  const ids = SEED_LIST.filter(id => SEEDS[id].level <= Math.max(3, gameState.level));
-  return ids[Math.floor(Date.now() / 86400000) % ids.length];
-}
-function cropPrice(key) {
-  const { seedId, mutation } = parseCrop(key);
-  const seed = getSeedData(seedId);
-  if (!seed) return 0;
-  const r = (RARITY[seed.rarity] || RARITY.common).mult;
-  const m = mutation && MUTATIONS[mutation] ? MUTATIONS[mutation].mult : 1;
-  const hot = seedId === hotSeedId() ? 1.5 : 1;
-  return Math.max(1, Math.round(seed.sellPrice * r * m * hot));
-}
-function cropName(key) {
-  const { seedId, mutation } = parseCrop(key);
-  const s = getSeedData(seedId);
-  if (!s) return key;
-  return (mutation ? MUTATIONS[mutation].emoji + ' ' + MUTATIONS[mutation].name + ' ' : '') + s.name;
+function newFruit(seed, p) {
+  const spr = sprinklersAt(p.x, p.z);
+  const f = { age: 0, kg: rollWeight(seed, spr.size + petPower('size') / 100), m: [] };
+  const luck = spr.mut;
+  const r = Math.random();
+  if (r < 0.004 * luck) f.m.push('rainbow');
+  else if (r < 0.025 * luck) f.m.push('gold');
+  return f;
 }
 
 // ─── Growth tick ───
-let plotRefreshTimer = 0;
+let viewRefreshTimer = 0;
 function updateGarden(dt) {
-  const raining = currentWeather === 'rainy';
-  const sprinkler = !!gameState.upgrades.sprinkler;
-  for (let i = 0; i < TOTAL_PLOTS; i++) {
-    const plot = gameState.plots[i];
-    if (!plot) continue;
-    if (plotProgress(plot) < 1) {
-      plot.grown = (plot.grown || 0) + dt * growRate(plot);
-      if (sprinkler) plot.waterLevel = 100;
-      else plot.waterLevel = Math.max(0, plot.waterLevel - dt * 0.35);
-      if (raining) { plot.waterLevel = Math.min(100, plot.waterLevel + dt * 6); plot.wet = true; }
-      if (plotProgress(plot) >= 1) onPlantReady(i);
+  for (const p of gameState.plants) {
+    const seed = getSeedData(p.s);
+    if (!seed) continue;
+    const rate = growthRate(p);
+    if (p.water > 0) p.water = Math.max(0, p.water - dt);
+    const wasGrown = p.age >= p.grow;
+    if (!wasGrown) {
+      p.age = Math.min(p.grow, p.age + dt * rate);
+      if (p.age >= p.grow) onPlantGrown(p, seed);
+    } else if (seed.multi) {
+      if (!Array.isArray(p.fruits)) p.fruits = [];
+      while (p.fruits.length < seed.maxFruits) p.fruits.push(null);
+      for (let i = 0; i < p.fruits.length; i++) {
+        if (!p.fruits[i]) p.fruits[i] = newFruit(seed, p);
+        const f = p.fruits[i];
+        if (f.age < seed.fruitTime) {
+          f.age = Math.min(seed.fruitTime, f.age + dt * rate);
+          if (f.age >= seed.fruitTime && Math.random() < 0.3) sparkleAt(p.x, p.z, 1.2);
+        }
+      }
     }
   }
-  if (raining) gameState.waterCan = Math.min(canCapacity(), gameState.waterCan + dt * 2);
-  plotRefreshTimer -= dt;
-  if (plotRefreshTimer <= 0) { plotRefreshTimer = 0.5; refreshAllPlots(); }
+  for (const it of gameState.placed) if (it.left != null) it.left -= dt;
+  const before = gameState.placed.length;
+  gameState.placed = gameState.placed.filter(it => (it.left == null || it.left > 0) && (it.uses == null || it.uses > 0));
+  if (gameState.placed.length !== before) { refreshPlaced(); showToast('💦', 'A sprinkler ran out.'); }
+  const eggRate = 1 + petPower('eggs') / 100;
+  gameState.placedEggs.forEach(e => {
+    if (e.left > 0) { e.left -= dt * eggRate; if (e.left <= 0) { Sfx.play('pop'); floatText(e.x, 1.4, e.z, '🥚 Ready to hatch!', '#FFF59D'); } }
+  });
+  viewRefreshTimer -= dt;
+  if (viewRefreshTimer <= 0) { viewRefreshTimer = 0.4; refreshAllPlants(); }
 }
 
-function onPlantReady(i) {
-  const p = getPlotWorldPos(i);
-  const seed = getSeedData(gameState.plots[i].seedId);
-  refreshPlot(i);
-  spawnParticles(p.x, 1.0, p.z, [0xFFFFFF, 0xFFF59D, seed.color], 10, 2.5, 0.09);
-  if (Math.hypot(playerPos.x - p.x, playerPos.z - p.z) < 16) Sfx.play('pop');
+function onPlantGrown(p, seed) {
+  if (seed.multi) {
+    p.fruits = new Array(seed.maxFruits).fill(null).map(() => newFruit(seed, p));
+  } else {
+    const spr = sprinklersAt(p.x, p.z);
+    p.kg = rollWeight(seed, spr.size + petPower('size') / 100);
+    const r = Math.random();
+    if (r < 0.004 * spr.mut) addMutation(p.m, 'rainbow');
+    else if (r < 0.025 * spr.mut) addMutation(p.m, 'gold');
+  }
+  refreshPlantView(p);
+  sparkleAt(p.x, p.z, 1);
+  if (Math.hypot(playerPos.x - p.x, playerPos.z - p.z) < 18) Sfx.play('pop');
+}
+
+function sparkleAt(x, z, h) {
+  spawnParticles(x, DIRT_Y + h, z, [0xFFFFFF, 0xFFF59D, 0xB9F6CA], 8, 2, 0.08);
+}
+
+// ─── Every fruit that can receive a weather mutation ───
+function forEachFruit(fn) {
+  for (const p of gameState.plants) {
+    const seed = getSeedData(p.s);
+    if (!seed || p.age < p.grow * 0.5) continue;
+    if (seed.multi) { if (p.age >= p.grow) p.fruits.forEach(f => { if (f) fn(f.m, p, f); }); }
+    else fn(p.m, p, null);
+  }
+}
+function randomFruit(filter) {
+  const list = [];
+  forEachFruit((m, p, f) => { if (!filter || filter(m, p, f)) list.push({ m, p, f }); });
+  return list.length ? list[Math.floor(Math.random() * list.length)] : null;
+}
+function mutateSome(chancePerSec, mut, dt) {
+  const k = chancePerSec * dt;
+  forEachFruit((m, p) => {
+    if (Math.random() < k * sprinklersAt(p.x, p.z).mut && addMutation(m, mut)) {
+      if (Math.hypot(p.x - playerPos.x, p.z - playerPos.z) < 25) spawnParticles(p.x, DIRT_Y + 1, p.z, new THREE.Color(MUTATIONS[m[m.length - 1]].tint).getHex(), 6, 1.5, 0.07);
+    }
+  });
+}
+
+// ─── Weather events ───
+function startWeather(id) {
+  const def = WEATHER[id];
+  weather = { id, left: def.time[0] + Math.random() * (def.time[1] - def.time[0]), total: 0 };
+  weather.total = weather.left;
+  lightningTimer = 4; meteorTimer = 3;
+  Sfx.play(id === 'thunderstorm' ? 'thunder' : 'restock');
+  weatherBanner();
+}
+function updateWeather(dt) {
+  if (weather) {
+    weather.left -= dt;
+    const id = weather.id;
+    if (id === 'rain' || id === 'thunderstorm') mutateSome(1 / 110, 'wet', dt);
+    if (id === 'frost') mutateSome(1 / 110, 'chilled', dt);
+    if (id === 'blood_moon') mutateSome(1 / 140, 'bloodlit', dt);
+    if (id === 'thunderstorm') { lightningTimer -= dt; if (lightningTimer <= 0) { lightningTimer = 9 + Math.random() * 10; lightningStrike(); } }
+    if (id === 'meteor_shower') { meteorTimer -= dt; if (meteorTimer <= 0) { meteorTimer = 6 + Math.random() * 6; launchMeteor(); } }
+    if (weather.left <= 0) {
+      showToast(WEATHER[id].emoji, `The ${WEATHER[id].name} is over.`);
+      weather = null;
+      weatherTimer = 150 + Math.random() * 150;
+      weatherBanner();
+    }
+  } else {
+    weatherTimer -= dt;
+    if (weatherTimer <= 0) {
+      const night = nightFactor > 0.6;
+      const opts = Object.entries(WEATHER).filter(([, w]) => !w.night || night);
+      const total = opts.reduce((a, [, w]) => a + w.weight, 0);
+      let r = Math.random() * total;
+      for (const [id, w] of opts) { r -= w.weight; if (r <= 0) { startWeather(id); break; } }
+    }
+  }
+  // Night: a few ripe fruits turn Moonlit
+  if (nightFactor > 0.7 && (!weather || weather.id !== 'blood_moon')) {
+    moonlitTimer -= dt;
+    if (moonlitTimer <= 0 && moonlitCount < 8) {
+      moonlitTimer = 20 + Math.random() * 15;
+      const t = randomFruit(m => !m.includes('moonlit'));
+      if (t && addMutation(t.m, 'moonlit')) { moonlitCount++; spawnParticles(t.p.x, DIRT_Y + 1.2, t.p.z, 0xB39DDB, 12, 2, 0.08); }
+    }
+  } else if (nightFactor < 0.2) moonlitCount = 0;
+}
+
+// Lightning prefers lightning rods, then hits a random plant: nearby fruit become Shocked
+let boltMesh = null, boltTime = 0, flash = 0;
+function lightningStrike() {
+  const rods = gameState.placed.filter(it => it.gear === 'lightning_rod');
+  let x, z, radius = 1.4;
+  if (rods.length && Math.random() < 0.7) {
+    const rod = rods[Math.floor(Math.random() * rods.length)];
+    x = rod.x; z = rod.z; radius = GEAR.lightning_rod.radius; rod.uses--;
+  } else {
+    const t = randomFruit();
+    if (t) { x = t.p.x; z = t.p.z; }
+    else { x = MY_GARDEN.x + (Math.random() - 0.5) * 20; z = MY_GARDEN.z + (Math.random() - 0.5) * 16; }
+  }
+  let shocked = 0;
+  forEachFruit((m, p) => { if (Math.hypot(p.x - x, p.z - z) <= radius && addMutation(m, 'shocked')) shocked++; });
+  showBolt(x, z);
+  if (shocked) { showToast('⚡', `Lightning! ${shocked} fruit${shocked > 1 ? 's are' : ' is'} now Shocked (100x)!`); checkAchievement('shocking'); }
+}
+function showBolt(x, z) {
+  if (!boltMesh) {
+    boltMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0xFFFFE0, fog: false }));
+    scene.add(boltMesh);
+  }
+  const b = new VoxelBatch(1);
+  let cx = x, cy = 40;
+  while (cy > 0) {
+    const nx = x + (Math.random() - 0.5) * 3 * (cy / 40), ny = Math.max(0, cy - 3 - Math.random() * 3);
+    const len = Math.hypot(nx - cx, cy - ny);
+    b.box(0.25, len, 0.25, 0xffffff, (cx + nx) / 2, (cy + ny) / 2, z, 0, 0, Math.atan2(nx - cx, cy - ny));
+    cx = nx; cy = ny;
+  }
+  boltMesh.geometry.dispose();
+  boltMesh.geometry = b.build();
+  boltMesh.visible = true;
+  boltTime = 0.25; flash = 1;
+  Sfx.play('thunder');
+  spawnParticles(x, 0.5, z, [0xFFFF8D, 0xFFFFFF], 30, 6, 0.1);
+}
+
+// Meteors fall on a plant: its fruit become Celestial
+const meteors = [];
+function launchMeteor() {
+  const t = randomFruit();
+  const x = t ? t.p.x : MY_GARDEN.x + (Math.random() - 0.5) * 20, z = t ? t.p.z : MY_GARDEN.z + (Math.random() - 0.5) * 16;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshBasicMaterial({ color: 0xFFD1FF, fog: false }));
+  m.position.set(x + 25, 45, z - 15);
+  scene.add(m);
+  meteors.push({ mesh: m, x, z, t: 0 });
+  Sfx.play('meteor');
+}
+function updateMeteors(dt) {
+  for (let i = meteors.length - 1; i >= 0; i--) {
+    const mt = meteors[i];
+    mt.t += dt / 1.1;
+    const k = Math.min(1, mt.t);
+    mt.mesh.position.set(mt.x + 25 * (1 - k), 45 * (1 - k) + 0.3, mt.z - 15 * (1 - k));
+    mt.mesh.rotation.x += dt * 8; mt.mesh.rotation.y += dt * 6;
+    spawnParticles(mt.mesh.position.x, mt.mesh.position.y, mt.mesh.position.z, [0xEA80FC, 0xFFFFFF, 0x80D8FF], 2, 0.5, 0.15, { grav: 0, life: 0.6 });
+    if (k >= 1) {
+      scene.remove(mt.mesh); mt.mesh.geometry.dispose();
+      meteors.splice(i, 1);
+      let n = 0;
+      forEachFruit((m, p) => { if (Math.hypot(p.x - mt.x, p.z - mt.z) <= 1.6 && addMutation(m, 'celestial')) n++; });
+      spawnParticles(mt.x, 0.5, mt.z, [0xEA80FC, 0xFFFFFF, 0xFFD1FF], 40, 6, 0.12);
+      if (n) { showToast('🌠', `A meteor made ${n} fruit Celestial (120x)!`); checkAchievement('celestial'); }
+    }
+  }
+}
+
+// ─── Garden helpers ───
+function inMyGarden(x, z) {
+  const lx = Math.abs(x - MY_GARDEN.x), lz = Math.abs(z - MY_GARDEN.z);
+  return lx >= BED_X0 + 0.25 && lx <= BED_X1 - 0.25 && lz <= BED_Z - 0.25;
+}
+function spotFree(x, z, radius, ignoreId) {
+  if (!inMyGarden(x, z)) return false;
+  for (const p of gameState.plants) if (p.id !== ignoreId && Math.hypot(p.x - x, p.z - z) < radius + seedRadius(p.s) * 0.8) return false;
+  for (const e of gameState.placedEggs) if (Math.hypot(e.x - x, e.z - z) < radius + 0.4) return false;
+  for (const it of gameState.placed) if (Math.hypot(it.x - x, it.z - z) < radius + 0.3) return false;
+  return true;
+}
+function nearestPlant(x, z, maxD, filter) {
+  let best = null, bd = maxD;
+  for (const p of gameState.plants) {
+    if (filter && !filter(p)) continue;
+    const d = Math.hypot(p.x - x, p.z - z) - seedRadius(p.s) * 0.6;
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+function nearestEgg(x, z, maxD) {
+  let best = null, bd = maxD;
+  for (const e of gameState.placedEggs) { const d = Math.hypot(e.x - x, e.z - z); if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+function nearestPlaced(x, z, maxD) {
+  let best = null, bd = maxD;
+  for (const it of gameState.placed) { const d = Math.hypot(it.x - x, it.z - z); if (d < bd) { bd = d; best = it; } }
+  return best;
+}
+
+// ─── Selected hotbar item ───
+function selectedItem() {
+  const s = gameState.selected;
+  if (!s) return null;
+  const [kind, id] = s.split(':');
+  if (kind === 'seed' && gameState.seeds[id] > 0) return { kind, id };
+  if (kind === 'gear' && gameState.gear[id] > 0) return { kind, id };
+  if (kind === 'egg' && gameState.eggs[id] > 0) return { kind, id };
+  return null;
+}
+function consume(kind, id) {
+  const bag = kind === 'seed' ? gameState.seeds : kind === 'egg' ? gameState.eggs : gameState.gear;
+  bag[id]--;
+  if (bag[id] <= 0) { delete bag[id]; if (gameState.selected === kind + ':' + id) gameState.selected = null; }
+  updateHotbar();
 }
 
 // ─── Actions ───
-function plantSeed(i, seedId) {
-  if (!seedId || !gameState.inventory[seedId]) {
-    Sfx.play('deny');
-    showToast('🛒', 'No seeds! Visit Shlomo to buy some.');
-    hintTarget = 'shop'; hintTimer = 8;
-    return;
-  }
+function plantSeed(seedId, x, z) {
   const seed = getSeedData(seedId);
-  gameState.inventory[seedId]--;
-  if (gameState.inventory[seedId] <= 0) delete gameState.inventory[seedId];
-  const luck = gameState.upgrades.lucky_clover ? 2 : 1;
-  const roll = Math.random();
-  const mutation = roll < 0.015 * luck ? 'rainbow' : roll < 0.075 * luck ? 'golden' : null;
-  gameState.plots[i] = { seedId, grown: 0, growTime: seed.growTime, waterLevel: 100, mutation, wet: false, harvests: 0 };
-  if (!gameState.inventory[seedId]) selectNextSeed();
-  const p = getPlotWorldPos(i);
+  if (!gameState.seeds[seedId]) return false;
+  if (gameState.plants.length >= MAX_PLANTS) { Sfx.play('deny'); showToast('🌳', 'Your garden is full! Dig something up with the ⛏️ Shovel.'); return false; }
+  if (!spotFree(x, z, seedRadius(seedId))) { Sfx.play('deny'); showToast('🚫', inMyGarden(x, z) ? 'Too close to another plant!' : 'Plant on the dirt in your garden!'); return false; }
+  consume('seed', seedId);
+  const p = { id: newId(), s: seedId, x, z, r: Math.random() * Math.PI * 2, age: 0, grow: seed.grow, kg: 0, m: [], fruits: seed.multi ? [] : null, water: 0 };
+  gameState.plants.push(p);
+  refreshPlantView(p);
+  plantViewPop(p);
   Sfx.play('plant');
-  spawnParticles(p.x, 0.4, p.z, [0x6D4C41, 0x8D6E63], 10, 2, 0.1);
-  refreshPlot(i);
-  plotViews[i].pop = 1;
-  if (mutation) {
-    setTimeout(() => {
-      Sfx.play('sparkle');
-      showToast(MUTATIONS[mutation].emoji, `Wow! A ${MUTATIONS[mutation].name} ${seed.name}! It's worth ${MUTATIONS[mutation].mult}x!`);
-      floatText(p.x, 1.6, p.z, MUTATIONS[mutation].emoji + ' ' + MUTATIONS[mutation].name + '!', MUTATIONS[mutation].color);
-    }, 300);
-  }
-  addXP(1, p);
+  spawnParticles(x, 0.3, z, [0x6D4C41, 0x8D6E63], 10, 2, 0.1);
   checkAchievement('first_sprout');
-  if (gameState.plots.every((pl, idx) => !isPlotUnlocked(idx) || pl)) checkAchievement('full_garden');
+  if (gameState.plants.length >= 50) checkAchievement('full_garden');
   taskEvent('plant', 1, { seedId });
-  updateHotbar();
   saveGame();
+  return true;
 }
+function plantViewPop(p) { const v = plantViews.get(p.id); if (v) v.pop = 1; }
 
-function waterPlot(i) {
-  const plot = gameState.plots[i];
-  if (!plot) return;
-  if (isReady(plot)) { showToast('🧺', 'This one is ready — harvest it!'); return; }
-  if (gameState.waterCan < 10) {
-    Sfx.play('deny');
-    showToast('🪣', 'Your watering can is empty! Refill it at the well 💧');
-    hintTarget = 'well'; hintTimer = 8;
-    return;
-  }
-  if (plot.waterLevel >= 95) { showToast('💧', 'Already nice and wet!'); return; }
-  plot.waterLevel = 100;
-  gameState.waterCan = Math.max(0, gameState.waterCan - 10);
-  const p = getPlotWorldPos(i);
-  Sfx.play('water');
-  spawnParticles(p.x, 1.6, p.z, [0x4FC3F7, 0x81D4FA, 0xB3E5FC], 22, 1.2, 0.08, { down: true, spread: 1.4, life: 0.7, grav: 12 });
-  floatText(p.x, 1.4, p.z, '💧 Growing faster!', '#81D4FA');
-  addXP(1, null);
-  taskEvent('water', 1);
-  refreshPlot(i);
-  updateHUD();
-}
-
-function refillWaterCan() {
-  gameState.waterCan = canCapacity();
-  Sfx.play('water');
-  spawnParticles(WELL_POS.x, 1.2, WELL_POS.z, [0x4FC3F7, 0xB3E5FC], 14, 2, 0.08);
-  showToast('🚰', 'Watering can filled up!');
-  taskEvent('refill', 1);
-  updateHUD();
-}
-
-function harvestPlot(i) {
-  const plot = gameState.plots[i];
-  if (!isReady(plot)) return;
-  const seed = getSeedData(plot.seedId);
-  let mutation = plot.mutation;
-  if (!mutation && plot.wet) mutation = 'wet';
-  if (!mutation && nightFactor > 0.6 && Math.random() < 0.35) mutation = 'moonlit';
-  const key = cropKey(plot.seedId, mutation);
-  gameState.harvested[key] = (gameState.harvested[key] || 0) + 1;
-  gameState.totalHarvested++;
-  if (!gameState.harvestedTypes.includes(plot.seedId)) gameState.harvestedTypes.push(plot.seedId);
-
-  // Regrowing plants stay in the ground and grow again
-  plot.harvests = (plot.harvests || 0) + 1;
-  const regrows = seed.regrow && plot.harvests < seed.regrow;
-  if (regrows) {
-    plot.grown = plot.growTime * 0.4;
-    plot.wet = false;
-    if (plot.mutation !== 'rainbow' && plot.mutation !== 'golden') {
-      const luck = gameState.upgrades.lucky_clover ? 2 : 1;
-      const roll = Math.random();
-      plot.mutation = roll < 0.015 * luck ? 'rainbow' : roll < 0.075 * luck ? 'golden' : null;
-    } else plot.mutation = null;
+function harvestPlant(p) {
+  const seed = getSeedData(p.s);
+  if (!seed || !plantRipe(p)) return 0;
+  const got = [];
+  if (seed.multi) {
+    p.fruits.forEach((f, i) => {
+      if (f && f.age >= seed.fruitTime) { got.push({ s: p.s, kg: f.kg, m: f.m.slice() }); p.fruits[i] = null; }
+    });
   } else {
-    gameState.plots[i] = null;
+    got.push({ s: p.s, kg: p.kg || seed.kg, m: p.m.slice() });
+    gameState.plants = gameState.plants.filter(x => x !== p);
+    removePlantView(p.id);
   }
-
-  const p = getPlotWorldPos(i);
-  const rarity = seed.rarity || 'common';
-  const big = mutation || rarity === 'rare' || rarity === 'epic' || rarity === 'legendary' || rarity === 'mythic';
+  // pets with "dupe" can give an extra copy
+  const dupe = petPower('dupe');
+  got.slice().forEach(f => { if (Math.random() * 100 < dupe) { got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); floatText(p.x, 2.4, p.z, '🐜 Extra fruit!', '#FFCC80'); } });
+  let added = 0;
+  for (const f of got) {
+    if (gameState.fruits.length >= MAX_FRUITS) { showToast('🎒', 'Backpack full! Sell at the 💰 Sell stand.'); break; }
+    gameState.fruits.push(f);
+    added++;
+    gameState.totalHarvested++;
+    const mx = f.m;
+    if (mx.includes('gold')) checkAchievement('golden_touch');
+    if (mx.includes('rainbow')) checkAchievement('over_rainbow');
+    if (mx.includes('wet')) checkAchievement('rain_dancer');
+    if (mx.includes('moonlit')) checkAchievement('night_owl');
+    if (mx.includes('frozen')) checkAchievement('frozen_solid');
+    if (f.kg >= seed.kg * 2) checkAchievement('heavyweight');
+    taskEvent('harvest', 1, { seedId: f.s, mutation: mx.length > 0 });
+  }
+  if (!added) return 0;
+  if (!gameState.harvestedTypes.includes(p.s)) gameState.harvestedTypes.push(p.s);
+  const best = got.reduce((a, b) => fruitValue(b) > fruitValue(a) ? b : a, got[0]);
+  const special = got.some(f => f.m.length) || ['mythical', 'divine', 'prismatic'].includes(seed.rarity);
   Sfx.play('harvest');
-  if (big) setTimeout(() => Sfx.play('sparkle'), 200);
-  spawnParticles(p.x, 0.9, p.z, [seed.color, seed.topColor || seed.color, 0xFFFFFF], big ? 30 : 16, 4, 0.13);
-  if (mutation === 'golden') spawnParticles(p.x, 1, p.z, 0xFFD54F, 25, 5, 0.1);
-  if (mutation === 'rainbow') spawnParticles(p.x, 1, p.z, [0xFF5252, 0xFFEB3B, 0x69F0AE, 0x40C4FF, 0xE040FB], 35, 5, 0.1);
-  floatText(p.x, 1.8, p.z, `+1 ${mutation ? MUTATIONS[mutation].emoji : ''}${seed.emoji}`, mutation ? MUTATIONS[mutation].color : '#FFFFFF');
-  if (mutation) showToast(MUTATIONS[mutation].emoji, `${cropName(key)}! Worth ${MUTATIONS[mutation].mult}x coins!`);
-  if (regrows) setTimeout(() => floatText(p.x, 1.2, p.z, `♻️ Regrows (${seed.regrow - plot.harvests} left)`, '#B9F6CA'), 400);
-
-  const xp = Math.round((4 + seed.growTime / 8) * (mutation ? 1.5 : 1));
-  addXP(xp, p);
-
+  if (special) setTimeout(() => Sfx.play('sparkle'), 180);
+  spawnParticles(p.x, 1, p.z, [seed.fruitColor || seed.color, 0xFFFFFF, 0xFFF59D], special ? 26 : 14, 4, 0.12);
+  floatText(p.x, 2, p.z, `+${added} ${seed.emoji}`, '#FFFFFF');
+  setTimeout(() => floatText(p.x, 1.5, p.z, `${best.kg}kg • ¢${fmtSheckles(fruitValue(best))}`, best.m.length ? MUTATIONS[topMutation(best.m)].color : '#B9F6CA'), 220);
   if (gameState.totalHarvested >= 10) checkAchievement('green_thumb');
   if (gameState.totalHarvested >= 50) checkAchievement('master_gardener');
-  if (rarity !== 'common' && rarity !== 'uncommon') checkAchievement('rare_find');
-  if (rarity === 'mythic') checkAchievement('mythic');
+  if (['rare', 'legendary', 'mythical', 'divine', 'prismatic'].includes(seed.rarity)) checkAchievement('rare_find');
+  if (['mythical', 'divine', 'prismatic'].includes(seed.rarity)) checkAchievement('mythic');
+  if (seed.rarity === 'prismatic') checkAchievement('prismatic');
   if (gameState.harvestedTypes.length >= 8) checkAchievement('variety_pack');
-  if (mutation === 'golden') checkAchievement('golden_touch');
-  if (mutation === 'rainbow') checkAchievement('over_rainbow');
-  if (mutation === 'wet') checkAchievement('rain_dancer');
-  if (mutation === 'moonlit') checkAchievement('night_owl');
-  taskEvent('harvest', 1, { seedId: seed.id, mutation });
+  refreshPlantView(p);
+  updateHUD(); saveGame();
+  return added;
+}
 
-  refreshPlot(i);
-  updateHUD();
-  updateHotbar();
+function useWateringCan(p) {
+  if (!p) { showToast('🚿', 'Walk up to a plant to water it!'); return; }
+  consume('gear', 'watering_can');
+  p.water = 60;
+  const seed = getSeedData(p.s);
+  if (p.age < p.grow) p.age = Math.min(p.grow, p.age + p.grow * 0.05);
+  else if (seed.multi) p.fruits.forEach(f => { if (f) f.age = Math.min(seed.fruitTime, f.age + seed.fruitTime * 0.1); });
+  Sfx.play('water');
+  spawnParticles(p.x, 2, p.z, [0x4FC3F7, 0x81D4FA, 0xB3E5FC], 24, 1.2, 0.08, { down: true, spread: 1.4, life: 0.7, grav: 12 });
+  floatText(p.x, 1.8, p.z, '💧 Growing faster!', '#81D4FA');
+  taskEvent('water', 1);
+  refreshPlantView(p);
+}
+
+function placeGear(gearId, x, z) {
+  if (!spotFree(x, z, 0.3)) { Sfx.play('deny'); showToast('🚫', 'Place it on free dirt in your garden.'); return; }
+  const def = GEAR[gearId];
+  const item = { id: newId(), gear: gearId, x, z };
+  if (def.time) item.left = def.time * (1 + petPower('sprinkler') / 100);
+  if (gearId === 'lightning_rod') item.uses = def.uses;
+  gameState.placed.push(item);
+  consume('gear', gearId);
+  refreshPlaced();
+  Sfx.play('unlock');
+  spawnParticles(x, 0.6, z, [0x81D4FA, 0xFFFFFF], 16, 3, 0.09);
+  checkAchievement('sprinkler_pro');
   saveGame();
 }
 
-function useGrowPotion(i) {
-  const plot = gameState.plots[i];
-  if (!plot || isReady(plot)) return;
-  if (gameState.potions <= 0) {
-    Sfx.play('deny');
-    showToast('🧪', 'No Grow Potions! Shlomo sells them.');
+function placeEgg(eggId, x, z) {
+  if (gameState.placedEggs.length >= MAX_EGGS_PLACED) { Sfx.play('deny'); showToast('🥚', `You can only hatch ${MAX_EGGS_PLACED} eggs at once.`); return; }
+  if (!spotFree(x, z, 0.45)) { Sfx.play('deny'); showToast('🚫', 'Put the egg on free dirt in your garden.'); return; }
+  consume('egg', eggId);
+  const e = EGGS[eggId];
+  gameState.placedEggs.push({ id: newId(), egg: eggId, x, z, left: e.hatch, total: e.hatch });
+  refreshPlaced();
+  Sfx.play('plant');
+  saveGame();
+}
+
+function digUp(p) {
+  if (!shovelArmed || shovelArmed.id !== p.id || performance.now() > shovelArmed.until) {
+    shovelArmed = { id: p.id, until: performance.now() + 3000 };
+    Sfx.play('click');
+    showToast('⛏️', `Press again to dig up this ${getSeedData(p.s).name}.`);
     return;
   }
-  gameState.potions--;
-  plot.grown = plot.growTime;
-  const p = getPlotWorldPos(i);
-  Sfx.play('potion');
-  spawnParticles(p.x, 0.6, p.z, [0xE040FB, 0x7C4DFF, 0xB9F6CA], 30, 3, 0.1);
-  checkAchievement('mad_scientist');
-  onPlantReady(i);
-  updateHUD(); updateHotbar(); saveGame();
+  shovelArmed = null;
+  gameState.plants = gameState.plants.filter(x => x !== p);
+  removePlantView(p.id);
+  Sfx.play('plant');
+  spawnParticles(p.x, 0.4, p.z, [0x6D4C41, 0x8D6E63, 0x66BB6A], 20, 3, 0.12);
+  saveGame();
 }
 
-function unlockPlot(i) {
-  const cost = plotUnlockCost(gameState.unlockedPlots.length);
-  if (gameState.coins < cost) {
-    Sfx.play('deny');
-    showToast('🔒', `You need 🪙 ${fmt(cost)} to buy this plot.`);
-    return;
-  }
-  gameState.coins -= cost;
-  gameState.unlockedPlots.push(i);
-  const p = getPlotWorldPos(i);
-  Sfx.play('unlock');
-  spawnParticles(p.x, 0.5, p.z, [0x8D6E63, 0x7CB342, 0xFFD54F], 30, 4, 0.12);
-  floatText(p.x, 1.5, p.z, '🏡 New plot!', '#B9F6CA');
-  rebuildPlotFrames();
-  refreshPlot(i);
-  checkAchievement('landowner');
-  if (gameState.unlockedPlots.length >= TOTAL_PLOTS - BASE_PLOTS) checkAchievement('big_garden');
-  taskEvent('unlock', 1);
-  updateHUD(); saveGame();
+function pickUpWithTrowel(p) {
+  carrying = p;
+  removePlantView(p.id);
+  Sfx.play('pop');
+  showToast('⛏️', `Carrying ${getSeedData(p.s).name} — press E on free dirt to put it down.`);
+}
+function dropCarried(x, z) {
+  if (!spotFree(x, z, seedRadius(carrying.s), carrying.id)) { Sfx.play('deny'); showToast('🚫', 'Find a free spot in your garden.'); return; }
+  carrying.x = x; carrying.z = z;
+  refreshPlantView(carrying);
+  plantViewPop(carrying);
+  carrying = null;
+  consume('gear', 'trowel');
+  Sfx.play('plant');
+  saveGame();
 }
 
-function addCoins(n) {
-  gameState.coins += n;
-  gameState.totalCoinsEarned += n;
-  if (gameState.totalCoinsEarned >= 500) checkAchievement('entrepreneur');
-  if (gameState.coins >= 10000) checkAchievement('millionaire');
-  updateHUD();
+function hatchEgg(e) {
+  if (e.left > 0) return;
+  const petType = rollEgg(e.egg);
+  const def = PETS[petType];
+  gameState.placedEggs = gameState.placedEggs.filter(x => x !== e);
+  refreshPlaced();
+  const pet = { id: newId(), type: petType, name: def.name, age: 0 };
+  gameState.pets.push(pet);
+  const equippedNow = gameState.equipped.length < MAX_PETS_EQUIPPED;
+  if (equippedNow) { gameState.equipped.push(pet.id); spawnPetEntity(pet, e.x, e.z); }
+  if (!gameState.petsHatched.includes(petType)) gameState.petsHatched.push(petType);
+  Sfx.play('hatch');
+  spawnParticles(e.x, 0.6, e.z, [EGGS[e.egg].color, EGGS[e.egg].spot, 0xFFFFFF, 0xFFD54F], 40, 5, 0.12);
+  const rar = RARITY[def.rarity];
+  setTimeout(() => bigBanner(`${def.emoji} ${def.name}!`, `<span style="color:${rar.color}">${rar.name}</span> • ${describeAbility(def.ability)}${equippedNow ? '' : '<br>Equip it from the 🐾 Pets menu'}`), 500);
+  checkAchievement('first_pet');
+  if (gameState.petsHatched.length >= 5) checkAchievement('pet_collector');
+  taskEvent('hatch', 1);
+  updateHotbar(); saveGame();
 }
 
-function sellCrops(key, count) {
-  const have = gameState.harvested[key] || 0;
-  const n = Math.min(count, have);
-  if (n <= 0) return 0;
-  const total = cropPrice(key) * n;
-  gameState.harvested[key] -= n;
-  if (gameState.harvested[key] <= 0) delete gameState.harvested[key];
-  addCoins(total);
-  taskEvent('sell', n);
+// ─── Selling ───
+function sellFruits(list) {
+  let total = 0, kept = 0;
+  const refund = petPower('refund');
+  list.forEach(f => {
+    total += fruitValue(f);
+    if (Math.random() * 100 < refund) kept++;
+    else gameState.fruits.splice(gameState.fruits.indexOf(f), 1);
+  });
+  gameState.sheckles += total;
+  gameState.totalEarned += total;
+  if (gameState.totalEarned >= 10000) checkAchievement('entrepreneur');
+  if (gameState.sheckles >= 1000000) checkAchievement('millionaire');
+  if (kept) setTimeout(() => showToast('🐒', `Your monkey kept ${kept} fruit for you!`), 600);
+  taskEvent('sell', list.length);
   taskEvent('earn', total);
+  updateHUD(); updateLeaderboard(); saveGame();
   return total;
 }
 
-function sellAll() {
-  let total = 0, count = 0;
-  Object.keys(gameState.harvested).forEach(k => { count += gameState.harvested[k]; total += sellCrops(k, gameState.harvested[k]); });
-  return { total, count };
+// ─── Shops: stock restocks on a timer (the same for everyone) ───
+function shopSlot(period) { return Math.floor(Date.now() / 1000 / period); }
+function slotLeft(period) { return period - Math.floor(Date.now() / 1000) % period; }
+function stockFor(list, table, slot, salt) {
+  const out = {};
+  list.forEach((id, i) => {
+    const r = seededRandom(slot * 7919 + i * 104729 + salt);
+    r(); const roll = r();
+    const def = table === 'seeds' ? getSeedData(id) : GEAR[id];
+    if (roll < def.chance) out[id] = def.stock[0] + Math.floor(r() * (def.stock[1] - def.stock[0] + 1));
+    else out[id] = 0;
+  });
+  return out;
+}
+function seedShopList() {
+  const extra = Object.keys(getSeasonalSeeds());
+  return SHOP_SEED_LIST.concat(extra);
+}
+function currentSeedStock() {
+  const slot = shopSlot(SHOP_RESTOCK);
+  if (gameState.shop.slot !== slot) { gameState.shop.slot = slot; gameState.shop.seeds = {}; }
+  const stock = stockFor(seedShopList(), 'seeds', slot, 11);
+  Object.keys(stock).forEach(id => { stock[id] = Math.max(0, stock[id] - (gameState.shop.seeds[id] || 0)); });
+  return stock;
+}
+function currentGearStock() {
+  const slot = shopSlot(SHOP_RESTOCK);
+  if (gameState.shop.gearSlot !== slot) { gameState.shop.gearSlot = slot; gameState.shop.gear = {}; }
+  const stock = stockFor(GEAR_LIST, 'gear', slot, 97);
+  Object.keys(stock).forEach(id => { stock[id] = Math.max(0, stock[id] - (gameState.shop.gear[id] || 0)); });
+  return stock;
+}
+function currentEggStock() {
+  const slot = shopSlot(EGG_RESTOCK);
+  if (gameState.shop.eggSlot !== slot) { gameState.shop.eggSlot = slot; gameState.shop.eggs = []; }
+  const r = seededRandom(slot * 31337 + 5);
+  const total = EGG_LIST.reduce((a, id) => a + EGGS[id].chance, 0);
+  const eggs = [];
+  for (let i = 0; i < 3; i++) {
+    let x = r() * total;
+    let pick = EGG_LIST[0];
+    for (const id of EGG_LIST) { x -= EGGS[id].chance; if (x <= 0) { pick = id; break; } }
+    eggs.push({ id: pick, bought: gameState.shop.eggs.includes(i) });
+  }
+  return eggs;
+}
+let lastSlot = -1;
+function checkRestock() {
+  const slot = shopSlot(SHOP_RESTOCK);
+  if (lastSlot !== -1 && slot !== lastSlot) {
+    Sfx.play('restock');
+    const stock = currentSeedStock();
+    const rare = seedShopList().filter(id => stock[id] > 0 && ['mythical', 'divine', 'prismatic'].includes(getSeedData(id).rarity));
+    showToast('🛒', rare.length ? `Seed Shop restocked — ${rare.map(id => getSeedData(id).emoji + ' ' + getSeedData(id).name).join(', ')} in stock!` : 'The Seed & Gear shops restocked!');
+    if (isPanelOpen('shop-panel')) renderShop();
+    updateEggDisplay();
+  }
+  lastSlot = slot;
+}
+function updateEggDisplay() {
+  if (!eggDisplay) return;
+  while (eggDisplay.children.length) { const c = eggDisplay.children.pop(); c.geometry.dispose(); }
+  currentEggStock().forEach((e, i) => {
+    if (e.bought) return;
+    const m = eggMesh(e.id, 0.6);
+    m.position.set(-0.9 + i * 0.9, 0, 0);
+    eggDisplay.add(m);
+  });
 }
 
-function buySeed(seedId, qty) {
-  const seed = getSeedData(seedId);
-  const n = qty || 1;
-  if (gameState.coins < seed.seedCost * n) { Sfx.play('deny'); return false; }
-  gameState.coins -= seed.seedCost * n;
-  gameState.inventory[seedId] = (gameState.inventory[seedId] || 0) + n;
-  gameState.selectedSeed = seedId;
+function buyFromShop(kind, id) {
+  if (kind === 'seed') {
+    const seed = getSeedData(id);
+    if (gameState.sheckles < seed.price || !currentSeedStock()[id]) { Sfx.play('deny'); return false; }
+    gameState.sheckles -= seed.price;
+    gameState.shop.seeds[id] = (gameState.shop.seeds[id] || 0) + 1;
+    gameState.seeds[id] = (gameState.seeds[id] || 0) + 1;
+    gameState.selected = 'seed:' + id;
+    taskEvent('buy', 1);
+  } else if (kind === 'gear') {
+    const g = GEAR[id];
+    if (gameState.sheckles < g.price || !currentGearStock()[id]) { Sfx.play('deny'); return false; }
+    gameState.sheckles -= g.price;
+    gameState.shop.gear[id] = (gameState.shop.gear[id] || 0) + 1;
+    gameState.gear[id] = (gameState.gear[id] || 0) + (PLACEABLE_GEAR.includes(id) ? 1 : g.uses);
+    gameState.selected = 'gear:' + id;
+  } else {
+    const slotIdx = id;
+    const e = currentEggStock()[slotIdx];
+    const def = EGGS[e.id];
+    if (e.bought || gameState.sheckles < def.price) { Sfx.play('deny'); return false; }
+    gameState.sheckles -= def.price;
+    gameState.shop.eggs.push(slotIdx);
+    gameState.eggs[e.id] = (gameState.eggs[e.id] || 0) + 1;
+    gameState.selected = 'egg:' + e.id;
+    updateEggDisplay();
+  }
   Sfx.play('buy');
-  taskEvent('buy', n);
   updateHUD(); updateHotbar(); saveGame();
   return true;
 }
 
-function buyUpgrade(id) {
-  const u = UPGRADES[id];
-  if (gameState.upgrades[id] || gameState.coins < u.cost) { Sfx.play('deny'); return; }
-  gameState.coins -= u.cost;
-  gameState.upgrades[id] = true;
-  if (id === 'big_can') gameState.waterCan = canCapacity();
-  if (id === 'sprinkler') buildSprinkler();
-  Sfx.play('unlock');
-  bigBanner(`${u.emoji} ${u.name}!`, u.desc);
-  if (Object.keys(UPGRADES).every(k => gameState.upgrades[k])) checkAchievement('fully_loaded');
-  updateHUD(); saveGame();
-}
-
-function buyPotion() {
-  if (gameState.coins < POTION.cost) { Sfx.play('deny'); return; }
-  gameState.coins -= POTION.cost;
-  gameState.potions++;
-  Sfx.play('buy');
-  updateHUD(); updateHotbar(); saveGame();
-}
-
-// ─── XP / Levels ───
-function addXP(n, pos) {
-  gameState.xp += n;
-  if (pos && n > 1) setTimeout(() => floatText(pos.x, 1.3, pos.z, `+${n} XP`, '#B388FF'), 150);
-  let leveled = false;
-  while (gameState.xp >= xpForLevel(gameState.level)) {
-    gameState.xp -= xpForLevel(gameState.level);
-    gameState.level++;
-    leveled = true;
-    const reward = 20 * gameState.level;
-    gameState.coins += reward;
-    const newSeeds = SEED_LIST.filter(id => SEEDS[id].level === gameState.level).map(id => SEEDS[id].emoji + ' ' + SEEDS[id].name);
-    const newUps = Object.values(UPGRADES).filter(u => u.level === gameState.level).map(u => u.emoji + ' ' + u.name);
-    if (POTION.level === gameState.level) newUps.push(POTION.emoji + ' ' + POTION.name);
-    const unlocks = newSeeds.concat(newUps);
-    setTimeout(() => {
-      Sfx.play('levelup');
-      bigBanner(`⭐ Level ${gameState.level}!`, `${levelTitle(gameState.level)} &nbsp;•&nbsp; +🪙${reward}` + (unlocks.length ? `<br>New at Shlomo's: ${unlocks.join(', ')}` : ''));
-      spawnParticles(playerPos.x, 1.5, playerPos.z, [0xFFD54F, 0xFF80AB, 0x80D8FF, 0xB9F6CA], 50, 6, 0.12);
-    }, 500);
-    if (gameState.level >= 5) checkAchievement('rising_star');
-    if (gameState.level >= 10) checkAchievement('super_star');
+// ════════════════════════════════════════════
+//  PETS — they live in your garden and use their abilities
+// ════════════════════════════════════════════
+const petEntities = new Map();
+function petLevel(pet) { return 1 + Math.min(99, Math.floor((pet.age || 0) / 300)); }
+function petStrength(pet) { return 1 + (petLevel(pet) - 1) * 0.02; }
+function equippedPets() { return gameState.equipped.map(id => gameState.pets.find(p => p.id === id)).filter(Boolean); }
+function petPower(type) {
+  let s = 0;
+  for (const pet of equippedPets()) {
+    const a = PETS[pet.type] && PETS[pet.type].ability;
+    if (a && a.type === type) s += (a.pct || 0) * petStrength(pet);
   }
-  updateHUD();
-  return leveled;
+  return s;
+}
+function randomGardenSpot() {
+  return { x: MY_GARDEN.x + (Math.random() - 0.5) * 2 * (BED_X1 - 0.5), z: MY_GARDEN.z + (Math.random() - 0.5) * 2 * (BED_Z - 0.5) };
+}
+function spawnPetEntity(pet, x, z) {
+  if (petEntities.has(pet.id)) return;
+  const model = buildPetModel(pet.type);
+  const spot = x != null ? { x, z } : randomGardenSpot();
+  model.position.set(spot.x, 0, spot.z);
+  const def = PETS[pet.type];
+  const label = textSprite(`${def.emoji} ${pet.name}`);
+  label.scale.multiplyScalar(0.55);
+  label.position.y = (model.userData.height || 0.8) + 0.35 + (model.userData.mode === 'fly' ? 1 : 0);
+  model.add(label);
+  scene.add(model);
+  petEntities.set(pet.id, { pet, model, pos: new THREE.Vector3(spot.x, 0, spot.z), target: null, wait: 1 + Math.random() * 3,
+    timer: (def.ability.every || 0) * (0.3 + Math.random() * 0.5), state: 'wander', act: 0, hop: 0, walk: Math.random() * 6 });
+}
+function syncPetEntities() {
+  const want = new Set(gameState.equipped);
+  [...petEntities.keys()].forEach(id => { if (!want.has(id)) { scene.remove(petEntities.get(id).model); petEntities.delete(id); } });
+  equippedPets().forEach(p => spawnPetEntity(p));
 }
 
-// ─── Achievements ───
+function updatePets(dt, time) {
+  for (const e of petEntities.values()) {
+    const def = PETS[e.pet.type];
+    const a = def.ability;
+    const u = e.model.userData;
+    e.pet.age = (e.pet.age || 0) + dt;
+    // Ability timer
+    if (a.every && e.state === 'wander') {
+      e.timer -= dt * petStrength(e.pet);
+      if (e.timer <= 0) { e.timer = a.every; startPetAbility(e, a); }
+    }
+    let moving = false;
+    if (e.state === 'act') {
+      e.act -= dt;
+      u.torso && (u.torso.rotation.z = -0.3 + Math.sin(time * 25) * 0.1);
+      if (Math.random() < dt * 20) spawnParticles(e.pos.x + 0.3, 0.2, e.pos.z, a.type === 'dig' ? 0x8D6E63 : 0xFFF59D, 1, 2, 0.08);
+      if (e.act <= 0) { finishPetAbility(e, a); e.state = 'wander'; if (u.torso) u.torso.rotation.z = 0; }
+    } else {
+      if (!e.target) {
+        e.wait -= dt;
+        if (e.wait <= 0) { e.target = randomGardenSpot(); e.wait = 2 + Math.random() * 5; }
+      }
+      if (e.target) {
+        const dx = e.target.x - e.pos.x, dz = e.target.z - e.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 0.5) {
+          e.target = null;
+          if (e.state === 'goto') { e.state = 'act'; e.act = 1.6; }
+        } else {
+          const sp = (e.state === 'goto' ? 3.2 : 1.8) * dt;
+          e.pos.x += dx / d * Math.min(sp, d); e.pos.z += dz / d * Math.min(sp, d);
+          let diff = Math.atan2(dx, dz) - Math.PI / 2 - e.model.rotation.y;
+          diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+          e.model.rotation.y += diff * Math.min(1, dt * 8);
+          moving = true;
+        }
+      }
+    }
+    e.walk += dt * (moving ? 12 : 0);
+    const sw = moving ? Math.sin(e.walk) * 0.6 : 0;
+    u.legs.forEach((l, i) => { l.rotation.z = lerp(l.rotation.z, (i % 2 ? sw : -sw) * (i < 2 ? 1 : -1), 0.3); });
+    if (u.tail) u.tail.rotation.x = Math.sin(time * 7 + e.walk) * 0.5;
+    u.wings.forEach((w, i) => { w.rotation.x = Math.sin(time * (u.mode === 'fly' ? 40 : 6)) * (i ? 0.6 : -0.6); });
+    let y = 0;
+    if (u.mode === 'fly') y = 1.1 + Math.sin(time * 2 + e.walk) * 0.2;
+    else if (u.mode === 'hop' && moving) y = Math.abs(Math.sin(e.walk * 0.6)) * 0.25;
+    if (u.mode === 'crawl' && u.torso) u.torso.scale.x = 1 + Math.sin(time * 4) * (moving ? 0.08 : 0.02);
+    if (e.hop > 0) { e.hop = Math.max(0, e.hop - dt * 2.5); y += Math.sin(e.hop * Math.PI) * 0.6; }
+    e.model.position.set(e.pos.x, y, e.pos.z);
+  }
+}
+
+function startPetAbility(e, a) {
+  let target = null;
+  if (a.type === 'mutate') {
+    const t = randomFruit(m => !m.includes(a.mut) && !(a.mut === 'gold' && m.includes('rainbow')));
+    if (!t) return;
+    e.plan = t; target = { x: t.p.x, z: t.p.z };
+  } else if (a.type === 'water' || a.type === 'advance') {
+    const plants = gameState.plants.filter(p => p.age < p.grow || getSeedData(p.s).multi);
+    if (!plants.length) return;
+    const p = plants[Math.floor(Math.random() * plants.length)];
+    e.plan = p; target = { x: p.x, z: p.z };
+  } else {
+    target = randomGardenSpot();
+  }
+  e.target = { x: target.x + 0.6, z: target.z };
+  e.state = 'goto';
+}
+
+function finishPetAbility(e, a) {
+  const def = PETS[e.pet.type];
+  const strength = petStrength(e.pet);
+  const x = e.pos.x, z = e.pos.z;
+  if (a.type === 'dig') {
+    const list = SHOP_SEED_LIST;
+    let i = 0;
+    while (i < list.length - 1 && Math.random() < 0.45 + a.boost * 0.07) i++;
+    const id = list[i];
+    gameState.seeds[id] = (gameState.seeds[id] || 0) + 1;
+    floatText(x, 1.6, z, `${getSeedData(id).emoji} +1 seed!`, '#FFE082');
+    showToast(def.emoji, `${e.pet.name} dug up a ${getSeedData(id).emoji} ${getSeedData(id).name} seed!`);
+    Sfx.play(e.pet.type === 'dog' || e.pet.type === 'golden_lab' ? 'bark' : 'pop');
+    gameState.petFinds = (gameState.petFinds || 0) + 1;
+    if (gameState.petFinds >= 5) checkAchievement('best_friends');
+    updateHotbar();
+  } else if (a.type === 'coins') {
+    const c = Math.round(a.amount * strength);
+    gameState.sheckles += c; gameState.totalEarned += c;
+    floatText(x, 1.4, z, `+¢${fmtSheckles(c)}`, '#B9F6CA');
+    Sfx.play('coin'); updateHUD();
+  } else if (a.type === 'mutate' && e.plan) {
+    if (addMutation(e.plan.m, a.mut)) {
+      floatText(x, 1.8, z, `${MUTATIONS[a.mut].emoji} ${MUTATIONS[a.mut].name}!`, MUTATIONS[a.mut].color);
+      showToast(def.emoji, `${e.pet.name} made a fruit ${MUTATIONS[a.mut].name}!`);
+      Sfx.play('sparkle');
+    }
+  } else if ((a.type === 'water' || a.type === 'advance') && e.plan && gameState.plants.includes(e.plan)) {
+    const p = e.plan, seed = getSeedData(p.s);
+    const secs = a.type === 'water' ? p.grow * 0.08 : a.secs * strength;
+    if (p.age < p.grow) p.age = Math.min(p.grow, p.age + secs);
+    else if (seed.multi) p.fruits.forEach(f => { if (f) f.age = Math.min(seed.fruitTime, f.age + secs); });
+    if (a.type === 'water') { p.water = 60; spawnParticles(p.x, 1.5, p.z, [0x4FC3F7, 0xB3E5FC], 14, 1, 0.07, { down: true, spread: 1 }); }
+    floatText(x, 1.6, z, a.type === 'water' ? '💧 Watered!' : '⏩ Growth!', '#B3E5FC');
+    refreshPlantView(p);
+  }
+  e.plan = null;
+  e.hop = 1;
+  saveGame();
+}
+
+function petPetAt(e) {
+  e.hop = 1;
+  Sfx.play(['dog', 'golden_lab'].includes(e.pet.type) ? 'bark' : 'pop');
+  spawnParticles(e.pos.x, 1, e.pos.z, 0xFF5C8A, 10, 3, 0.12);
+  floatText(e.pos.x, 1.8, e.pos.z, '❤️', '#FF8A80');
+  checkAchievement('dog_lover');
+  taskEvent('pet', 1);
+}
+
+// ════════════════════════════════════════════
+//  ACHIEVEMENTS & TASKS
+// ════════════════════════════════════════════
 const ACHIEVEMENTS = {
   first_sprout:    { name: 'First Sprout',     emoji: '🌱', desc: 'Plant your first seed' },
-  green_thumb:     { name: 'Green Thumb',      emoji: '🌻', desc: 'Harvest 10 plants' },
-  master_gardener: { name: 'Master Gardener',  emoji: '🏆', desc: 'Harvest 50 plants' },
-  entrepreneur:    { name: 'Entrepreneur',     emoji: '💰', desc: 'Earn 500 coins total' },
+  green_thumb:     { name: 'Green Thumb',      emoji: '🌻', desc: 'Harvest 10 fruits' },
+  master_gardener: { name: 'Master Gardener',  emoji: '🏆', desc: 'Harvest 50 fruits' },
+  entrepreneur:    { name: 'Entrepreneur',     emoji: '💰', desc: 'Earn ¢10,000 selling fruit' },
+  millionaire:     { name: 'Millionaire',      emoji: '💵', desc: 'Have ¢1,000,000 at once' },
   rare_find:       { name: 'Rare Find',        emoji: '💎', desc: 'Harvest a Rare (or better) plant' },
+  mythic:          { name: 'Mythical Grower',  emoji: '🦄', desc: 'Harvest a Mythical (or better) plant' },
+  prismatic:       { name: 'Jack & the Beanstalk', emoji: '🌿', desc: 'Harvest a Prismatic Beanstalk' },
+  variety_pack:    { name: 'Variety Pack',     emoji: '🌈', desc: 'Harvest 8 different kinds of plants' },
+  full_garden:     { name: 'Jungle',           emoji: '🌳', desc: 'Have 50 plants in your garden' },
+  heavyweight:     { name: 'Heavyweight',      emoji: '🏋️', desc: 'Harvest a fruit twice its normal weight' },
+  golden_touch:    { name: 'Golden Touch',     emoji: '✨', desc: 'Harvest a Gold fruit' },
+  over_rainbow:    { name: 'Over the Rainbow', emoji: '🌈', desc: 'Harvest a Rainbow fruit' },
+  rain_dancer:     { name: 'Rain Dancer',      emoji: '🌧️', desc: 'Harvest a Wet fruit' },
+  frozen_solid:    { name: 'Frozen Solid',     emoji: '🧊', desc: 'Harvest a Frozen fruit' },
+  shocking:        { name: 'Shocking!',        emoji: '⚡', desc: 'Get a fruit struck by lightning' },
+  celestial:       { name: 'Star Struck',      emoji: '🌠', desc: 'Get a Celestial fruit from a meteor' },
+  night_owl:       { name: 'Night Owl',        emoji: '🦉', desc: 'Harvest a Moonlit fruit' },
+  sprinkler_pro:   { name: 'Sprinkler Pro',    emoji: '💦', desc: 'Place gear in your garden' },
+  first_pet:       { name: 'New Friend',       emoji: '🐣', desc: 'Hatch a pet egg' },
+  pet_collector:   { name: 'Pet Collector',    emoji: '🐾', desc: 'Hatch 5 different pets' },
+  dog_lover:       { name: 'Pet Lover',        emoji: '❤️', desc: 'Pet one of your pets' },
+  best_friends:    { name: 'Best Friends',     emoji: '🦴', desc: 'Your pets dig up 5 treasures' },
   fashion_forward: { name: 'Fashion Forward',  emoji: '🎭', desc: 'Buy an outfit in the wardrobe' },
-  full_garden:     { name: 'Full Garden',      emoji: '📦', desc: 'Fill every plot you own at once' },
-  variety_pack:    { name: 'Variety Pack',     emoji: '🌈', desc: 'Grow 8 different kinds of plants' },
-  millionaire:     { name: 'Millionaire',      emoji: '💵', desc: 'Have 10,000 coins at once' },
-  dog_lover:       { name: 'Dog Lover',        emoji: '🐕', desc: 'Pet Buddy the dog' },
-  rising_star:     { name: 'Rising Star',      emoji: '⭐', desc: 'Reach level 5' },
-  super_star:      { name: 'Super Star',       emoji: '🌟', desc: 'Reach level 10' },
-  golden_touch:    { name: 'Golden Touch',     emoji: '✨', desc: 'Harvest a Golden crop' },
-  over_rainbow:    { name: 'Over the Rainbow', emoji: '🌈', desc: 'Harvest a Rainbow crop' },
-  rain_dancer:     { name: 'Rain Dancer',      emoji: '🌧️', desc: 'Harvest a Wet crop (grown in the rain)' },
-  night_owl:       { name: 'Night Owl',        emoji: '🦉', desc: 'Harvest a Moonlit crop at night' },
-  landowner:       { name: 'Landowner',        emoji: '🏡', desc: 'Buy a new garden plot' },
-  big_garden:      { name: 'Huge Garden',      emoji: '🗺️', desc: 'Buy every garden plot' },
   task_master:     { name: 'Task Master',      emoji: '📋', desc: 'Finish 10 garden tasks' },
-  mad_scientist:   { name: 'Mad Scientist',    emoji: '🧪', desc: 'Use a Grow Potion' },
-  best_friends:    { name: 'Best Friends',     emoji: '🦴', desc: 'Buddy finds 5 treasures' },
-  mythic:          { name: 'Mythic Grower',    emoji: '🦄', desc: 'Harvest a Mythic plant' },
-  fully_loaded:    { name: 'Fully Loaded',     emoji: '🧰', desc: 'Buy every upgrade' },
 };
-
 function checkAchievement(id) {
   if (!ACHIEVEMENTS[id] || gameState.achievements.includes(id)) return;
   gameState.achievements.push(id);
@@ -1567,7 +1946,7 @@ function checkAchievement(id) {
     Sfx.play('quest');
     const el = document.createElement('div');
     el.className = 'achieve-pop';
-    el.innerHTML = `<span class="ap-emoji">${a.emoji}</span><div><div class="ap-label">Achievement!</div><div class="ap-name">${a.name}</div></div>`;
+    el.innerHTML = `<span class="ap-emoji">${a.emoji}</span><div><div class="ap-label">Badge earned!</div><div class="ap-name">${a.name}</div></div>`;
     document.body.appendChild(el);
     setTimeout(() => el.classList.add('exiting'), 2800);
     setTimeout(() => el.remove(), 3300);
@@ -1575,57 +1954,32 @@ function checkAchievement(id) {
   saveGame();
 }
 
-// ─── Garden tasks (quests) ───
+// Rewards grow with how rich you are, but slowly (square root) so they stay fair
+function wealthScale() { return Math.round(clamp(Math.sqrt((gameState.totalEarned + gameState.sheckles) / 300), 1, 5000) * 10) / 10; }
 function makeTask() {
-  const lvl = gameState.level;
-  const seeds = unlockedSeedIds();
   const r = Math.random();
-  const scale = 1 + lvl * 0.15;
+  const sc = wealthScale();
+  const owned = Object.keys(gameState.seeds).concat(gameState.plants.map(p => p.s)).filter(id => getSeedData(id));
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let t;
-  if (r < 0.16) {
-    const g = 3 + Math.floor(Math.random() * 4);
-    t = { type: 'plant', goal: g, text: `Plant ${g} seeds`, icon: '🌱', reward: Math.round(g * 6 * scale) };
-  } else if (r < 0.3) {
-    const g = 3 + Math.floor(Math.random() * 4);
-    t = { type: 'water', goal: g, text: `Water ${g} plants`, icon: '💧', reward: Math.round(g * 6 * scale) };
-  } else if (r < 0.48) {
-    const g = 3 + Math.floor(Math.random() * 6);
-    t = { type: 'harvest', goal: g, text: `Harvest ${g} crops`, icon: '🧺', reward: Math.round(g * 8 * scale) };
-  } else if (r < 0.64) {
-    const id = pick(seeds.slice(-6));
-    const s = SEEDS[id];
-    const g = 2 + Math.floor(Math.random() * 2);
-    t = { type: 'harvest', seedId: id, goal: g, text: `Harvest ${g} ${s.emoji} ${s.name}`, icon: s.emoji, reward: Math.round(g * (s.sellPrice * 1.5 + 10)) };
-  } else if (r < 0.77) {
-    const g = 5 + Math.floor(Math.random() * 10);
-    t = { type: 'sell', goal: g, text: `Sell ${g} crops to Shlomo`, icon: '💰', reward: Math.round(g * 4 * scale) };
-  } else if (r < 0.86) {
-    const g = Math.round((60 + Math.random() * 120) * scale / 10) * 10;
-    t = { type: 'earn', goal: g, text: `Earn 🪙${g} from selling`, icon: '🪙', reward: Math.round(g * 0.3) };
-  } else if (r < 0.93 && lvl >= 3) {
-    t = { type: 'special', goal: 1, text: 'Harvest a special crop ✨🌈💧🌙', icon: '✨', reward: Math.round(60 * scale) };
-  } else {
-    t = { type: 'pet', goal: 1, text: 'Give Buddy a pet', icon: '🐕', reward: 15 };
-  }
+  if (r < 0.18) { const g = 3 + Math.floor(Math.random() * 4); t = { type: 'plant', goal: g, text: `Plant ${g} seeds`, icon: '🌱', reward: Math.round(15 * g * sc) }; }
+  else if (r < 0.4) { const g = 5 + Math.floor(Math.random() * 10); t = { type: 'harvest', goal: g, text: `Harvest ${g} fruits`, icon: '🧺', reward: Math.round(15 * g * sc) }; }
+  else if (r < 0.55 && owned.length) { const id = pick(owned); const s = getSeedData(id); const g = 2 + Math.floor(Math.random() * 3); t = { type: 'harvest', seedId: id, goal: g, text: `Harvest ${g} ${s.emoji} ${s.name}`, icon: s.emoji, reward: Math.round(Math.max(40 * sc, s.sell * g)) }; }
+  else if (r < 0.7) { const g = 8 + Math.floor(Math.random() * 15); t = { type: 'sell', goal: g, text: `Sell ${g} fruits to Steven`, icon: '💰', reward: Math.round(10 * g * sc) }; }
+  else if (r < 0.8) { const g = Math.round(300 * sc * (1 + Math.floor(Math.random() * 4))); t = { type: 'earn', goal: g, text: `Earn ¢${fmtSheckles(g)} selling`, icon: '🪙', reward: Math.round(g * 0.25) }; }
+  else if (r < 0.9) { t = { type: 'special', goal: 1, text: 'Harvest a mutated fruit ✨', icon: '🌈', reward: Math.round(200 * sc) }; }
+  else if (r < 0.95 && gameState.gear.watering_can) { const g = 3; t = { type: 'water', goal: g, text: 'Water 3 plants with the 🚿 can', icon: '🚿', reward: Math.round(100 * sc) }; }
+  else { t = { type: 'pet', goal: 1, text: 'Give one of your pets a pet', icon: '🐾', reward: Math.round(40 * sc) }; }
   t.progress = 0;
-  t.xp = 15 + lvl * 4;
   return t;
 }
-
 function fillTasks() {
   if (!Array.isArray(gameState.tasks)) gameState.tasks = [];
   if (gameState.tutorialStep < TUTORIAL_TASKS.length) {
-    if (gameState.tasks.length === 0) {
-      const tt = TUTORIAL_TASKS[gameState.tutorialStep];
-      gameState.tasks.push(Object.assign({ progress: 0, reward: 15, xp: 10, tutorial: true }, tt));
-    }
-  } else {
-    while (gameState.tasks.length < 3) gameState.tasks.push(makeTask());
-  }
+    if (!gameState.tasks.length) gameState.tasks.push(Object.assign({ progress: 0, reward: 25, tutorial: true }, TUTORIAL_TASKS[gameState.tutorialStep]));
+  } else while (gameState.tasks.length < 3) gameState.tasks.push(makeTask());
   renderTasks();
 }
-
 function taskEvent(type, amount, info) {
   info = info || {};
   let changed = false;
@@ -1641,77 +1995,59 @@ function taskEvent(type, amount, info) {
   });
   if (changed) renderTasks();
 }
-
 function completeTask(t) {
   t.done = true;
   setTimeout(() => {
     Sfx.play('quest');
-    gameState.coins += t.reward;
+    gameState.sheckles += t.reward;
     gameState.tasksDone = (gameState.tasksDone || 0) + 1;
-    showToast('✅', `Task done! +🪙${t.reward}`);
+    showToast('✅', `Task done! +¢${fmtSheckles(t.reward)}`);
     const el = $('#tasks-list');
     const r = el ? el.getBoundingClientRect() : { left: 80, top: 160 };
     coinFly(r.left + 60, r.top + 20, 5);
     if (t.tutorial) gameState.tutorialStep++;
     if (gameState.tasksDone >= 10) checkAchievement('task_master');
-    addXP(t.xp, null);
     setTimeout(() => {
       gameState.tasks = gameState.tasks.filter(x => x !== t);
       fillTasks();
-      if (t.tutorial && gameState.tutorialStep >= TUTORIAL_TASKS.length) {
-        bigBanner('🎓 You did it!', 'You know how to garden! Now finish tasks to earn coins and level up.');
-      }
+      if (t.tutorial && gameState.tutorialStep >= TUTORIAL_TASKS.length) bigBanner('🎓 You did it!', 'Keep growing, collect mutations, hatch pets and get rich!');
       saveGame();
     }, 900);
-    renderTasks();
-    updateHUD();
+    renderTasks(); updateHUD();
   }, 350);
 }
 
-// ─── Guide arrow: points at what to do next (tutorial, or when stuck) ───
+// ─── Guide hand: points at what to do next during the tutorial ───
 let hintTarget = null, hintTimer = 0;
 function guideTargetPos() {
   let target = hintTimer > 0 ? hintTarget : null;
   const t = gameState.tasks[0];
   if (!target && t && t.tutorial && !t.done) {
-    const hasSeeds = Object.keys(gameState.inventory).length > 0;
-    if (t.type === 'plant') target = hasSeeds ? 'emptyPlot' : 'shop';
-    else if (t.type === 'water') target = 'thirstyPlot';
-    else if (t.type === 'harvest') target = 'readyPlot';
-    else target = 'shop';
+    const hasSeeds = Object.keys(gameState.seeds).length > 0;
+    if (t.type === 'plant') target = hasSeeds ? 'garden' : 'seeds';
+    else if (t.type === 'harvest') target = 'ripe';
+    else if (t.type === 'sell') target = 'sell';
+    else target = 'seeds';
   }
-  if (!target) {
-    // Stuck: no seeds, nothing growing, nothing to sell
-    const growing = gameState.plots.some(p => p);
-    if (!growing && Object.keys(gameState.inventory).length === 0) target = 'shop';
-  }
+  if (!target && !gameState.plants.length && !Object.keys(gameState.seeds).length) target = 'seeds';
   if (!target) return null;
-  if (target === 'shop') return { x: SHOP_POS.x + 1.2, y: 4.3, z: SHOP_POS.z };
-  if (target === 'well') return { x: WELL_POS.x, y: 4.6, z: WELL_POS.z };
-  let best = null, bd = Infinity;
-  for (let i = 0; i < TOTAL_PLOTS; i++) {
-    if (!isPlotUnlocked(i)) continue;
-    const plot = gameState.plots[i];
-    const ok = target === 'emptyPlot' ? !plot :
-      target === 'thirstyPlot' ? (plot && !isReady(plot)) :
-      target === 'readyPlot' ? (plot && isReady(plot)) : false;
-    if (!ok) continue;
-    const p = getPlotWorldPos(i);
-    const d = Math.hypot(p.x - playerPos.x, p.z - playerPos.z);
-    if (d < bd) { bd = d; best = p; }
+  if (STALLS[target]) return { x: STALLS[target].x, y: 4.6, z: STALL_Z };
+  if (target === 'garden') {
+    if (inMyGarden(playerPos.x, playerPos.z)) return null;
+    return { x: MY_GARDEN.x - 4, y: 2.2, z: MY_GARDEN.z + 6 };
   }
-  if (!best && target === 'readyPlot') return null; // still growing
-  return best ? { x: best.x, y: 2.6, z: best.z } : null;
+  if (target === 'ripe') {
+    const p = gameState.plants.find(plantRipe);
+    return p ? { x: p.x, y: 2.6, z: p.z } : null;
+  }
+  return null;
 }
-
 function updateGuide(time, dt) {
   if (hintTimer > 0) hintTimer -= dt;
   const g = started ? guideTargetPos() : null;
   guideArrow.visible = !!g;
-  if (!g) return;
-  guideArrow.position.set(g.x, g.y + 0.4 + Math.abs(Math.sin(time * 4)) * 0.5, g.z);
+  if (g) guideArrow.position.set(g.x, g.y + 0.4 + Math.abs(Math.sin(time * 4)) * 0.5, g.z);
 }
-
 // ─── Weather & day/night ───
 const skyCols = {
   dayTop: new THREE.Color(0x3d8fe6), dayHor: new THREE.Color(0xbfe3ff),
@@ -1722,19 +2058,9 @@ const skyCols = {
 const tmpTop = new THREE.Color(), tmpHor = new THREE.Color(), tmpC = new THREE.Color();
 const sunDir = new THREE.Vector3(), moonDir = new THREE.Vector3();
 
-function updateWeather(dt) {
-  weatherTimer -= dt;
-  if (weatherTimer > 0) return;
-  const r = Math.random();
-  const prev = currentWeather;
-  currentWeather = r < 0.55 ? 'sunny' : r < 0.78 ? 'cloudy' : 'rainy';
-  weatherTimer = currentWeather === 'rainy' ? 60 + Math.random() * 60 : 120 + Math.random() * 150;
-  if (currentWeather === prev) return;
-  if (currentWeather === 'rainy') showToast('🌧️', 'Rain! Plants drink and grow faster. Harvest for 💧 Wet crops!');
-  else if (currentWeather === 'sunny') showToast('☀️', 'The sun is out!');
-}
-
-let rainBlend = 0;
+let rainBlend = 0, bloodBlend = 0, frostBlend = 0, meteorBlend = 0;
+const BLOOD_TOP = new THREE.Color(0x3a0008), BLOOD_HOR = new THREE.Color(0x8b1a1a), FROST_HOR = new THREE.Color(0xd8ecff), METEOR_TOP = new THREE.Color(0x2a0a4a);
+const GROUND_FROST = new THREE.Color(0xe8f4ff), WHITE = new THREE.Color(0xffffff);
 function updateDayNight(dt) {
   dayTime = (dayTime + dt / DAY_LENGTH) % 1;
   // Sun angle: rises at 0.25, sets at 0.75
@@ -1744,12 +2070,19 @@ function updateDayNight(dt) {
   const day = clamp((sunH + 0.15) / 0.4, 0, 1);       // 0 night → 1 day
   const sunset = clamp(1 - Math.abs(sunH) / 0.35, 0, 1) * (sunH > -0.25 ? 1 : 0);
   nightFactor = 1 - day;
-  rainBlend = lerp(rainBlend, currentWeather === 'rainy' ? 1 : currentWeather === 'cloudy' ? 0.35 : 0, Math.min(1, dt * 0.5));
+  const wId = weather ? weather.id : null;
+  rainBlend = lerp(rainBlend, { rain: 0.8, thunderstorm: 1, frost: 0.4, blood_moon: 0.2 }[wId] || 0, Math.min(1, dt * 0.5));
+  bloodBlend = lerp(bloodBlend, wId === 'blood_moon' ? 1 : 0, Math.min(1, dt * 0.5));
+  frostBlend = lerp(frostBlend, wId === 'frost' ? 1 : 0, Math.min(1, dt * 0.3));
+  meteorBlend = lerp(meteorBlend, wId === 'meteor_shower' ? 1 : 0, Math.min(1, dt * 0.5));
 
   tmpTop.copy(skyCols.nightTop).lerp(skyCols.dayTop, day).lerp(skyCols.setTop, sunset * 0.5);
   tmpHor.copy(skyCols.nightHor).lerp(skyCols.dayHor, day).lerp(skyCols.setHor, sunset * 0.75);
   tmpTop.lerp(tmpC.copy(skyCols.rainTop).multiplyScalar(0.3 + day * 0.7), rainBlend * 0.8);
   tmpHor.lerp(tmpC.copy(skyCols.rainHor).multiplyScalar(0.3 + day * 0.7), rainBlend * 0.8);
+  tmpTop.lerp(BLOOD_TOP, bloodBlend * 0.8).lerp(METEOR_TOP, meteorBlend * 0.6);
+  tmpHor.lerp(BLOOD_HOR, bloodBlend * 0.7).lerp(FROST_HOR, frostBlend * 0.5);
+  if (flash > 0) { tmpTop.lerp(WHITE, flash * 0.7); tmpHor.lerp(WHITE, flash * 0.7); }
   skyMat.uniforms.topColor.value.copy(tmpTop);
   skyMat.uniforms.horizonColor.value.copy(tmpHor);
   skyMat.uniforms.sunDir.value.copy(sunDir);
@@ -1764,10 +2097,12 @@ function updateDayNight(dt) {
   const lightDir = sunH > -0.05 ? sunDir : moonDir.set(-sunDir.x, -sunDir.y, sunDir.z);
   sunLight.position.set(playerPos.x + lightDir.x * 50, Math.max(8, lightDir.y * 50), playerPos.z + lightDir.z * 50);
   sunLight.target.position.set(playerPos.x, 0, playerPos.z);
-  hemiLight.intensity = (0.4 + day * 0.55) * rainDim;
+  hemiLight.intensity = (0.55 + day * 0.4) * rainDim + bloodBlend * 0.25 + meteorBlend * 0.2;
   hemiLight.color.copy(tmpTop).lerp(tmpC.set(0xffffff), 0.35 + day * 0.25);
   hemiLight.groundColor.setRGB(0.25 + day * 0.15, 0.3 + day * 0.18, 0.2 + day * 0.05);
-  ambientLight.intensity = (0.18 + day * 0.12) * rainDim;
+  ambientLight.intensity = (0.26 + day * 0.06) * rainDim + flash * 1.5;
+  if (bloodBlend > 0.01) hemiLight.color.lerp(tmpC.set(0xff4040), bloodBlend * 0.6);
+  MATS.ground.color.copy(WHITE).lerp(GROUND_FROST, frostBlend * 0.6);
   ambientLight.color.setRGB(0.55 + day * 0.45, 0.65 + day * 0.35, 1);
   renderer.toneMappingExposure = 1.1;
 
@@ -1778,21 +2113,22 @@ function updateDayNight(dt) {
   moonMesh.position.copy(camera.position).addScaledVector(sunDir, -350);
   moonMesh.lookAt(camera.position);
   moonMesh.material.opacity = clamp(-sunH * 5 + 0.5, 0, 1) * (1 - rainBlend * 0.8);
+  moonMesh.material.color.setHex(0xe8ecff).lerp(tmpC.set(0xff2a2a), bloodBlend);
   stars.position.copy(camera.position);
   stars.material.opacity = Math.max(0, nightFactor - 0.25) * (1 - rainBlend);
 
-  MATS.lamps.emissive.setRGB(1, 0.75, 0.3).multiplyScalar(nightFactor * 1.2);
+  MATS.lamp.emissive.setRGB(1, 0.75, 0.3).multiplyScalar(nightFactor * 1.2);
   Sfx.setCalm(nightFactor > 0.6);
 }
 
-// ─── Player movement & camera ───
-const fwd = new THREE.Vector3(), rgt = new THREE.Vector3(), moveDir = new THREE.Vector3();
 function pushOut(pos, c, radius) {
   const dx = pos.x - c.x, dz = pos.z - c.z;
   const d = Math.hypot(dx, dz);
   const min = c.r + radius;
   if (d < min && d > 0.0001) { pos.x = c.x + dx / d * min; pos.z = c.z + dz / d * min; }
 }
+
+const fwd = new THREE.Vector3(), rgt = new THREE.Vector3(), moveDir = new THREE.Vector3();
 
 function updatePlayer(dt) {
   fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw));
@@ -1821,7 +2157,7 @@ function updatePlayer(dt) {
   }
   const moving = moveDir.lengthSq() > 0.0001;
   const running = keys.run || (touchMove.x || touchMove.y ? analog > 0.92 : false) || (moveTarget && moveTarget.far);
-  let speed = WALK_SPEED * (running ? RUN_MULT : 1) * (gameState.upgrades.speedy_shoes ? 1.25 : 1);
+  let speed = WALK_SPEED * (running ? RUN_MULT : 1) * (gameState.perks.speedy ? 1.25 : 1);
   if (moving) moveDir.normalize().multiplyScalar(speed * (manual ? analog : 1));
   // Smooth acceleration
   const accel = Math.min(1, dt * (moving ? 12 : 16));
@@ -1830,9 +2166,8 @@ function updatePlayer(dt) {
   playerPos.x += playerVel.x * dt;
   playerPos.z += playerVel.z * dt;
   for (const c of colliders) pushOut(playerPos, c, 0.35);
-  const bound = WORLD_SIZE / 2 - 1;
-  playerPos.x = clamp(playerPos.x, -bound, bound);
-  playerPos.z = clamp(playerPos.z, -bound, bound);
+  playerPos.x = clamp(playerPos.x, -WORLD_X, WORLD_X);
+  playerPos.z = clamp(playerPos.z, -WORLD_Z, WORLD_Z);
 
   playerVY -= GRAVITY * dt;
   playerY += playerVY * dt;
@@ -1902,155 +2237,180 @@ function updateCamera(dt, time) {
   camera.lookAt(camLook);
 }
 
-// ─── Focus: what is the player standing next to? ───
+
+// ════════════════════════════════════════════
+//  FOCUS & INTERACTION
+// ════════════════════════════════════════════
+const PLACEABLE_GEAR = ['basic_sprinkler', 'advanced_sprinkler', 'godly_sprinkler', 'master_sprinkler', 'lightning_rod'];
+function probePoint() {
+  return { x: playerPos.x + Math.sin(playerFacing) * 1.0, z: playerPos.z + Math.cos(playerFacing) * 1.0 };
+}
 function computeFocus() {
-  const dShop = Math.hypot(playerPos.x - (SHOP_POS.x + 1.6), playerPos.z - SHOP_POS.z);
-  if (dShop < SHOP_DIST) return { kind: 'shop' };
-  const dWell = Math.hypot(playerPos.x - WELL_POS.x, playerPos.z - WELL_POS.z);
-  if (dWell < WELL_DIST) return { kind: 'well' };
-  // Plots: look at a point a little in front of the player
-  const px = playerPos.x + Math.sin(playerFacing) * 0.8;
-  const pz = playerPos.z + Math.cos(playerFacing) * 0.8;
-  let best = -1, bd = Infinity;
-  for (let i = 0; i < TOTAL_PLOTS; i++) {
-    const p = getPlotWorldPos(i);
-    const d = Math.hypot(px - p.x, pz - p.z);
-    if (d < bd) { bd = d; best = i; }
+  for (const [id, st] of Object.entries(STALLS)) {
+    if (Math.hypot(playerPos.x - st.x, playerPos.z - (STALL_Z - 2.2)) < STALL_REACH) return { kind: 'stall', id };
   }
-  const dDog = Math.hypot(playerPos.x - dogPos.x, playerPos.z - dogPos.z);
-  if (best >= 0 && bd < PLOT_REACH && !(dDog < 1.4 && bd > 1.2)) return { kind: 'plot', index: best };
-  if (dDog < DOG_DIST) return { kind: 'dog' };
+  const pr = probePoint();
+  const sel = selectedItem();
+  if (carrying) return { kind: 'drop', x: pr.x, z: pr.z, ok: spotFree(pr.x, pr.z, seedRadius(carrying.s), carrying.id) };
+  const egg = nearestEgg(pr.x, pr.z, 1.2);
+  if (egg) return { kind: 'egg', egg };
+  const p = nearestPlant(pr.x, pr.z, REACH);
+  if (p) return { kind: 'plant', plant: p };
+  for (const e of petEntities.values()) if (Math.hypot(e.pos.x - playerPos.x, e.pos.z - playerPos.z) < 1.3) return { kind: 'pet', id: e.pet.id };
+  const it = nearestPlaced(pr.x, pr.z, 0.9);
+  if (it) return { kind: 'placed', item: it };
+  if (sel && (sel.kind === 'seed' || sel.kind === 'egg' || (sel.kind === 'gear' && PLACEABLE_GEAR.includes(sel.id))) && inMyGarden(playerPos.x, playerPos.z)) {
+    const r = sel.kind === 'seed' ? seedRadius(sel.id) : 0.4;
+    return { kind: 'spot', x: pr.x, z: pr.z, ok: spotFree(pr.x, pr.z, r) };
+  }
   return null;
 }
+function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 
-// Describe the focused thing: prompt text, action icon and what "E" does
 function focusInfo(f) {
   if (!f) return null;
-  if (f.kind === 'shop') return { icon: '🛒', text: "<b>Shlomo's Seeds</b> — buy seeds & sell crops", act: 'Shop' };
-  if (f.kind === 'well') return { icon: '🚰', text: `Fill watering can (${Math.round(gameState.waterCan)}/${canCapacity()})`, act: 'Fill' };
-  if (f.kind === 'dog') return { icon: '❤️', text: 'Pet <b>Buddy</b>', act: 'Pet' };
-  const i = f.index;
-  if (!isPlotUnlocked(i)) {
-    const cost = plotUnlockCost(gameState.unlockedPlots.length);
-    return { icon: '🔓', text: `Buy this plot for 🪙${fmt(cost)}`, act: 'Buy', dim: gameState.coins < cost };
+  const sel = selectedItem();
+  if (f.kind === 'stall') {
+    const n = { seeds: ["Shlomo's <b>Seed Shop</b>", '🌱', 'Shop'], sell: ['<b>Steven</b> — sell your fruit', '💰', 'Sell'], gear: ['<b>Gear Shop</b>', '⚙️', 'Shop'], pets: ['<b>Pet Egg Shop</b>', '🥚', 'Shop'] }[f.id];
+    return { icon: n[1], text: n[0], act: n[2] };
   }
-  const plot = gameState.plots[i];
-  if (!plot) {
-    const s = getSeedData(gameState.selectedSeed);
-    if (s && gameState.inventory[gameState.selectedSeed]) return { icon: s.emoji, text: `Plant <b>${s.name}</b> <span class="dim">(${gameState.inventory[gameState.selectedSeed]} left)</span>`, act: 'Plant' };
-    return { icon: '🛒', text: 'No seeds — visit Shlomo!', act: 'Plant', dim: true };
+  if (f.kind === 'drop') return { icon: '⛏️', text: f.ok ? 'Put the plant down here' : 'Find a free spot in your garden', act: 'Place', dim: !f.ok };
+  if (f.kind === 'pet') { const e = petEntities.get(f.id); const d = PETS[e.pet.type]; return { icon: '❤️', text: `Pet <b>${e.pet.name}</b> <span class="dim">${d.emoji} Age ${petLevel(e.pet)}</span>`, act: 'Pet' }; }
+  if (f.kind === 'egg') { const e = f.egg; return e.left > 0 ? { icon: '🥚', text: `${EGGS[e.egg].name} — hatches in ${fmtTime(e.left / (1 + petPower('eggs') / 100))}`, act: 'Wait', dim: true } : { icon: '🐣', text: `Hatch your <b>${EGGS[e.egg].name}</b>!`, act: 'Hatch' }; }
+  if (f.kind === 'placed') { const it = f.item, d = GEAR[it.gear]; return { icon: d.emoji, text: `<b>${d.name}</b> ${it.left != null ? '— ' + fmtTime(it.left) + ' left' : '— catches ' + it.uses + ' more bolts'}`, act: 'Info', dim: true }; }
+  if (f.kind === 'spot') {
+    if (sel.kind === 'seed') { const s = getSeedData(sel.id); return { icon: s.emoji, text: f.ok ? `Plant <b>${s.name}</b> <span class="dim">(${gameState.seeds[sel.id]} left)</span>` : 'Too close to something — move a little', act: 'Plant', dim: !f.ok }; }
+    if (sel.kind === 'egg') return { icon: '🥚', text: f.ok ? `Place <b>${EGGS[sel.id].name}</b>` : 'Find a free spot', act: 'Place', dim: !f.ok };
+    return { icon: GEAR[sel.id].emoji, text: f.ok ? `Place <b>${GEAR[sel.id].name}</b>` : 'Find a free spot', act: 'Place', dim: !f.ok };
   }
-  const seed = getSeedData(plot.seedId);
-  const mut = plot.mutation ? `<span style="color:${MUTATIONS[plot.mutation].color}">${MUTATIONS[plot.mutation].emoji} ${MUTATIONS[plot.mutation].name}</span> ` : '';
-  if (isReady(plot)) return { icon: '🧺', text: `Harvest ${mut}<b>${seed.emoji} ${seed.name}</b>!`, act: 'Harvest' };
-  const left = Math.ceil((plot.growTime - plot.grown) / growRate(plot));
-  const pct = Math.round(plotProgress(plot) * 100);
-  const w = Math.round(plot.waterLevel);
-  const thirsty = w <= 30;
-  const status = w <= 0 ? '🥵 Thirsty! Growing slowly' : w > 50 ? '⚡ Growing fast' : '🌿 Growing';
-  return {
-    icon: thirsty ? '💧' : seed.emoji,
-    text: `${mut}<b>${seed.emoji} ${seed.name}</b> ${pct}% • ${left}s<br><span class="dim">${status} • 💧${w}%</span>`,
-    act: thirsty ? 'Water' : 'Info', progress: pct,
-  };
+  const p = f.plant, seed = getSeedData(p.s);
+  const mine = gameState.plants.includes(p);
+  if (!mine) return null;
+  if (sel && sel.kind === 'gear' && sel.id === 'shovel') return { icon: '⛏️', text: `Dig up <b>${seed.name}</b>`, act: 'Dig' };
+  if (sel && sel.kind === 'gear' && sel.id === 'trowel') return { icon: '⛏️', text: `Pick up <b>${seed.name}</b> to move it`, act: 'Move' };
+  if (sel && sel.kind === 'gear' && sel.id === 'watering_can') return { icon: '🚿', text: `Water <b>${seed.name}</b> <span class="dim">(${gameState.gear.watering_can} uses)</span>`, act: 'Water' };
+  const ripe = ripeFruitCount(p);
+  if (ripe) {
+    if (!seed.multi) return { icon: '🧺', text: `Harvest ${fruitLabel({ s: p.s, m: p.m })} <span class="dim">${p.kg}kg • ¢${fmtSheckles(fruitValue({ s: p.s, kg: p.kg, m: p.m }))}</span>`, act: 'Harvest' };
+    return { icon: '🧺', text: `Harvest <b>${ripe} ${seed.emoji} ${seed.name}</b>`, act: 'Harvest' };
+  }
+  const rate = growthRate(p);
+  if (p.age < p.grow) return { icon: seed.emoji, text: `<b>${seed.name}</b> ${Math.round(p.age / p.grow * 100)}% <span class="dim">• grown in ${fmtTime((p.grow - p.age) / rate)}${p.water > 0 ? ' • 💧' : ''}</span>`, act: 'Info', dim: true };
+  const next = Math.min(...p.fruits.filter(Boolean).map(fr => seed.fruitTime - fr.age));
+  return { icon: seed.emoji, text: `<b>${seed.name}</b> <span class="dim">• next fruit in ${fmtTime(next / rate)}</span>`, act: 'Info', dim: true };
 }
 
 function interact(f) {
   f = f || focus;
-  if (!f || isAnyPanelOpen()) return;
-  if (f.kind === 'shop') { openShop('seeds'); return; }
-  if (f.kind === 'well') { refillWaterCan(); return; }
-  if (f.kind === 'dog') { petDog(); return; }
-  const i = f.index;
-  if (!isPlotUnlocked(i)) { unlockPlot(i); return; }
-  const plot = gameState.plots[i];
-  if (!plot) { plantSeed(i, gameState.inventory[gameState.selectedSeed] ? gameState.selectedSeed : null); return; }
-  if (isReady(plot)) { harvestPlot(i); return; }
-  if (plot.waterLevel < 95 && gameState.waterCan >= 10 && !gameState.upgrades.sprinkler) { waterPlot(i); return; }
-  const left = Math.ceil((plot.growTime - plot.grown) / growRate(plot));
-  Sfx.play('click');
-  const p = getPlotWorldPos(i);
-  floatText(p.x, 1.6, p.z, `⏳ ${left}s`, '#FFFFFF');
-  if (gameState.potions > 0) showToast('🧪', 'Press F (or 🧪) to use a Grow Potion!');
+  if (isAnyPanelOpen()) return;
+  if (!f) {
+    const sel = selectedItem();
+    if (sel && sel.kind === 'seed' && !inMyGarden(playerPos.x, playerPos.z)) { showToast('🏡', 'Go to your garden to plant! (tap 🏡 Garden)'); hintTarget = 'garden'; hintTimer = 6; }
+    return;
+  }
+  const sel = selectedItem();
+  switch (f.kind) {
+    case 'stall': openStall(f.id); return;
+    case 'drop': dropCarried(f.x, f.z); return;
+    case 'pet': petPetAt(petEntities.get(f.id)); return;
+    case 'egg': if (f.egg.left <= 0) hatchEgg(f.egg); else { Sfx.play('click'); showToast('🥚', `Hatches in ${fmtTime(f.egg.left)}`); } return;
+    case 'placed': Sfx.play('click'); return;
+    case 'spot':
+      if (sel.kind === 'seed') plantSeed(sel.id, f.x, f.z);
+      else if (sel.kind === 'egg') placeEgg(sel.id, f.x, f.z);
+      else placeGear(sel.id, f.x, f.z);
+      return;
+    case 'plant': {
+      const p = f.plant;
+      if (!gameState.plants.includes(p)) return;
+      if (sel && sel.id === 'shovel') { digUp(p); return; }
+      if (sel && sel.id === 'trowel') { pickUpWithTrowel(p); return; }
+      if (sel && sel.id === 'watering_can') { useWateringCan(p); return; }
+      if (ripeFruitCount(p)) { harvestPlant(p); return; }
+      Sfx.play('click');
+      floatText(p.x, 1.8, p.z, p.age < p.grow ? `⏳ ${fmtTime((p.grow - p.age) / growthRate(p))}` : '🌱 Fruit growing…', '#FFFFFF');
+    }
+  }
 }
 
-function selectNextSeed() {
-  const ids = Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0);
-  if (!ids.includes(gameState.selectedSeed)) gameState.selectedSeed = ids[0] || null;
+function openStall(id) {
+  if (id === 'sell') openSell();
+  else openShop(id);
 }
 
 // ════════════════════════════════════════════
 //  UI
 // ════════════════════════════════════════════
-
 function updateHUD() {
-  setText($('#coin-amount'), fmt(gameState.coins));
-  const cap = canCapacity();
-  const w = Math.round(gameState.waterCan);
-  setText($('#water-amount'), w + '');
-  const wf = $('#water-fill');
-  if (wf) wf.style.width = Math.round(w / cap * 100) + '%';
-  $('#water-display').classList.toggle('low', w < 20);
-  setText($('#level-num'), gameState.level + '');
-  setText($('#level-title'), levelTitle(gameState.level));
-  const need = xpForLevel(gameState.level);
-  $('#xp-fill').style.width = Math.round(gameState.xp / need * 100) + '%';
-  setText($('#xp-text'), `${gameState.xp} / ${need} XP`);
+  setText($('#coin-amount'), fmtSheckles(gameState.sheckles));
+  setText($('#fruit-count'), `${gameState.fruits.length}/${MAX_FRUITS}`);
+}
+
+let leaderTimer = 0;
+function updateLeaderboard() {
+  const box = $('#leaderboard-list');
+  if (!box) return;
+  const rows = getProfiles().map(p => {
+    const s = p.id === activeProfileId ? gameState.sheckles : ((readSave(p.id) || {}).sheckles != null ? readSave(p.id).sheckles : Math.floor(((readSave(p.id) || {}).coins || 0) * 3));
+    return { name: p.name, avatar: p.avatar, s, me: p.id === activeProfileId };
+  }).sort((a, b) => b.s - a.s).slice(0, 6);
+  box.innerHTML = rows.map(r => `<div class="lb-row${r.me ? ' me' : ''}"><span>${r.avatar} ${r.name}</span><b>¢${fmtSheckles(r.s)}</b></div>`).join('');
+}
+
+function weatherBanner() {
+  const el = $('#weather-banner');
+  if (!weather) { el.classList.remove('visible'); return; }
+  const w = WEATHER[weather.id];
+  el.className = 'visible w-' + weather.id;
+  el.innerHTML = `<span class="wb-icon">${w.emoji}</span><div><b>${w.name}!</b> <span>${w.desc}</span></div><span class="wb-time" id="wb-time"></span>`;
 }
 
 function updateTimeHUD() {
   const night = nightFactor > 0.5;
-  const w = currentWeather === 'rainy' ? '🌧️' : currentWeather === 'cloudy' ? '⛅' : night ? '🌙' : '☀️';
-  setText($('#time-indicator'), w);
+  setText($('#time-indicator'), night ? '🌙' : '☀️');
+  if (weather) setText($('#wb-time'), fmtTime(weather.left));
 }
 
-// ─── Hotbar: seeds you own + potions ───
+// ─── Hotbar: seeds, gear, eggs (like the Roblox backpack bar) ───
+function hotbarItems() {
+  const items = [];
+  Object.keys(gameState.seeds).filter(id => gameState.seeds[id] > 0 && getSeedData(id))
+    .sort((a, b) => getSeedData(a).price - getSeedData(b).price)
+    .forEach(id => items.push({ key: 'seed:' + id, emoji: getSeedData(id).emoji, name: getSeedData(id).name + ' Seed', count: gameState.seeds[id], color: RARITY[getSeedData(id).rarity].color }));
+  Object.keys(gameState.eggs).filter(id => gameState.eggs[id] > 0).forEach(id => items.push({ key: 'egg:' + id, emoji: '🥚', name: EGGS[id].name, count: gameState.eggs[id], color: RARITY[EGGS[id].rarity].color, eggColor: EGGS[id].color }));
+  GEAR_LIST.filter(id => gameState.gear[id] > 0).forEach(id => items.push({ key: 'gear:' + id, emoji: GEAR[id].emoji, name: GEAR[id].name, count: gameState.gear[id], color: '#90CAF9' }));
+  items.push({ key: 'gear:shovel', emoji: '⛏️', name: 'Shovel', count: null, color: '#BCAAA4' });
+  return items;
+}
 function updateHotbar() {
   const bar = $('#hotbar');
   bar.innerHTML = '';
-  selectNextSeed();
-  const ids = Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0)
-    .sort((a, b) => ((getSeedData(a).level || 1) - (getSeedData(b).level || 1)));
-  ids.slice(0, 9).forEach((id, i) => {
-    const s = getSeedData(id);
-    if (!s) return;
+  const items = hotbarItems();
+  if (selectedItem() === null && gameState.selected && !String(gameState.selected).startsWith('gear:shovel')) gameState.selected = null;
+  items.slice(0, 9).forEach((it, i) => {
     const slot = document.createElement('button');
-    slot.className = 'hotbar-slot' + (id === gameState.selectedSeed ? ' selected' : '');
-    slot.style.setProperty('--rar', (RARITY[s.rarity] || RARITY.common).color);
-    slot.innerHTML = `<span class="slot-key">${i + 1}</span><span class="slot-emoji">${s.emoji}</span><span class="slot-count">${gameState.inventory[id]}</span><span class="slot-name">${s.name}</span>`;
-    slot.addEventListener('click', e => { e.stopPropagation(); selectSeed(id); });
+    slot.className = 'hotbar-slot' + (gameState.selected === it.key ? ' selected' : '');
+    slot.style.setProperty('--rar', it.color);
+    if (it.eggColor) slot.style.setProperty('--egg', '#' + it.eggColor.toString(16).padStart(6, '0'));
+    slot.innerHTML = `<span class="slot-key">${i + 1}</span><span class="slot-emoji${it.eggColor ? ' egg' : ''}">${it.emoji}</span>${it.count != null ? `<span class="slot-count">${it.count}</span>` : ''}<span class="slot-name">${it.name}</span>`;
+    slot.addEventListener('click', e => { e.stopPropagation(); selectItem(it.key); });
     bar.appendChild(slot);
   });
-  if (ids.length === 0) {
-    const empty = document.createElement('button');
-    empty.className = 'hotbar-slot empty';
-    empty.innerHTML = '<span class="slot-emoji">🛒</span><span class="slot-name">Buy seeds!</span>';
-    empty.addEventListener('click', e => { e.stopPropagation(); openShop('seeds'); });
-    bar.appendChild(empty);
-  }
-  if (gameState.potions > 0) {
-    const p = document.createElement('button');
-    p.className = 'hotbar-slot potion';
-    p.innerHTML = `<span class="slot-key">F</span><span class="slot-emoji">🧪</span><span class="slot-count">${gameState.potions}</span><span class="slot-name">Grow Potion</span>`;
-    p.addEventListener('click', e => { e.stopPropagation(); usePotionOnFocus(); });
-    bar.appendChild(p);
-  }
-  $('#touch-potion').style.display = gameState.potions > 0 ? '' : 'none';
+  const more = document.createElement('button');
+  more.className = 'hotbar-slot bag';
+  more.innerHTML = `<span class="slot-emoji">🎒</span><span class="slot-count">${gameState.fruits.length}</span><span class="slot-name">Backpack</span>`;
+  more.addEventListener('click', e => { e.stopPropagation(); togglePanel('bag-panel', openBag); });
+  bar.appendChild(more);
 }
-
-function selectSeed(id) {
-  if (!gameState.inventory[id]) return;
-  gameState.selectedSeed = id;
+function selectItem(key) {
+  gameState.selected = gameState.selected === key ? null : key;
+  if (gameState.gear.shovel == null) gameState.gear.shovel = 1;
+  shovelArmed = null;
   Sfx.play('click');
   updateHotbar();
 }
 
-function usePotionOnFocus() {
-  if (focus && focus.kind === 'plot' && gameState.plots[focus.index] && !isReady(gameState.plots[focus.index])) useGrowPotion(focus.index);
-  else showToast('🧪', 'Stand next to a growing plant to use a Grow Potion.');
-}
-
-// ─── Prompt + mobile action button ───
+// ─── Prompt + mobile action button + ghost preview ───
 let lastFocusKey = '';
 function updatePrompt() {
   const info = started && !isAnyPanelOpen() ? focusInfo(focus) : null;
@@ -2059,8 +2419,7 @@ function updatePrompt() {
   if (key !== lastFocusKey) {
     lastFocusKey = key;
     if (info) {
-      const k = isMobile ? '' : `<span class="key">E</span>`;
-      setHTML(prompt, `${k}<span class="p-icon">${info.icon}</span><span class="p-text">${info.text}</span>`);
+      setHTML(prompt, `${isMobile ? '' : '<span class="key">E</span>'}<span class="p-icon">${info.icon}</span><span class="p-text">${info.text}</span>`);
       prompt.classList.add('visible');
       prompt.classList.toggle('dim', !!info.dim);
     } else prompt.classList.remove('visible');
@@ -2068,17 +2427,23 @@ function updatePrompt() {
     setHTML(btn, info ? `<span>${info.icon}</span><small>${info.act}</small>` : '<span>✋</span>');
     btn.classList.toggle('active', !!info && !info.dim);
   }
-  // Plot highlight
-  if (focus && focus.kind === 'plot') {
-    const p = getPlotWorldPos(focus.index);
-    highlight.visible = true;
-    highlight.position.set(p.x, 0.42, p.z);
-    const s = 1 + Math.sin(clock.elapsedTime * 6) * 0.03;
-    highlight.scale.set(s, 1, s);
-  } else highlight.visible = false;
+  // Ghost marker where the thing will go
+  const spot = focus && (focus.kind === 'spot' || focus.kind === 'drop') ? focus : null;
+  ghost.visible = !!spot;
+  if (spot) {
+    ghost.position.set(spot.x, DIRT_Y + 0.04, spot.z);
+    MATS.ghost.color.setHex(spot.ok ? 0x69F0AE : 0xFF5252);
+  }
+  // Sprinkler range ring
+  const sel = selectedItem();
+  let ring = null;
+  if (focus && focus.kind === 'placed' && GEAR[focus.item.gear].radius) ring = { x: focus.item.x, z: focus.item.z, r: GEAR[focus.item.gear].radius };
+  else if (spot && sel && sel.kind === 'gear' && GEAR[sel.id].radius) ring = { x: spot.x, z: spot.z, r: GEAR[sel.id].radius };
+  rangeRing.visible = !!ring;
+  if (ring) { rangeRing.position.set(ring.x, DIRT_Y + 0.05, ring.z); rangeRing.scale.setScalar(ring.r); }
 }
 
-// ─── Tasks panel ───
+// ─── Tasks list ───
 function renderTasks() {
   const list = $('#tasks-list');
   if (!list) return;
@@ -2087,21 +2452,16 @@ function renderTasks() {
     const row = document.createElement('div');
     row.className = 'task' + (t.done ? ' done' : '') + (t.tutorial ? ' tutorial' : '');
     const pct = Math.round(t.progress / t.goal * 100);
-    row.innerHTML = `
-      <span class="task-icon">${t.done ? '✅' : t.icon}</span>
-      <div class="task-body">
-        <div class="task-text">${t.text}</div>
-        <div class="task-bar"><div style="width:${pct}%"></div></div>
-      </div>
-      <span class="task-reward">${t.goal > 1 ? `${t.progress}/${t.goal}<br>` : ''}🪙${t.reward}</span>`;
+    row.innerHTML = `<span class="task-icon">${t.done ? '✅' : t.icon}</span><div class="task-body"><div class="task-text">${t.text}</div><div class="task-bar"><div style="width:${pct}%"></div></div></div><span class="task-reward">${t.goal > 1 && t.type !== 'earn' ? `${t.progress}/${t.goal}<br>` : ''}¢${fmtSheckles(t.reward)}</span>`;
     list.appendChild(row);
   });
-  $('#tasks-title').textContent = gameState.tutorialStep < TUTORIAL_TASKS.length ? `🎓 Learn to garden (${gameState.tutorialStep + 1}/${TUTORIAL_TASKS.length})` : '📋 Garden Tasks';
+  $('#tasks-title').textContent = gameState.tutorialStep < TUTORIAL_TASKS.length ? `🎓 Getting started (${gameState.tutorialStep + 1}/${TUTORIAL_TASKS.length})` : '📋 Tasks';
 }
 
 // ─── Panels ───
-const PANEL_IDS = ['shop-panel', 'bag-panel', 'wardrobe-panel', 'achieve-panel', 'help-panel', 'gift-panel'];
-function isAnyPanelOpen() { return PANEL_IDS.some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }); }
+const PANEL_IDS = ['shop-panel', 'sell-panel', 'bag-panel', 'pets-panel', 'wardrobe-panel', 'achieve-panel', 'help-panel', 'gift-panel'];
+function isPanelOpen(id) { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }
+function isAnyPanelOpen() { return PANEL_IDS.some(isPanelOpen); }
 function closeAllPanels() { PANEL_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }
 function openPanel(id) {
   closeAllPanels();
@@ -2111,57 +2471,82 @@ function openPanel(id) {
   Sfx.play('click');
 }
 function togglePanel(id, opener) {
-  if (!$('#' + id).classList.contains('hidden')) { closeAllPanels(); return; }
+  if (isPanelOpen(id)) { closeAllPanels(); return; }
   opener();
 }
 
-// ─── Shop: seeds / upgrades / sell ───
-let shopTab = 'seeds';
-function openShop(tab) {
-  if (tab) shopTab = tab;
+// ─── Seed / Gear / Egg shops ───
+let shopKind = 'seeds';
+function openShop(kind) {
+  shopKind = kind || shopKind;
   renderShop();
   openPanel('shop-panel');
 }
-
 function renderShop() {
-  document.querySelectorAll('#shop-tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === shopTab));
+  const head = $('#shop-head');
+  head.className = 'panel-header shop-header s-' + shopKind;
+  $('#shop-title').innerHTML = { seeds: "🌱 Seed Shop <small>by Shlomo</small>", gear: '⚙️ Gear Shop', pets: '🥚 Pet Eggs' }[shopKind];
+  $('#shop-tabs').querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === shopKind));
   const body = $('#shop-body');
   body.innerHTML = '';
-  if (shopTab === 'seeds') renderSeedShop(body);
-  else if (shopTab === 'upgrades') renderUpgradeShop(body);
-  else renderSellShop(body);
-}
-
-function seedCard(id, seed) {
-  const locked = (seed.level || 1) > gameState.level;
-  const rar = RARITY[seed.rarity] || RARITY.common;
-  const owned = gameState.inventory[id] || 0;
-  const card = document.createElement('div');
-  card.className = 'card' + (locked ? ' locked' : '') + (seed.holiday ? ' seasonal' : '');
-  card.style.setProperty('--rar', rar.color);
-  card.innerHTML = `
-    <div class="card-rarity">${rar.name}</div>
-    <div class="card-emoji">${locked ? '🔒' : seed.emoji}</div>
-    <div class="card-name">${seed.name}</div>
-    ${seed.description ? `<div class="card-desc">${seed.description}</div>` : ''}
-    <div class="card-stats">⏱ ${seed.growTime}s • sells 🪙${Math.round(seed.sellPrice * rar.mult)}${seed.regrow ? `<br>♻️ Harvest ${seed.regrow} times!` : ''}</div>
-    ${owned ? `<div class="card-owned">You have ${owned}</div>` : ''}
-    ${locked ? `<button class="btn" disabled>⭐ Level ${seed.level}</button>` :
-      `<div class="btn-row"><button class="btn buy1" ${gameState.coins < seed.seedCost ? 'disabled' : ''}>🪙${seed.seedCost}</button><button class="btn alt buy5" ${gameState.coins < seed.seedCost * 5 ? 'disabled' : ''}>×5</button></div>`}`;
-  if (!locked) {
-    const buy = (n, btn) => {
-      if (buySeed(id, n)) {
-        const r = btn.getBoundingClientRect();
-        floatTextScreen(r.left + r.width / 2, r.top, `+${n} ${seed.emoji}`);
-        renderShop();
+  const timer = document.createElement('div');
+  timer.className = 'restock';
+  timer.id = 'restock-timer';
+  body.appendChild(timer);
+  updateRestockTimer();
+  if (shopKind === 'seeds') {
+    const stock = currentSeedStock();
+    const seasonal = Object.keys(getSeasonalSeeds());
+    seedShopList().forEach(id => {
+      if (seasonal.includes(id) && id === seasonal[0]) {
+        const h = document.createElement('div'); h.className = 'section-title seasonal'; h.innerHTML = `${getActiveHolidayLabels().join(' ')} <span class="tag">Event seeds!</span>`; body.appendChild(h);
       }
-    };
-    card.querySelector('.buy1').addEventListener('click', e => buy(1, e.currentTarget));
-    card.querySelector('.buy5').addEventListener('click', e => buy(5, e.currentTarget));
+      const s = getSeedData(id);
+      body.appendChild(shopRow({ emoji: s.emoji, name: s.name, rarity: s.rarity, price: s.price, stock: stock[id],
+        sub: `${s.multi ? '♻️ Multi-harvest' : '🌾 Single harvest'} • grows in ${fmtTime(s.grow)} • fruit ¢${fmtSheckles(s.sell)}+` }, () => buyFromShop('seed', id)));
+    });
+  } else if (shopKind === 'gear') {
+    const stock = currentGearStock();
+    GEAR_LIST.forEach(id => {
+      const g = GEAR[id];
+      body.appendChild(shopRow({ emoji: g.emoji, name: g.name, rarity: g.price >= 400000 ? 'divine' : g.price >= 100000 ? 'mythical' : g.price >= 30000 ? 'legendary' : g.price >= 10000 ? 'rare' : 'uncommon', price: g.price, stock: stock[id],
+        sub: g.desc + (g.uses > 1 ? ` • ${g.uses} uses` : '') }, () => buyFromShop('gear', id)));
+    });
+  } else {
+    currentEggStock().forEach((e, i) => {
+      const d = EGGS[e.id];
+      const chances = Object.entries(d.pets).map(([pid, w]) => `${PETS[pid].emoji} ${PETS[pid].name} ${w}%`).join(' • ');
+      body.appendChild(shopRow({ emoji: '🥚', eggColor: d.color, name: d.name, rarity: d.rarity, price: d.price, stock: e.bought ? 0 : 1,
+        sub: `Hatches in ${fmtTime(d.hatch)}<br><span class="chances">${chances}</span>` }, () => buyFromShop('egg', i)));
+    });
   }
-  return card;
 }
-
+function shopRow(o, onBuy) {
+  const rar = RARITY[o.rarity] || RARITY.common;
+  const row = document.createElement('div');
+  row.className = 'shop-row' + (o.stock ? '' : ' nostock');
+  row.style.setProperty('--rar', rar.color);
+  const can = o.stock && gameState.sheckles >= o.price;
+  row.innerHTML = `
+    <div class="sr-emoji${o.eggColor ? ' egg' : ''}" ${o.eggColor ? `style="--egg:#${o.eggColor.toString(16).padStart(6, '0')}"` : ''}>${o.emoji}</div>
+    <div class="sr-info">
+      <div class="sr-name">${o.name} <span class="rarity${rar.rainbow ? ' prism' : ''}">${rar.name}</span></div>
+      <div class="sr-sub">${o.sub}</div>
+      <div class="sr-stock">${o.stock ? `x${o.stock} Stock` : 'NO STOCK'}</div>
+    </div>
+    <button class="buy-btn" ${can ? '' : 'disabled'}>¢${fmtSheckles(o.price)}</button>`;
+  row.querySelector('.buy-btn').addEventListener('click', e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (onBuy()) { floatTextScreen(r.left + r.width / 2, r.top, `+1 ${o.emoji}`); renderShop(); }
+  });
+  return row;
+}
+function updateRestockTimer() {
+  const el = $('#restock-timer');
+  if (!el) return;
+  const t = shopKind === 'pets' ? slotLeft(EGG_RESTOCK) : slotLeft(SHOP_RESTOCK);
+  setText(el, `🔄 New ${shopKind === 'seeds' ? 'seeds' : shopKind === 'gear' ? 'gear' : 'eggs'} in ${fmtTime(t)}`);
+}
 function floatTextScreen(x, y, text) {
   const el = document.createElement('div');
   el.className = 'float-text';
@@ -2172,147 +2557,107 @@ function floatTextScreen(x, y, text) {
   setTimeout(() => el.remove(), 1300);
 }
 
-function renderSeedShop(body) {
-  const seasonal = getSeasonalSeeds();
-  if (Object.keys(seasonal).length) {
-    const h = document.createElement('div');
-    h.className = 'section-title seasonal';
-    h.innerHTML = `${getActiveHolidayLabels().join(' ')} <span class="tag">Limited time!</span>`;
-    body.appendChild(h);
-    const g = document.createElement('div'); g.className = 'card-grid';
-    Object.entries(seasonal).forEach(([id, s]) => g.appendChild(seedCard(id, s)));
-    body.appendChild(g);
-  }
-  const h = document.createElement('div');
-  h.className = 'section-title';
-  h.textContent = '🌱 Seeds';
-  body.appendChild(h);
-  const g = document.createElement('div'); g.className = 'card-grid';
-  SEED_LIST.forEach(id => g.appendChild(seedCard(id, SEEDS[id])));
-  body.appendChild(g);
-}
-
-function renderUpgradeShop(body) {
-  const g = document.createElement('div'); g.className = 'card-grid';
-  const items = Object.entries(UPGRADES).map(([id, u]) => ({ id, ...u, owned: !!gameState.upgrades[id] }));
-  items.unshift({ id: 'potion', ...POTION, owned: false });
-  items.forEach(u => {
-    const locked = u.level > gameState.level;
-    const card = document.createElement('div');
-    card.className = 'card' + (locked ? ' locked' : '') + (u.owned ? ' owned' : '');
-    card.style.setProperty('--rar', '#FFD54F');
-    let btn;
-    if (u.owned) btn = '<button class="btn" disabled>✅ Owned</button>';
-    else if (locked) btn = `<button class="btn" disabled>⭐ Level ${u.level}</button>`;
-    else btn = `<button class="btn buy" ${gameState.coins < u.cost ? 'disabled' : ''}>🪙${fmt(u.cost)}</button>`;
-    card.innerHTML = `
-      <div class="card-emoji">${locked ? '🔒' : u.emoji}</div>
-      <div class="card-name">${u.name}</div>
-      <div class="card-desc">${u.desc}</div>
-      ${u.id === 'potion' ? `<div class="card-owned">You have ${gameState.potions}</div>` : ''}
-      ${btn}`;
-    const b = card.querySelector('.buy');
-    if (b) b.addEventListener('click', () => { u.id === 'potion' ? buyPotion() : buyUpgrade(u.id); renderShop(); });
-    g.appendChild(card);
-  });
-  body.appendChild(g);
-}
-
-function renderSellShop(body) {
-  const keysList = Object.keys(gameState.harvested).filter(k => gameState.harvested[k] > 0);
-  const hot = getSeedData(hotSeedId());
-  const banner = document.createElement('div');
-  banner.className = 'hot-banner';
-  banner.innerHTML = `🔥 Today Shlomo pays <b>1.5x</b> for ${hot.emoji} <b>${hot.name}</b>!`;
-  body.appendChild(banner);
-  if (keysList.length === 0) {
-    const p = document.createElement('p');
-    p.className = 'empty-msg';
-    p.innerHTML = 'Nothing to sell yet!<br>Grow plants, harvest them 🧺, then bring them here.';
-    body.appendChild(p);
-    return;
-  }
-  let total = 0, count = 0;
-  keysList.forEach(k => { total += cropPrice(k) * gameState.harvested[k]; count += gameState.harvested[k]; });
+// ─── Sell stand (Steven) ───
+function openSell() { renderSell(); openPanel('sell-panel'); }
+function renderSell() {
+  const body = $('#sell-body');
+  body.innerHTML = '';
+  const sellable = gameState.fruits.filter(f => !f.fav);
+  const total = sellable.reduce((a, f) => a + fruitValue(f), 0);
   const all = document.createElement('button');
   all.className = 'btn big sell-all';
-  all.innerHTML = `💰 Sell everything (${count}) for 🪙${fmt(total)}`;
+  all.disabled = !sellable.length;
+  all.innerHTML = sellable.length ? `💰 Sell my inventory (${sellable.length}) — ¢${fmtSheckles(total)}` : 'Nothing to sell — go harvest some fruit!';
   all.addEventListener('click', e => {
     const r = e.currentTarget.getBoundingClientRect();
-    const res = sellAll();
-    Sfx.play('coin');
+    const got = sellFruits(sellable.slice());
+    Sfx.play('sell'); setTimeout(() => Sfx.play('coin'), 120);
     coinFly(r.left + r.width / 2, r.top, 8);
-    showToast('💰', `Sold ${res.count} crops for 🪙${fmt(res.total)}!`);
-    renderShop(); updateHotbar(); saveGame();
+    showToast('💰', `Steven paid you ¢${fmtSheckles(got)}!`);
+    renderSell(); updateHotbar();
   });
   body.appendChild(all);
-  const g = document.createElement('div'); g.className = 'card-grid';
-  keysList.sort((a, b) => cropPrice(b) - cropPrice(a)).forEach(k => {
-    const { seedId, mutation } = parseCrop(k);
-    const s = getSeedData(seedId);
+  if (gameState.fruits.some(f => f.fav)) {
+    const note = document.createElement('p'); note.className = 'note'; note.textContent = '⭐ Favorited fruit are kept when you sell everything.'; body.appendChild(note);
+  }
+  body.appendChild(fruitList(gameState.fruits, true));
+}
+function fruitList(fruits, sellButtons) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fruit-list';
+  fruits.slice().sort((a, b) => fruitValue(b) - fruitValue(a)).slice(0, 120).forEach(f => {
+    const s = getSeedData(f.s);
     if (!s) return;
-    const n = gameState.harvested[k];
-    const price = cropPrice(k);
-    const rar = RARITY[s.rarity] || RARITY.common;
-    const card = document.createElement('div');
-    card.className = 'card' + (mutation ? ' mutated mut-' + mutation : '');
-    card.style.setProperty('--rar', mutation ? MUTATIONS[mutation].color : rar.color);
-    card.innerHTML = `
-      ${mutation ? `<div class="card-rarity">${MUTATIONS[mutation].emoji} ${MUTATIONS[mutation].name} ×${MUTATIONS[mutation].mult}</div>` : `<div class="card-rarity">${rar.name}</div>`}
-      <div class="card-emoji">${s.emoji}</div>
-      <div class="card-name">${s.name}${seedId === hot.id ? ' 🔥' : ''}</div>
-      <div class="card-owned">You have ${n}</div>
-      <div class="btn-row"><button class="btn sell1">Sell 1<br>🪙${price}</button>${n > 1 ? `<button class="btn alt sellall">All<br>🪙${fmt(price * n)}</button>` : ''}</div>`;
-    const doSell = (cnt, btn) => {
-      const r = btn.getBoundingClientRect();
-      const got = sellCrops(k, cnt);
-      Sfx.play('coin');
-      coinFly(r.left + r.width / 2, r.top, Math.min(8, 2 + cnt));
-      floatTextScreen(r.left + r.width / 2, r.top, `+🪙${got}`);
-      renderShop(); updateHotbar(); saveGame();
-    };
-    card.querySelector('.sell1').addEventListener('click', e => doSell(1, e.currentTarget));
-    const sa = card.querySelector('.sellall');
-    if (sa) sa.addEventListener('click', e => doSell(n, e.currentTarget));
-    g.appendChild(card);
+    const row = document.createElement('div');
+    row.className = 'fruit-row';
+    row.style.setProperty('--rar', RARITY[s.rarity].color);
+    const muts = (f.m || []).map(k => `<span class="mut" style="--mc:${MUTATIONS[k].color}">${MUTATIONS[k].emoji} ${MUTATIONS[k].name}</span>`).join('');
+    row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>${s.name}</b> <span class="kg">${f.kg}kg</span><div>${muts}</div></div><span class="fr-val">¢${fmtSheckles(fruitValue(f))}</span>
+      <button class="fav${f.fav ? ' on' : ''}" title="Favorite">⭐</button>${sellButtons ? '<button class="btn small sell1">Sell</button>' : ''}`;
+    row.querySelector('.fav').addEventListener('click', () => { f.fav = !f.fav; Sfx.play('click'); saveGame(); sellButtons ? renderSell() : openBag(); });
+    const sb = row.querySelector('.sell1');
+    if (sb) sb.addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); const got = sellFruits([f]); Sfx.play('coin'); floatTextScreen(r.left, r.top, `+¢${fmtSheckles(got)}`); renderSell(); updateHotbar(); });
+    wrap.appendChild(row);
   });
-  body.appendChild(g);
+  if (!fruits.length) { const p = document.createElement('p'); p.className = 'empty-msg'; p.innerHTML = 'Your backpack has no fruit yet.<br>Harvest plants in your garden! 🧺'; wrap.appendChild(p); }
+  return wrap;
 }
 
-// ─── Bag (inventory) ───
+// ─── Backpack ───
 function openBag() {
   const body = $('#bag-body');
   body.innerHTML = '';
-  const section = (title, items) => {
-    const h = document.createElement('div'); h.className = 'section-title'; h.textContent = title; body.appendChild(h);
-    if (!items.length) { const p = document.createElement('p'); p.className = 'empty-msg'; p.textContent = 'Nothing here yet.'; body.appendChild(p); return; }
-    const g = document.createElement('div'); g.className = 'bag-grid';
-    items.forEach(it => {
-      const d = document.createElement('div');
-      d.className = 'bag-item' + (it.selected ? ' selected' : '');
-      d.style.setProperty('--rar', it.color || '#B0BEC5');
-      d.innerHTML = `<div class="bag-emoji">${it.emoji}</div><div class="bag-name">${it.name}</div><div class="bag-count">×${it.count}</div>`;
-      if (it.onClick) d.addEventListener('click', it.onClick);
-      g.appendChild(d);
-    });
-    body.appendChild(g);
-  };
-  section('🌱 Seeds (tap to choose what to plant)', Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0).map(id => {
-    const s = getSeedData(id);
-    return { emoji: s.emoji, name: s.name, count: gameState.inventory[id], color: (RARITY[s.rarity] || RARITY.common).color, selected: id === gameState.selectedSeed, onClick: () => { selectSeed(id); openBag(); } };
-  }));
-  section('🧺 Crops (sell them to Shlomo)', Object.keys(gameState.harvested).filter(k => gameState.harvested[k] > 0).map(k => {
-    const { seedId, mutation } = parseCrop(k);
-    const s = getSeedData(seedId);
-    return { emoji: (mutation ? MUTATIONS[mutation].emoji : '') + s.emoji, name: cropName(k), count: gameState.harvested[k], color: mutation ? MUTATIONS[mutation].color : (RARITY[s.rarity] || RARITY.common).color };
-  }));
-  const items = [];
-  if (gameState.potions) items.push({ emoji: '🧪', name: 'Grow Potion', count: gameState.potions, color: '#EA80FC' });
-  Object.keys(gameState.upgrades).forEach(id => { if (UPGRADES[id]) items.push({ emoji: UPGRADES[id].emoji, name: UPGRADES[id].name, count: 1, color: '#FFD54F' }); });
-  section('🎒 Items', items);
+  const h = document.createElement('div'); h.className = 'section-title';
+  const worth = gameState.fruits.reduce((a, f) => a + fruitValue(f), 0);
+  h.innerHTML = `🧺 Fruit <span class="dim">${gameState.fruits.length}/${MAX_FRUITS} • worth ¢${fmtSheckles(worth)}</span>`;
+  body.appendChild(h);
+  body.appendChild(fruitList(gameState.fruits, false));
+  const items = hotbarItems();
+  const h2 = document.createElement('div'); h2.className = 'section-title'; h2.textContent = '🎒 Seeds, gear & eggs (tap to hold)'; body.appendChild(h2);
+  const g = document.createElement('div'); g.className = 'bag-grid';
+  items.forEach(it => {
+    const d = document.createElement('div');
+    d.className = 'bag-item' + (gameState.selected === it.key ? ' selected' : '');
+    d.style.setProperty('--rar', it.color);
+    d.innerHTML = `<div class="bag-emoji">${it.emoji}</div><div class="bag-name">${it.name}</div>${it.count != null ? `<div class="bag-count">×${it.count}</div>` : ''}`;
+    d.addEventListener('click', () => { gameState.selected = it.key; updateHotbar(); openBag(); });
+    g.appendChild(d);
+  });
+  body.appendChild(g);
   openPanel('bag-panel');
 }
 
+// ─── Pets ───
+function openPets() {
+  const body = $('#pets-body');
+  body.innerHTML = '';
+  const h = document.createElement('div'); h.className = 'section-title'; h.textContent = `🐾 Equipped (${gameState.equipped.length}/${MAX_PETS_EQUIPPED}) — they live in your garden`; body.appendChild(h);
+  const g = document.createElement('div'); g.className = 'card-grid';
+  const sorted = gameState.pets.slice().sort((a, b) => (gameState.equipped.includes(b.id) - gameState.equipped.includes(a.id)));
+  sorted.forEach(pet => {
+    const d = PETS[pet.type];
+    if (!d) return;
+    const eq = gameState.equipped.includes(pet.id);
+    const rar = RARITY[d.rarity];
+    const card = document.createElement('div');
+    card.className = 'card' + (eq ? ' owned' : '');
+    card.style.setProperty('--rar', rar.color);
+    card.innerHTML = `<div class="card-rarity">${rar.name}</div><div class="card-emoji">${d.emoji}</div><div class="card-name">${pet.name}</div>
+      <div class="card-stats">${d.name} • Age ${petLevel(pet)}</div><div class="card-desc">${describeAbility(d.ability)}</div>
+      <button class="btn ${eq ? 'alt' : ''}">${eq ? 'Unequip' : 'Equip'}</button>`;
+    card.querySelector('button').addEventListener('click', () => {
+      if (eq) gameState.equipped = gameState.equipped.filter(id => id !== pet.id);
+      else if (gameState.equipped.length >= MAX_PETS_EQUIPPED) { Sfx.play('deny'); showToast('🐾', `You can equip ${MAX_PETS_EQUIPPED} pets. Unequip one first.`); return; }
+      else gameState.equipped.push(pet.id);
+      syncPetEntities(); saveGame(); openPets();
+    });
+    g.appendChild(card);
+  });
+  body.appendChild(g);
+  const p = document.createElement('p'); p.className = 'note'; p.innerHTML = 'Get more pets from <b>🥚 Pet Eggs</b> in the market. Pets get stronger as they age!';
+  body.appendChild(p);
+  openPanel('pets-panel');
+}
 // ─── Wardrobe ───
 function currentSkin() {
   const prof = getProfiles().find(p => p.id === activeProfileId);
@@ -2332,14 +2677,14 @@ function openWardrobe() {
     let btn;
     if (active) btn = '<button class="btn" disabled>👕 Wearing</button>';
     else if (unlocked) btn = '<button class="btn wear">Wear</button>';
-    else btn = `<button class="btn buy" ${gameState.coins < skin.cost ? 'disabled' : ''}>🪙${fmt(skin.cost)}</button>`;
+    else btn = `<button class="btn buy" ${gameState.sheckles < skin.cost ? 'disabled' : ''}>¢${fmtSheckles(skin.cost)}</button>`;
     card.innerHTML = `<div class="card-emoji">${skin.emoji}</div><div class="card-name">${skin.name}</div>${btn}`;
     const wear = card.querySelector('.wear');
     if (wear) wear.addEventListener('click', () => { equipSkin(key); openWardrobe(); });
     const buy = card.querySelector('.buy');
     if (buy) buy.addEventListener('click', () => {
-      if (gameState.coins < skin.cost) return;
-      gameState.coins -= skin.cost;
+      if (gameState.sheckles < skin.cost) return;
+      gameState.sheckles -= skin.cost;
       gameState.unlockedSkins.push(key);
       equipSkin(key);
       checkAchievement('fashion_forward');
@@ -2373,7 +2718,7 @@ function buildPlayerModel() {
 function openAchievements() {
   const body = $('#achieve-body');
   body.innerHTML = '';
-  const got = gameState.achievements;
+  const got = gameState.achievements.filter(id => ACHIEVEMENTS[id]);
   const head = document.createElement('div');
   head.className = 'achieve-summary';
   head.innerHTML = `<b>${got.length}</b> of ${Object.keys(ACHIEVEMENTS).length} unlocked<div class="task-bar"><div style="width:${Math.round(got.length / Object.keys(ACHIEVEMENTS).length * 100)}%"></div></div>`;
@@ -2395,9 +2740,9 @@ function maybeDailyGift() {
   const today = todayStr();
   if (gameState.lastDaily === today) return;
   const streak = gameState.lastDaily === todayStr(-1) ? (gameState.dailyStreak || 0) + 1 : 1;
-  const coins = 30 + Math.min(streak, 7) * 15 + gameState.level * 5;
-  const seeds = unlockedSeedIds();
-  const seedId = seeds[Math.floor(Math.random() * seeds.length)];
+  const coins = Math.round((40 + Math.min(streak, 7) * 30) * wealthScale());
+  const affordable = SHOP_SEED_LIST.filter(id => SEEDS[id].price <= Math.max(50, gameState.sheckles / 4));
+  const seedId = affordable[Math.floor(Math.random() * affordable.length)] || 'carrot';
   const body = $('#gift-body');
   body.innerHTML = `
     <div class="gift-box" id="gift-box">🎁</div>
@@ -2408,15 +2753,15 @@ function maybeDailyGift() {
     this.removeEventListener('click', open);
     gameState.lastDaily = today;
     gameState.dailyStreak = streak;
-    addCoins(coins);
-    gameState.inventory[seedId] = (gameState.inventory[seedId] || 0) + 3;
-    if (streak >= 3) gameState.potions++;
+    gameState.sheckles += coins;
+    gameState.seeds[seedId] = (gameState.seeds[seedId] || 0) + 3;
+    if (streak >= 3) gameState.gear.watering_can = (gameState.gear.watering_can || 0) + 5;
     const s = getSeedData(seedId);
     Sfx.play('gift');
     confetti(60);
     this.classList.add('opened');
     this.textContent = '✨';
-    body.querySelector('.gift-text').innerHTML = `You got <b>🪙${coins}</b> and <b>3 ${s.emoji} ${s.name}</b> seeds${streak >= 3 ? ' and a <b>🧪 Grow Potion</b>' : ''}!<br><button class="btn big" id="gift-ok">Yay! 🎉</button>`;
+    body.querySelector('.gift-text').innerHTML = `You got <b>¢${fmtSheckles(coins)}</b> and <b>3 ${s.emoji} ${s.name}</b> seeds${streak >= 3 ? ' and <b>5 🚿 watering can uses</b>' : ''}!<br><button class="btn big" id="gift-ok">Yay! 🎉</button>`;
     $('#gift-ok').addEventListener('click', () => { closeAllPanels(); Sfx.play('click'); });
     updateHUD(); updateHotbar(); saveGame();
   });
@@ -2433,9 +2778,6 @@ function refreshSoundButtons() {
   $('#sfx-btn').classList.toggle('off', !Sfx.settings.sfx);
 }
 
-// ════════════════════════════════════════════
-//  PROFILES + SAVE / LOAD
-// ════════════════════════════════════════════
 const PROFILE_AVATARS = ['🌻', '🌵', '🍄', '🌸', '🌲', '🦊', '🐸', '🌈', '🍀', '🔥', '🐝', '🦋', '🌺', '🍉', '⭐', '🐢', '🎮', '🧑‍🌾'];
 
 function getProfiles() {
@@ -2481,10 +2823,10 @@ function showProfileScreen() {
   const grid = document.getElementById('profile-grid');
   profiles.forEach(p => {
     const save = readSave(p.id);
-    const lvl = save ? (save.level || 1) : 1;
+    const shk = save ? (save.sheckles != null ? save.sheckles : (save.coins || 0) * 3) : 50;
     const card = document.createElement('button');
     card.className = 'profile-card';
-    card.innerHTML = `<span class="profile-avatar">${p.avatar}</span><span class="profile-name">${p.name}</span><span class="profile-level">⭐ Lv ${lvl}${save ? ` • 🪙${fmt(save.coins || 0)}` : ''}</span>`;
+    card.innerHTML = `<span class="profile-avatar">${p.avatar}</span><span class="profile-name">${p.name}</span><span class="profile-level">¢${fmtSheckles(shk)}</span>`;
     card.addEventListener('click', () => selectProfile(p.id));
     let pressTimer = null;
     const del = () => { if (confirm(`Delete ${p.name}'s garden? This cannot be undone!`)) deleteProfile(p.id); };
@@ -2579,73 +2921,137 @@ function switchProfile() {
   showProfileScreen();
 }
 
+
+// ════════════════════════════════════════════
+//  SAVE / LOAD (+ upgrading saves from older versions)
+// ════════════════════════════════════════════
 function saveGame() {
   if (!activeProfileId) return;
   try {
-    const data = Object.assign({}, gameState, { savedAt: Date.now(), version: 2 });
+    const data = Object.assign({}, gameState, { savedAt: Date.now(), version: SAVE_VERSION });
+    if (carrying) data.plants = gameState.plants; // a carried plant stays saved where it was
     localStorage.setItem(getSaveKey(), JSON.stringify(data));
   } catch (e) { /* storage full / private mode */ }
 }
 
-function loadGame() {
-  gameState = freshState();
-  const data = readSave(activeProfileId);
-  if (!data) return false;
-  const now = Date.now();
-  const savedAt = data.savedAt || now;
-  Object.keys(gameState).forEach(k => { if (data[k] !== undefined && data[k] !== null) gameState[k] = data[k]; });
-  if (typeof gameState.coins !== 'number') gameState.coins = 100;
-  if (!gameState.inventory || typeof gameState.inventory !== 'object') gameState.inventory = {};
-  if (!gameState.harvested || typeof gameState.harvested !== 'object') gameState.harvested = {};
-  if (!Array.isArray(gameState.unlockedPlots)) gameState.unlockedPlots = [];
-  if (!gameState.upgrades || typeof gameState.upgrades !== 'object') gameState.upgrades = {};
-  if (!Array.isArray(gameState.tasks)) gameState.tasks = [];
-  gameState.tasks = gameState.tasks.filter(t => t && !t.done);
-  if (!Array.isArray(gameState.achievements)) gameState.achievements = [];
-  if (!Array.isArray(gameState.harvestedTypes)) gameState.harvestedTypes = [];
-  if (!Array.isArray(gameState.unlockedSkins)) gameState.unlockedSkins = ['farmer'];
-
-  // v1 → v2: give existing players XP for what they already grew, and skip the tutorial
-  if (!data.version) {
-    gameState.level = 1;
-    gameState.xp = 0;
-    gameState.tutorialStep = (data.totalHarvested || 0) > 0 ? TUTORIAL_TASKS.length : 0;
-    addXPSilently((data.totalHarvested || 0) * 12);
-    if (data.selectedSlot != null) {
-      const ids = Object.keys(gameState.inventory).filter(k => gameState.inventory[k] > 0);
-      gameState.selectedSeed = ids[data.selectedSlot] || ids[0] || null;
-    }
-  }
-
-  // Plots: pad to 36 and convert old timestamp-based plots to "seconds grown"
-  const plots = Array.isArray(data.plots) ? data.plots.slice(0, TOTAL_PLOTS) : [];
-  while (plots.length < TOTAL_PLOTS) plots.push(null);
-  const offline = Math.min(Math.max(0, (now - savedAt) / 1000), 3 * 86400);
-  gameState.plots = plots.map(p => {
-    if (!p || !getSeedData(p.seedId)) return null;
-    const seed = getSeedData(p.seedId);
-    const plot = {
-      seedId: p.seedId,
-      growTime: p.growTime || seed.growTime,
-      waterLevel: p.waterLevel != null ? p.waterLevel : 100,
-      mutation: p.mutation || null,
-      wet: !!p.wet,
-      harvests: p.harvests || 0,
-      grown: p.grown,
-    };
-    if (plot.grown == null) {
-      // old format: plantedAt timestamp + paused seconds
-      plot.grown = Math.max(0, (savedAt - (p.plantedAt || savedAt)) / 1000 - (p.pausedGrowthTime || 0));
-    }
-    plot.grown = Math.min(plot.growTime, plot.grown + offline); // plants keep growing while you're away
-    return plot;
-  });
-  return true;
+// Layout of the old 6x6 plot grid (indices 0-15 = middle 4x4, then the outer ring)
+function oldPlotCell(i) {
+  const cells = [];
+  for (let r = 1; r <= 4; r++) for (let c = 1; c <= 4; c++) cells.push({ r, c });
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) if (r === 0 || r === 5 || c === 0 || c === 5) cells.push({ r, c });
+  return cells[i] || { r: 0, c: 0 };
 }
 
-function addXPSilently(n) {
-  gameState.xp += n;
-  while (gameState.xp >= xpForLevel(gameState.level)) { gameState.xp -= xpForLevel(gameState.level); gameState.level++; }
+function normalizeState(st) {
+  ['seeds', 'gear', 'eggs', 'shop', 'perks'].forEach(k => { if (!st[k] || typeof st[k] !== 'object' || Array.isArray(st[k])) st[k] = {}; });
+  ['fruits', 'plants', 'placed', 'placedEggs', 'pets', 'equipped', 'achievements', 'tasks', 'harvestedTypes', 'petsHatched', 'unlockedSkins'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
+  if (typeof st.sheckles !== 'number' || !isFinite(st.sheckles)) st.sheckles = 50;
+  st.gear.shovel = 1;
+  ['farmer', 'noob'].forEach(s => { if (!st.unlockedSkins.includes(s)) st.unlockedSkins.push(s); });
+  if (!st.pets.length) st.pets.push({ id: 'buddy', type: 'dog', name: 'Buddy', age: 0 });
+  st.pets = st.pets.filter(p => PETS[p.type]);
+  st.equipped = st.equipped.filter(id => st.pets.some(p => p.id === id)).slice(0, MAX_PETS_EQUIPPED);
+  st.fruits = st.fruits.filter(f => f && getSeedData(f.s)).map(f => ({ s: f.s, kg: f.kg || getSeedData(f.s).kg, m: Array.isArray(f.m) ? f.m.filter(k => MUTATIONS[k]) : [], fav: !!f.fav }));
+  st.plants = st.plants.filter(p => p && getSeedData(p.s)).map(p => {
+    const seed = getSeedData(p.s);
+    p.id = p.id || newId();
+    p.m = Array.isArray(p.m) ? p.m : [];
+    p.grow = p.grow || seed.grow;
+    p.age = Math.min(p.grow, p.age || 0);
+    p.water = p.water || 0;
+    if (seed.multi) {
+      p.fruits = Array.isArray(p.fruits) ? p.fruits.slice(0, seed.maxFruits) : [];
+      while (p.age >= p.grow && p.fruits.length < seed.maxFruits) p.fruits.push(null);
+      p.fruits = p.fruits.map(f => f ? { age: f.age || 0, kg: f.kg || seed.kg, m: Array.isArray(f.m) ? f.m : [] } : null);
+    } else {
+      p.fruits = null;
+      if (p.age >= p.grow && !p.kg) p.kg = Math.round(seed.kg * (0.8 + Math.random() * 0.5) * 100) / 100;
+    }
+    return p;
+  });
+  st.tasks = st.tasks.filter(t => t && !t.done && t.type && t.goal);
+  return st;
+}
+
+function migrateSaveToV3(data) {
+  const st = freshState();
+  if (!data) return st;
+  if (data.version >= 3) {
+    Object.keys(st).forEach(k => { if (data[k] !== undefined && data[k] !== null) st[k] = data[k]; });
+    return normalizeState(st);
+  }
+  // ── Version 1/2 (grid garden with coins) ──
+  const savedAt = data.savedAt || Date.now();
+  let shk = (data.coins || 0) * 3;
+  (data.unlockedPlots || []).forEach((_, k) => { shk += (60 + k * 45) * 3; });
+  const upCost = { big_can: 250, sprinkler: 800, lucky_clover: 1500 };
+  Object.keys(data.upgrades || {}).forEach(k => { if (upCost[k]) shk += upCost[k] * 3; });
+  if (data.upgrades && data.upgrades.speedy_shoes) st.perks.speedy = true;
+  st.seeds = {};
+  Object.entries(data.inventory || {}).forEach(([id, n]) => { if (getSeedData(id) && n > 0) st.seeds[id] = n; });
+  if (data.potions) st.gear.watering_can = data.potions * 3;
+  const mutMap = { golden: 'gold', rainbow: 'rainbow', wet: 'wet', moonlit: 'moonlit' };
+  Object.entries(data.harvested || {}).forEach(([key, n]) => {
+    const [sid, mut] = key.split('|');
+    const seed = getSeedData(sid);
+    if (!seed) return;
+    for (let i = 0; i < n; i++) {
+      const m = mut && mutMap[mut] ? [mutMap[mut]] : [];
+      if (st.fruits.length < MAX_FRUITS) st.fruits.push({ s: sid, kg: seed.kg, m, fav: false });
+      else shk += seed.sell * (m.length ? MUTATIONS[m[0]].mult : 1);
+    }
+  });
+  (data.plots || []).forEach((pl, i) => {
+    if (!pl || !getSeedData(pl.seedId)) return;
+    const seed = getSeedData(pl.seedId);
+    const { r, c } = oldPlotCell(i);
+    const grown = pl.grown != null ? pl.grown : Math.max(0, (savedAt - (pl.plantedAt || savedAt)) / 1000 - (pl.pausedGrowthTime || 0));
+    const frac = Math.min(1, grown / (pl.growTime || seed.grow));
+    st.plants.push({
+      id: newId(), s: pl.seedId,
+      x: MY_GARDEN.x + [-11, -7.6, -4.2, 4.2, 7.6, 11][c], z: MY_GARDEN.z + (-8.5 + r * 3.4),
+      r: (i * 1.7) % 6.28, age: frac * seed.grow, grow: seed.grow, kg: 0,
+      m: pl.mutation && mutMap[pl.mutation] ? [mutMap[pl.mutation]] : [], fruits: seed.multi ? [] : null, water: 0,
+    });
+  });
+  st.sheckles = Math.max(50, Math.round(shk));
+  if (Array.isArray(data.unlockedSkins)) st.unlockedSkins = data.unlockedSkins.slice();
+  if (Array.isArray(data.achievements)) st.achievements = data.achievements.slice();
+  if (Array.isArray(data.harvestedTypes)) st.harvestedTypes = data.harvestedTypes.slice();
+  st.totalHarvested = data.totalHarvested || 0;
+  st.totalEarned = (data.totalCoinsEarned || 0) * 3;
+  st.lastDaily = data.lastDaily || '';
+  st.dailyStreak = data.dailyStreak || 0;
+  st.tutorialStep = st.totalHarvested > 0 ? TUTORIAL_TASKS.length : 0;
+  if (!Object.keys(st.seeds).length && !st.plants.length) st.seeds = { carrot: 3 };
+  st.migratedFrom = data.version || 1;
+  return normalizeState(st);
+}
+
+function loadGame() {
+  const data = readSave(activeProfileId);
+  gameState = migrateSaveToV3(data);
+  if (!data) return 'new';
+  // Plants keep growing (and eggs keep hatching) while you're away
+  const offline = Math.min(Math.max(0, (Date.now() - (data.savedAt || Date.now())) / 1000), 3 * 86400);
+  if (offline > 1) {
+    gameState.plants.forEach(p => {
+      const seed = getSeedData(p.s);
+      const before = p.age;
+      p.age = Math.min(p.grow, p.age + offline);
+      const left = offline - (p.age - before);
+      if (seed.multi && p.age >= p.grow) {
+        while (p.fruits.length < seed.maxFruits) p.fruits.push(null);
+        p.fruits = p.fruits.map(f => { f = f || newFruit(seed, p); f.age = Math.min(seed.fruitTime, f.age + left); return f; });
+      } else if (!seed.multi && p.age >= p.grow && !p.kg) p.kg = rollWeight(seed, 0);
+    });
+    gameState.placedEggs.forEach(e => { e.left -= offline; });
+    gameState.placed.forEach(it => { if (it.left != null) it.left -= offline; });
+    gameState.placed = gameState.placed.filter(it => it.left == null || it.left > 0);
+  }
+  const migrated = !!gameState.migratedFrom;
+  delete gameState.migratedFrom;
+  return migrated ? 'migrated' : 'loaded';
 }
 
 // ════════════════════════════════════════════
@@ -2653,62 +3059,80 @@ function addXPSilently(n) {
 // ════════════════════════════════════════════
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-const plotPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.3);
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -DIRT_Y);
 const hitPt = new THREE.Vector3();
 const hitSphere = new THREE.Sphere();
 const sphereCenter = new THREE.Vector3();
 
-// Tap / click on the world: walk there and do the obvious thing
 function handleTap(cx, cy) {
   if (!started || isAnyPanelOpen()) return;
   ndc.set(cx / window.innerWidth * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const npcs = [
-    { kind: 'dog', c: [dogPos.x, 0.6, dogPos.z], r: 0.9, to: () => ({ x: dogPos.x, z: dogPos.z, reach: 1.6 }) },
-    { kind: 'shop', c: [SHOP_POS.x + 0.3, 1.3, SHOP_POS.z], r: 2.0, to: () => ({ x: SHOP_POS.x + 2.6, z: SHOP_POS.z, reach: 1.2 }) },
-    { kind: 'well', c: [WELL_POS.x, 1.2, WELL_POS.z], r: 1.5, to: () => ({ x: WELL_POS.x - 2, z: WELL_POS.z, reach: 1.0 }) },
-  ];
-  for (const n of npcs) {
-    hitSphere.set(sphereCenter.set(n.c[0], n.c[1], n.c[2]), n.r);
-    if (raycaster.ray.intersectsSphere(hitSphere)) {
-      const t = n.to();
-      walkTo(t.x, t.z, t.reach, () => interact({ kind: n.kind }));
-      return;
-    }
+  const hits = [];
+  const test = (x, y, z, r, fn) => {
+    hitSphere.set(sphereCenter.set(x, y, z), r);
+    if (raycaster.ray.intersectsSphere(hitSphere)) hits.push({ d: raycaster.ray.origin.distanceTo(sphereCenter), fn });
+  };
+  Object.entries(STALLS).forEach(([id, st]) => test(st.x, 1.4, STALL_Z, 2.0, () => walkTo(st.x, STALL_Z - 2.6, 1.0, () => interact({ kind: 'stall', id }))));
+  petEntities.forEach(e => test(e.pos.x, 0.5, e.pos.z, 0.6, () => walkTo(e.pos.x, e.pos.z, 1.1, () => petPetAt(e))));
+  gameState.placedEggs.forEach(e => test(e.x, 0.4, e.z, 0.55, () => walkTo(e.x, e.z, 1.3, () => interact({ kind: 'egg', egg: e }))));
+  const sel = selectedItem();
+  const placing = carrying || (sel && (sel.kind === 'seed' || sel.kind === 'egg' || (sel.kind === 'gear' && PLACEABLE_GEAR.includes(sel.id))));
+  if (!placing || (sel && ['shovel', 'trowel', 'watering_can'].includes(sel.id))) {
+    gameState.plants.forEach(p => {
+      const v = plantViews.get(p.id);
+      const h = v ? Math.max(0.5, v.height * (v.baseScale || 1)) : 0.6;
+      test(p.x, DIRT_Y + h * 0.5, p.z, Math.max(0.45, seedRadius(p.s) * 0.9, h * 0.45), () => walkTo(p.x, p.z, 1.5, () => { faceTo(p.x, p.z); interact({ kind: 'plant', plant: p }); }));
+    });
   }
-  if (!raycaster.ray.intersectPlane(plotPlane, hitPt)) return;
-  for (let i = 0; i < TOTAL_PLOTS; i++) {
-    const p = getPlotWorldPos(i);
-    if (Math.abs(hitPt.x - p.x) < 1.2 && Math.abs(hitPt.z - p.z) < 1.2) {
-      walkTo(p.x, p.z, 1.7, () => { playerFacing = Math.atan2(p.x - playerPos.x, p.z - playerPos.z); interact({ kind: 'plot', index: i }); });
-      return;
-    }
+  if (hits.length) { hits.sort((a, b) => a.d - b.d)[0].fn(); return; }
+  if (!raycaster.ray.intersectPlane(groundPlane, hitPt)) return;
+  const x = hitPt.x, z = hitPt.z;
+  if (placing && inMyGarden(x, z)) {
+    walkTo(x, z, 1.4, () => {
+      faceTo(x, z);
+      if (carrying) dropCarried(x, z);
+      else if (sel.kind === 'seed') plantSeed(sel.id, x, z);
+      else if (sel.kind === 'egg') placeEgg(sel.id, x, z);
+      else placeGear(sel.id, x, z);
+    });
+    return;
   }
-  spawnParticles(hitPt.x, 0.1, hitPt.z, 0xffffff, 6, 1.5, 0.07, { flat: true, up: 1, life: 0.4 });
-  walkTo(hitPt.x, hitPt.z, 0.3, null);
+  spawnParticles(x, 0.15, z, 0xffffff, 6, 1.5, 0.07, { flat: true, up: 1, life: 0.4 });
+  walkTo(x, z, 0.3, null);
 }
-
+function faceTo(x, z) { playerFacing = Math.atan2(x - playerPos.x, z - playerPos.z); }
 function walkTo(x, z, reach, action) {
   const d = Math.hypot(x - playerPos.x, z - playerPos.z);
   if (d <= reach) { if (action) action(); return; }
   moveTarget = { x, z, reach, action, far: d > 10 };
 }
 
+function teleport(where) {
+  const t = TELEPORTS[where];
+  if (!t || !started) return;
+  closeAllPanels();
+  spawnParticles(playerPos.x, 1, playerPos.z, [0xFFFFFF, 0xB9F6CA], 14, 3, 0.1);
+  playerPos.set(t.x, 0, t.z);
+  playerVel.set(0, 0, 0);
+  moveTarget = null;
+  yaw = t.yaw;
+  playerFacing = t.yaw + Math.PI;
+  camPos.set(t.x + Math.sin(yaw) * camDist, PLAYER_HEIGHT + 5, t.z + Math.cos(yaw) * camDist);
+  Sfx.play('pop');
+  spawnParticles(t.x, 1, t.z, [0xFFFFFF, 0xB9F6CA], 20, 3, 0.1);
+}
+
 function bindInput() {
   const canvas = renderer.domElement;
   const pointers = new Map();
   let dragDist = 0, pinchStart = 0, pinchCam = camDist;
-
   canvas.addEventListener('pointerdown', e => {
     Sfx.unlock();
     canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragDist = 0;
-    if (pointers.size === 2) {
-      const [a, b] = [...pointers.values()];
-      pinchStart = Math.hypot(a.x - b.x, a.y - b.y);
-      pinchCam = camDist;
-    }
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchStart = Math.hypot(a.x - b.x, a.y - b.y); pinchCam = camDist; }
   });
   canvas.addEventListener('pointermove', e => {
     const p = pointers.get(e.pointerId);
@@ -2718,40 +3142,39 @@ function bindInput() {
     dragDist += Math.abs(dx) + Math.abs(dy);
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinchStart > 0) camDist = clamp(pinchCam * pinchStart / d, CAM_MIN, CAM_MAX);
+      if (pinchStart > 0) camDist = clamp(pinchCam * pinchStart / Math.hypot(a.x - b.x, a.y - b.y), CAM_MIN, CAM_MAX);
       return;
     }
     const sens = e.pointerType === 'touch' ? 0.006 : 0.005;
     yaw -= dx * sens;
-    pitch = clamp(pitch + dy * sens, -0.1, 1.2);
+    pitch = clamp(pitch + dy * sens, -0.1, 1.3);
   });
   const end = e => {
-    const p = pointers.get(e.pointerId);
+    const had = pointers.has(e.pointerId);
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchStart = 0;
-    if (p && dragDist < 8 && e.type === 'pointerup' && pointers.size === 0) handleTap(e.clientX, e.clientY);
+    if (had && dragDist < 8 && e.type === 'pointerup' && pointers.size === 0) handleTap(e.clientX, e.clientY);
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('contextmenu', e => e.preventDefault());
-  canvas.addEventListener('wheel', e => { e.preventDefault(); camDist = clamp(camDist + e.deltaY * 0.01, CAM_MIN, CAM_MAX); }, { passive: false });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); camDist = clamp(camDist + e.deltaY * 0.012, CAM_MIN, CAM_MAX); }, { passive: false });
   document.addEventListener('gesturestart', e => e.preventDefault());
 
   document.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     Sfx.unlock();
     if (!started) return;
-    const panelOpen = isAnyPanelOpen();
     switch (e.code) {
       case 'Escape': closeAllPanels(); return;
-      case 'KeyB': togglePanel('shop-panel', () => openShop()); return;
+      case 'KeyB': togglePanel('shop-panel', () => openShop('seeds')); return;
       case 'KeyI': case 'Tab': e.preventDefault(); togglePanel('bag-panel', openBag); return;
+      case 'KeyP': togglePanel('pets-panel', openPets); return;
       case 'KeyJ': togglePanel('achieve-panel', openAchievements); return;
       case 'KeyH': togglePanel('help-panel', openHelp); return;
       case 'KeyM': Sfx.toggle('music'); refreshSoundButtons(); return;
     }
-    if (panelOpen) return;
+    if (isAnyPanelOpen()) return;
     switch (e.code) {
       case 'KeyW': case 'ArrowUp': keys.f = true; break;
       case 'KeyS': case 'ArrowDown': keys.b = true; break;
@@ -2760,17 +3183,12 @@ function bindInput() {
       case 'ShiftLeft': case 'ShiftRight': keys.run = true; break;
       case 'Space': e.preventDefault(); jump(); break;
       case 'KeyE': case 'Enter': if (!e.repeat) interact(); break;
-      case 'KeyQ':
-        if (focus && focus.kind === 'plot' && gameState.plots[focus.index]) waterPlot(focus.index);
-        else if (focus && focus.kind === 'well') refillWaterCan();
-        break;
-      case 'KeyF': usePotionOnFocus(); break;
+      case 'KeyG': teleport('garden'); break;
+      case 'Backquote': case 'Digit0': gameState.selected = null; updateHotbar(); break;
       default:
         if (/^Digit[1-9]$/.test(e.code)) {
-          const ids = Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0)
-            .sort((a, b) => ((getSeedData(a).level || 1) - (getSeedData(b).level || 1)));
-          const id = ids[parseInt(e.code.slice(5), 10) - 1];
-          if (id) selectSeed(id);
+          const it = hotbarItems()[parseInt(e.code.slice(5), 10) - 1];
+          if (it) selectItem(it.key);
         }
     }
   });
@@ -2785,7 +3203,6 @@ function bindInput() {
   });
   window.addEventListener('blur', () => { keys.f = keys.b = keys.l = keys.r = keys.run = false; });
 
-  // ─── Touch joystick ───
   const base = $('#touch-move'), stick = $('#touch-move-stick');
   let stickId = null;
   const moveStick = e => {
@@ -2800,30 +3217,23 @@ function bindInput() {
   };
   base.addEventListener('pointerdown', e => { Sfx.unlock(); stickId = e.pointerId; base.setPointerCapture(e.pointerId); moveStick(e); });
   base.addEventListener('pointermove', e => { if (e.pointerId === stickId) moveStick(e); });
-  const stickEnd = e => {
-    if (e.pointerId !== stickId) return;
-    stickId = null; touchMove.x = touchMove.y = 0;
-    stick.style.transform = 'translate(-50%, -50%)';
-  };
+  const stickEnd = e => { if (e.pointerId !== stickId) return; stickId = null; touchMove.x = touchMove.y = 0; stick.style.transform = 'translate(-50%, -50%)'; };
   base.addEventListener('pointerup', stickEnd);
   base.addEventListener('pointercancel', stickEnd);
-
   const tap = (sel, fn) => $(sel).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Sfx.unlock(); fn(); });
   tap('#touch-jump', jump);
   tap('#touch-interact', () => interact());
-  tap('#touch-water', () => {
-    if (focus && focus.kind === 'plot' && gameState.plots[focus.index]) waterPlot(focus.index);
-    else if (focus && focus.kind === 'well') refillWaterCan();
-    else showToast('💧', 'Walk up to a plant to water it!');
-  });
-  tap('#touch-potion', usePotionOnFocus);
 }
 
 function bindUI() {
   const on = (sel, fn) => $(sel).addEventListener('click', e => { e.stopPropagation(); Sfx.unlock(); fn(); });
-  on('#shop-btn', () => togglePanel('shop-panel', () => openShop()));
-  on('#sell-btn', () => togglePanel('shop-panel', () => openShop('sell')));
+  document.querySelectorAll('[data-tp]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); Sfx.unlock();
+    const where = b.dataset.tp;
+    teleport(where);
+  }));
   on('#bag-btn', () => togglePanel('bag-panel', openBag));
+  on('#pets-btn', () => togglePanel('pets-panel', openPets));
   on('#achieve-btn', () => togglePanel('achieve-panel', openAchievements));
   on('#wardrobe-btn', () => togglePanel('wardrobe-panel', openWardrobe));
   on('#help-btn', () => togglePanel('help-panel', openHelp));
@@ -2831,89 +3241,123 @@ function bindUI() {
   on('#music-btn', () => { Sfx.toggle('music'); refreshSoundButtons(); });
   on('#switch-profile-btn', switchProfile);
   on('#tasks-title', () => $('#tasks').classList.toggle('collapsed'));
+  on('#leaderboard-title', () => $('#leaderboard').classList.toggle('collapsed'));
   document.querySelectorAll('.panel-close').forEach(b => b.addEventListener('click', () => { closeAllPanels(); Sfx.play('click'); }));
   PANEL_IDS.forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('click', e => { if (e.target === el && id !== 'gift-panel') closeAllPanels(); });
   });
-  document.querySelectorAll('#shop-tabs .tab').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.tab; Sfx.play('click'); renderShop(); }));
+  document.querySelectorAll('#shop-tabs .tab').forEach(b => b.addEventListener('click', () => { shopKind = b.dataset.tab; Sfx.play('click'); renderShop(); }));
   if (isMobile) document.body.classList.add('touch');
+}
+
+// ─── Snow for Frost ───
+let snow = null;
+function buildSnow() {
+  const n = 600, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * 50; pos[i * 3 + 1] = Math.random() * 22; pos[i * 3 + 2] = (Math.random() - 0.5) * 50; }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  snow = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.14, transparent: true, opacity: 0.9 }));
+  snow.frustumCulled = false;
+  snow.visible = false;
+  scene.add(snow);
+}
+function updateSnow(dt, time) {
+  snow.visible = !!weather && weather.id === 'frost';
+  if (!snow.visible) return;
+  snow.position.set(playerPos.x, 0, playerPos.z);
+  const a = snow.geometry.attributes.position.array;
+  for (let i = 0; i < a.length; i += 3) {
+    a[i + 1] -= dt * 2;
+    a[i] += Math.sin(time + i) * dt * 0.3;
+    if (a[i + 1] < 0) a[i + 1] = 20 + Math.random() * 3;
+  }
+  snow.geometry.attributes.position.needsUpdate = true;
 }
 
 // ════════════════════════════════════════════
 //  MAIN LOOP
 // ════════════════════════════════════════════
+let secondTimer = 0;
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
   const time = clock.elapsedTime;
-
   if (started) {
     updatePlayer(dt);
     focus = computeFocus();
     updateGarden(dt);
     updateWeather(dt);
+    updatePets(dt, time);
     updateGuide(time, dt);
     autoSaveTimer += dt;
     if (autoSaveTimer >= AUTO_SAVE_SEC) { autoSaveTimer = 0; saveGame(); }
+    secondTimer -= dt;
+    if (secondTimer <= 0) {
+      secondTimer = 1;
+      checkRestock();
+      updateRestockTimer();
+      updateTimeHUD();
+      leaderTimer++;
+      if (leaderTimer % 5 === 0) updateLeaderboard();
+    }
   }
   updateCamera(dt, time);
   updateDayNight(dt);
-  updateDog(dt, time);
-  updateShlomo(time, focus && focus.kind === 'shop');
-  updateDucks(time);
+  updateStalls(time);
   updateCritters(time);
   updateRain(dt);
+  updateSnow(dt, time);
+  updateMeteors(dt);
+  if (boltTime > 0) { boltTime -= dt; if (boltTime <= 0) boltMesh.visible = false; }
+  if (flash > 0) flash = Math.max(0, flash - dt * 4);
   updateParticles(dt);
-  animatePlots(time, dt);
-  clouds.forEach(c => { c.position.x += c.userData.speed * dt; if (c.position.x > 90) c.position.x = -90; });
-  MATS.pond.map.offset.x = time * 0.03;
-  MATS.water.map.offset.y = time * 0.02;
-  if (sprinklerModel) {
-    sprinklerModel.rotation.y = time * 2;
-    if (Math.random() < dt * 25) {
-      const a = time * 2 + Math.random() * 0.3;
-      spawnParticles(Math.cos(a) * 0.3, 0.95, Math.sin(a) * 0.3, 0x81D4FA, 1, 0, 0.06, { up: 3, life: 1.2, grav: 6 });
-      const p = particles[particleCursor];
-      p.vx = Math.cos(a) * 4; p.vz = Math.sin(a) * 4;
-    }
-  }
-  if (started) { updatePrompt(); updateTimeHUD(); }
+  animatePlants(time, dt);
+  updateFruitInstances(time);
+  animatePlaced(time, dt);
+  clouds.forEach(c => { c.position.x += c.userData.speed * dt; if (c.position.x > 110) c.position.x = -110; });
+  MATS.water.map.offset.x = time * 0.03;
+  if (started) updatePrompt();
   adaptQuality(dt);
   renderer.render(scene, camera);
 }
 
-// Start (or restart) play for the selected profile
 function startProfile() {
-  const loaded = loadGame();
-  playerPos.set(0, 0, 13); playerVel.set(0, 0, 0);
-  playerY = 0; playerVY = 0; onGround = true; playerFacing = Math.PI;
-  yaw = 0; pitch = 0.4; camDist = isMobile ? 10 : 9;
-  camPos.set(0, 6, 22);
-  dogPos.set(3, 0, 12);
-  moveTarget = null; focus = null;
-  dayTime = 0.3; currentWeather = 'sunny'; weatherTimer = 90 + Math.random() * 60;
-  if (sprinklerModel) { scene.remove(sprinklerModel); sprinklerModel = null; }
-  buildSprinkler();
+  const result = loadGame();
+  playerPos.set(TELEPORTS.garden.x, 0, TELEPORTS.garden.z - 2.5);
+  playerVel.set(0, 0, 0);
+  playerY = 0; playerVY = 0; onGround = true;
+  yaw = 0; pitch = 0.55; camDist = isMobile ? 12 : 11;
+  playerFacing = Math.PI;
+  camPos.set(playerPos.x, 8, playerPos.z + 12);
+  moveTarget = null; focus = null; carrying = null; shovelArmed = null;
+  dayTime = 0.3; weather = null; weatherTimer = 90 + Math.random() * 90; moonlitCount = 0;
+  [...plantViews.keys()].forEach(removePlantView);
+  [...petEntities.keys()].forEach(id => { scene.remove(petEntities.get(id).model); petEntities.delete(id); });
   buildPlayerModel();
-  plotViews.forEach(v => { if (v.plant) { v.group.remove(v.plant); v.plant.geometry.dispose(); v.plant = null; } v.key = ''; v.iconEmoji = ''; });
-  rebuildPlotFrames();
-  refreshAllPlots();
-  selectNextSeed();
+  refreshAllPlants();
+  refreshPlaced();
+  syncPetEntities();
+  buildNeighborGardens();
+  updateEggDisplay();
   fillTasks();
-  updateHUD(); updateHotbar(); refreshSoundButtons();
+  updateHUD(); updateHotbar(); updateLeaderboard(); refreshSoundButtons(); weatherBanner();
   started = true;
   document.body.classList.add('playing');
   lastFocusKey = '?';
-
-  if (loaded) {
-    const ready = gameState.plots.filter(p => p && isReady(p)).length;
-    if (ready) showToast('🌅', `Welcome back! ${ready} plant${ready > 1 ? 's are' : ' is'} ready to harvest!`);
+  lastSlot = shopSlot(SHOP_RESTOCK);
+  if (result === 'migrated') {
+    setTimeout(() => bigBanner('🎉 Big Update!', 'Your garden moved to the new world!<br>Coins became ¢ Sheckles, crops are in your 🎒 Backpack, and Buddy is your first pet 🐶'), 600);
+    saveGame();
+  } else if (result === 'loaded') {
+    const ripe = gameState.plants.filter(plantRipe).length;
+    if (ripe) showToast('🌅', `Welcome back! ${ripe} plant${ripe > 1 ? 's have' : ' has'} fruit ready!`);
     setTimeout(maybeDailyGift, 900);
   } else {
     gameState.lastDaily = todayStr();
     gameState.dailyStreak = 1;
-    setTimeout(() => showToast('👋', 'Hi! Follow the pointing hand 👇 to plant your first seed.'), 600);
+    setTimeout(() => showToast('👋', 'Welcome! Follow the pointing hand 👇 to plant your first seed.'), 600);
     saveGame();
   }
 }
@@ -2928,15 +3372,11 @@ function boot() {
   initSky();
   initLighting();
   buildWorld();
-  buildShop();
-  buildWell();
-  buildDog();
-  buildDucks();
   buildCritters();
   buildRain();
+  buildSnow();
   buildParticles();
-  buildHighlight();
-  buildGardenPlots();
+  buildGardenSystems();
   bindInput();
   bindUI();
   showProfileScreen();
@@ -2946,13 +3386,17 @@ function boot() {
 // Small hook for automated testing / debugging from the console
 window.__garden = {
   get state() { return gameState; },
-  plotScreen(i) { const p = getPlotWorldPos(i); return worldToScreen(p.x, 0.4, p.z); },
-  fastForward(sec) { for (let t = 0; t < sec; t += 0.5) updateGarden(0.5); refreshAllPlots(); },
-  get focus() { return focus; },
+  worldToScreen(x, y, z) { return worldToScreen(x, y, z); },
+  fastForward(sec) { for (let t = 0; t < sec; t += 0.5) updateGarden(0.5); refreshAllPlants(); },
   setTime(t) { dayTime = t; },
-  setSkin(k) { equipSkin(k); },
+  startWeather(id) { startWeather(id); },
+  strike() { lightningStrike(); },
+  meteor() { launchMeteor(); },
+  teleport(w) { teleport(w); },
   view(x, z, d, p, y) { playerPos.set(x, 0, z); camDist = d; pitch = p; yaw = y || 0; },
-  setWeather(w) { currentWeather = w; weatherTimer = 999; },
+  refresh() { refreshAllPlants(); refreshPlaced(); syncPetEntities(); updateHUD(); updateHotbar(); },
+  get focus() { return focus; },
+  petTick(sec) { for (const e of petEntities.values()) e.timer = Math.min(e.timer, 0.01); updatePets(0.05, 0); void sec; },
   get player() { return { x: playerPos.x, z: playerPos.z, target: moveTarget && { x: moveTarget.x, z: moveTarget.z } }; },
 };
 

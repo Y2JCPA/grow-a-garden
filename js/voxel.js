@@ -37,17 +37,22 @@ const Tex = (function() {
 
   const builders = {
     // Light grayscale noise — multiplied with vertex colors so every block gets a pixel texture
-    noise: () => make(16, (ctx, s) => speckle(ctx, s, ['#ffffff', '#f4f4f4', '#ececec', '#e2e2e2', '#fafafa', '#dadada'], rng(7))),
+    // Very light noise — keeps the smooth "Roblox plastic" look while hiding banding
+    noise: () => make(16, (ctx, s) => speckle(ctx, s, ['#ffffff', '#fbfbfb', '#f6f6f6', '#f1f1f1', '#fdfdfd'], rng(7))),
     grass: () => make(32, (ctx, s) => {
-      speckle(ctx, s, ['#6cc04a', '#62b743', '#74c851', '#5dae3e', '#69bd47', '#7bd055', '#58a83a'], rng(42));
+      speckle(ctx, s, ['#5fbf4a', '#5cbb47', '#62c24d', '#59b744', '#60c04b'], rng(42));
       const r = rng(9);
-      // a few tiny flowers / darker blades
-      for (let i = 0; i < 10; i++) { ctx.fillStyle = '#4e9a35'; ctx.fillRect(Math.floor(r() * s), Math.floor(r() * s), 1, 2); }
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = '#54ad40'; ctx.fillRect(Math.floor(r() * s), Math.floor(r() * s), 1, 2); }
     }),
     soil: () => make(16, (ctx, s) => {
       speckle(ctx, s, ['#7a5233', '#6e4a2e', '#845a38', '#714b2f', '#7d5535'], rng(3));
       ctx.fillStyle = 'rgba(40,22,10,0.45)';
       for (let y = 1; y < s; y += 4) ctx.fillRect(0, y, s, 1); // tilled rows
+    }),
+    dirt: () => make(16, (ctx, s) => {
+      speckle(ctx, s, ['#7a5233', '#77502f', '#7d5536', '#744d2e', '#7b5434'], rng(13));
+      const r = rng(4);
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = '#5f3f24'; ctx.fillRect(Math.floor(r() * s), Math.floor(r() * s), 1, 1); }
     }),
     path: () => make(16, (ctx, s) => {
       speckle(ctx, s, ['#c9b48a', '#bfa97d', '#d3bf95', '#b39d72', '#cdb98f'], rng(11));
@@ -165,6 +170,26 @@ const VoxelBatch = (function() {
       return g;
     }
   }
+
+  // Merge finished geometries ({geometry, matrix}) into one — used for neighbor gardens
+  Batch.merge = function(items) {
+    const out = new Batch(1);
+    const v3 = new THREE.Vector3();
+    items.forEach(({ geometry, matrix }) => {
+      const base = out.pos.length / 3;
+      const P = geometry.attributes.position, N = geometry.attributes.normal, U = geometry.attributes.uv, C = geometry.attributes.color;
+      n3.getNormalMatrix(matrix);
+      for (let i = 0; i < P.count; i++) {
+        v3.fromBufferAttribute(P, i).applyMatrix4(matrix); out.pos.push(v3.x, v3.y, v3.z);
+        v3.fromBufferAttribute(N, i).applyMatrix3(n3).normalize(); out.nrm.push(v3.x, v3.y, v3.z);
+        out.uv.push(U.getX(i), U.getY(i));
+        out.col.push(C.getX(i), C.getY(i), C.getZ(i));
+      }
+      const idx = geometry.index.array;
+      for (let i = 0; i < idx.length; i++) out.idx.push(idx[i] + base);
+    });
+    return out.build();
+  };
 
   return Batch;
 })();
