@@ -17,99 +17,39 @@ const CHARACTER_SKINS = {
 const DEFAULT_SKIN = 'farmer';
 
 function buildFarmerSkin(model) {
-  const skinColor = 0xD2A87A;
-  const shirtColor = 0x4CAF50;
-  const pantsColor = 0x5D4037;
-  const shoeColor = 0x333333;
-  const hatColor = 0x8B4513;
-
-  // Head
-  const head = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.5, 0.5),
-    new THREE.MeshLambertMaterial({ color: skinColor })
-  );
-  head.position.y = 1.55;
-  head.castShadow = true;
-  model.add(head);
-
-  // Eyes (on FRONT of face, +z)
-  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), eyeMat);
-  eyeL.position.set(-0.12, 1.6, 0.25);
-  model.add(eyeL);
-  const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.05), eyeMat);
-  eyeR.position.set(0.12, 1.6, 0.25);
-  model.add(eyeR);
-
-  // Hat (farmer\'s hat)
-  const hatBrim = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, 0.06, 0.8),
-    new THREE.MeshLambertMaterial({ color: hatColor })
-  );
-  hatBrim.position.y = 1.82;
-  hatBrim.castShadow = true;
-  model.add(hatBrim);
-  const hatTop = new THREE.Mesh(
-    new THREE.BoxGeometry(0.45, 0.25, 0.45),
-    new THREE.MeshLambertMaterial({ color: hatColor })
-  );
-  hatTop.position.y = 1.95;
-  hatTop.castShadow = true;
-  model.add(hatTop);
-
-  // Body (shirt)
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.6, 0.3),
-    new THREE.MeshLambertMaterial({ color: shirtColor })
-  );
-  body.position.y = 1.0;
-  body.castShadow = true;
-  model.add(body);
-
-  // Arms
-  const armGeo = new THREE.BoxGeometry(0.2, 0.55, 0.2);
-  const armMat = new THREE.MeshLambertMaterial({ color: shirtColor });
-  const armL = new THREE.Mesh(armGeo, armMat);
-  armL.position.set(-0.35, 1.0, 0);
-  armL.castShadow = true;
-  model.add(armL);
-  const armR = new THREE.Mesh(armGeo, armMat);
-  armR.position.set(0.35, 1.0, 0);
-  armR.castShadow = true;
-  model.add(armR);
-
-  // Hands (skin)
-  const handGeo = new THREE.BoxGeometry(0.18, 0.15, 0.18);
-  const handMat = new THREE.MeshLambertMaterial({ color: skinColor });
-  const handL = new THREE.Mesh(handGeo, handMat);
-  handL.position.set(-0.35, 0.66, 0);
-  model.add(handL);
-  const handR = new THREE.Mesh(handGeo, handMat);
-  handR.position.set(0.35, 0.66, 0);
-  model.add(handR);
-
-  // Legs (pants)
-  const legGeo = new THREE.BoxGeometry(0.22, 0.5, 0.25);
-  const legMat = new THREE.MeshLambertMaterial({ color: pantsColor });
-  const legL = new THREE.Mesh(legGeo, legMat);
-  legL.position.set(-0.13, 0.45, 0);
-  legL.castShadow = true;
-  model.add(legL);
-  const legR = new THREE.Mesh(legGeo, legMat);
-  legR.position.set(0.13, 0.45, 0);
-  legR.castShadow = true;
-  model.add(legR);
-
-  // Shoes
-  const shoeGeo = new THREE.BoxGeometry(0.22, 0.1, 0.32);
-  const shoeMat = new THREE.MeshLambertMaterial({ color: shoeColor });
-  const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
-  shoeL.position.set(-0.13, 0.15, -0.03);
-  model.add(shoeL);
-  const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
-  shoeR.position.set(0.13, 0.15, -0.03);
-  model.add(shoeR);
-
+  // Grow a Garden farmer: straw hat, white tee, blue overalls, big smile
+  const skin = 0xF2C9A0, shirt = 0xF7F7F7, overalls = 0x2F6FD6, straw = 0xE8C66E, band = 0xB0413E;
+  const m = c => new THREE.MeshLambertMaterial({ color: c });
+  const add = (w, h, d, c, x, y, z) => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m(c)); mesh.position.set(x, y, z); model.add(mesh); return mesh; };
+  // head + face
+  add(0.5, 0.5, 0.5, skin, 0, 1.55, 0);
+  add(0.07, 0.1, 0.03, 0x1b1b1b, -0.11, 1.6, 0.255);
+  add(0.07, 0.1, 0.03, 0x1b1b1b, 0.11, 1.6, 0.255);
+  add(0.18, 0.04, 0.03, 0x1b1b1b, 0, 1.45, 0.255);
+  add(0.04, 0.04, 0.03, 0x1b1b1b, -0.1, 1.475, 0.255);
+  add(0.04, 0.04, 0.03, 0x1b1b1b, 0.1, 1.475, 0.255);
+  // straw hat
+  add(0.95, 0.06, 0.95, straw, 0, 1.82, 0);
+  add(0.52, 0.24, 0.52, straw, 0, 1.95, 0);
+  add(0.54, 0.07, 0.54, band, 0, 1.87, 0);
+  // torso: white tee under a blue bib with straps and buttons
+  add(0.5, 0.6, 0.3, shirt, 0, 1.0, 0);
+  add(0.42, 0.36, 0.04, overalls, 0, 0.88, 0.16);
+  add(0.08, 0.26, 0.04, overalls, -0.15, 1.16, 0.16);
+  add(0.08, 0.26, 0.04, overalls, 0.15, 1.16, 0.16);
+  add(0.06, 0.06, 0.03, 0xFFD54F, -0.14, 1.03, 0.185);
+  add(0.06, 0.06, 0.03, 0xFFD54F, 0.14, 1.03, 0.185);
+  add(0.5, 0.18, 0.3, overalls, 0, 0.78, 0);
+  // arms (short white sleeves + skin)
+  const armL = add(0.2, 0.55, 0.2, skin, -0.35, 1.0, 0);
+  const armR = add(0.2, 0.55, 0.2, skin, 0.35, 1.0, 0);
+  add(0.22, 0.18, 0.22, shirt, -0.35, 1.2, 0);
+  add(0.22, 0.18, 0.22, shirt, 0.35, 1.2, 0);
+  // legs in overalls + boots
+  const legL = add(0.22, 0.5, 0.25, overalls, -0.13, 0.45, 0);
+  const legR = add(0.22, 0.5, 0.25, overalls, 0.13, 0.45, 0);
+  add(0.24, 0.12, 0.32, 0x5D4037, -0.13, 0.15, 0.02);
+  add(0.24, 0.12, 0.32, 0x5D4037, 0.13, 0.15, 0.02);
   model.userData = { armL, armR, legL, legR };
 }
 
@@ -772,6 +712,7 @@ function buildCharacter(skinKey) {
   const model = new THREE.Group();
   (SKIN_BUILDERS[skinKey] || buildFarmerSkin)(model);
   rigLimbs(model);
+  roundify(model);
   model.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return model;
 }

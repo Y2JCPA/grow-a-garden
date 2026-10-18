@@ -162,6 +162,7 @@ function buildPetModel(petId) {
     u.torso = torso; u.head = head; u.height = 1.4;
   }
   g.userData = u;
+  roundify(g, 1.3);
   return g;
 }
 

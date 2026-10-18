@@ -221,8 +221,7 @@ function initRenderer() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = isMobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMapping = THREE.NoToneMapping;
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
 
   scene = new THREE.Scene();
@@ -327,21 +326,23 @@ function initLighting() {
 // ─── Shared materials ───
 const MATS = {};
 function initMaterials() {
-  const noise = Tex.get('noise');
-  MATS.voxel = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise });
-  MATS.plant = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise });
-  MATS.dirt = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('dirt') });
-  MATS.path = new THREE.MeshLambertMaterial({ vertexColors: true, map: Tex.get('path') });
-  MATS.fruit = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  // Roblox "SmoothPlastic" look: shiny Phong shading + stud texture
+  const studs = Tex.get('studs');
+  const plastic = o => new THREE.MeshPhongMaterial(Object.assign({ vertexColors: true, map: studs, shininess: 30, specular: 0x262626 }, o || {}));
+  MATS.voxel = plastic();
+  MATS.plant = plastic({ shininess: 45, specular: 0x333333 });
+  MATS.dirt = plastic({ shininess: 12, specular: 0x111111 });
+  MATS.path = plastic({ map: Tex.get('softStuds'), shininess: 15, specular: 0x151515 });
+  MATS.fruit = new THREE.MeshPhongMaterial({ color: 0xffffff, map: studs, shininess: 60, specular: 0x444444 });
   MATS.fruitGlow = new THREE.MeshBasicMaterial({ color: 0xffffff });
   MATS.ghost = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false });
   MATS.ring = new THREE.MeshBasicMaterial({ color: 0x4FC3F7, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide });
-  MATS.water = new THREE.MeshLambertMaterial({ map: Tex.get('water'), transparent: true, opacity: 0.85 });
-  MATS.lamp = new THREE.MeshLambertMaterial({ vertexColors: true, color: 0xfff3c4, emissive: 0x000000 });
+  MATS.water = new THREE.MeshPhongMaterial({ map: Tex.get('water'), transparent: true, opacity: 0.88, shininess: 90, specular: 0x666666 });
+  MATS.lamp = new THREE.MeshPhongMaterial({ vertexColors: true, color: 0xfff3c4, emissive: 0x000000 });
   // single-harvest crops are tinted by their strongest mutation
   MATS.mut = {};
   Object.entries(MUTATIONS).forEach(([k, m]) => {
-    MATS.mut[k] = new THREE.MeshLambertMaterial({ vertexColors: true, map: noise, color: m.tint, emissive: m.glow ? new THREE.Color(m.tint).multiplyScalar(0.35) : 0x000000 });
+    MATS.mut[k] = plastic({ shininess: 70, specular: 0x555555, color: m.tint, emissive: m.glow ? new THREE.Color(m.tint).multiplyScalar(0.35) : 0x000000 });
   });
   MATS.mut.gold.emissive.setHex(0x5a3a00);
 }
@@ -360,35 +361,50 @@ function buildGardenGround(g, b, dirt) {
   // two dirt beds with a path between them, wooden edging all around
   [-1, 1].forEach(side => {
     const cx = g.x + side * (BED_X0 + BED_X1) / 2, w = BED_X1 - BED_X0;
-    dirt.box(w, DIRT_Y + 0.05, BED_Z * 2, 0xffffff, cx, (DIRT_Y - 0.05) / 2, g.z);
-    b.box(w + 0.3, 0.22, 0.2, 0x8D6E63, cx, 0.11, g.z - BED_Z - 0.1);
-    b.box(w + 0.3, 0.22, 0.2, 0x8D6E63, cx, 0.11, g.z + BED_Z + 0.1);
-    b.box(0.2, 0.22, BED_Z * 2, 0x795548, cx - w / 2 - 0.05, 0.11, g.z);
-    b.box(0.2, 0.22, BED_Z * 2, 0x795548, cx + w / 2 + 0.05, 0.11, g.z);
+    dirt.box(w, DIRT_Y + 0.05, BED_Z * 2, 0xC2713F, cx, (DIRT_Y - 0.05) / 2, g.z);
+    b.box(w + 0.6, 0.3, 0.3, 0x7A4A2A, cx, 0.15, g.z - BED_Z - 0.15);
+    b.box(w + 0.6, 0.3, 0.3, 0x7A4A2A, cx, 0.15, g.z + BED_Z + 0.15);
+    b.box(0.3, 0.3, BED_Z * 2, 0x7A4A2A, cx - w / 2 - 0.15, 0.15, g.z);
+    b.box(0.3, 0.3, BED_Z * 2, 0x7A4A2A, cx + w / 2 + 0.15, 0.15, g.z);
   });
+  // Wooden rail fence around the garden, open at the front (toward the market)
+  const fx = BED_X1 + 1.2, fz = BED_Z + 1.2;
+  const front = -g.dir; // +1 → the market is on the +z side
+  const fence = 0x8B5A2B, post = 0x6B4423;
+  const rail = (x1, z1, x2, z2) => {
+    const len = Math.hypot(x2 - x1, z2 - z1), ang = Math.atan2(z2 - z1, x2 - x1);
+    [0.45, 0.85].forEach(h => b.box(len, 0.16, 0.14, fence, (x1 + x2) / 2, h, (z1 + z2) / 2, 0, -ang, 0));
+    for (let t = 0; t <= len + 0.01; t += 2.4) b.box(0.26, 1.15, 0.26, post, x1 + Math.cos(ang) * t, 0.57, z1 + Math.sin(ang) * t);
+  };
+  rail(g.x - fx, g.z - front * fz, g.x + fx, g.z - front * fz);            // back
+  rail(g.x - fx, g.z - fz, g.x - fx, g.z + fz);                            // left
+  rail(g.x + fx, g.z - fz, g.x + fx, g.z + fz);                            // right
+  rail(g.x - fx, g.z + front * fz, g.x - 2.2, g.z + front * fz);           // front, left of gate
+  rail(g.x + 2.2, g.z + front * fz, g.x + fx, g.z + front * fz);           // front, right of gate
 }
 
 function buildWorld() {
-  const grass = Tex.get('grass').clone();
+  const grass = Tex.get('studs').clone();
   grass.needsUpdate = true;
-  grass.repeat.set(130, 100);
-  MATS.ground = new THREE.MeshLambertMaterial({ map: grass });
+  grass.repeat.set(520, 400); // one stud every half unit, like a Roblox baseplate
+  MATS.ground = new THREE.MeshPhongMaterial({ map: grass, color: 0xffffff, shininess: 14, specular: 0x111111 });
+  MATS.groundBase = new THREE.Color(0x5BD645);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 200), MATS.ground);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
   const rand = seededRandom(4321);
-  const statics = new VoxelBatch(4);
-  const decor = new VoxelBatch(4);
-  const paths = new VoxelBatch(1.5);
-  const dirt = new VoxelBatch(1.2);
+  const statics = new VoxelBatch(2.5, 0.08);
+  const decor = new VoxelBatch(3);
+  const paths = new VoxelBatch(2, 0);
+  const dirt = new VoxelBatch(2, 0.05);
   const lamps = new VoxelBatch(4);
 
   // Market street + paths into each garden
-  paths.box(WORLD_X * 2, 0.04, 11, 0xffffff, 0, 0.02, 0);
+  paths.box(WORLD_X * 2, 0.04, 11, 0xB8B4AC, 0, 0.02, 0);
   GARDENS.forEach(g => {
-    paths.box(3, 0.04, GARDEN_D + 2, 0xf2ead8, g.x, 0.02, g.z);
+    paths.box(3, 0.04, GARDEN_D + 2, 0xC9B38C, g.x, 0.02, g.z);
     buildGardenGround(g, statics, dirt);
   });
   // curbs along the street
@@ -450,13 +466,6 @@ function buildWorld() {
     buildTree(statics, x, z, treeTypes[Math.floor(rand() * treeTypes.length)], rand);
     addCollider(x, z, 0.8);
   });
-  // Hills on the horizon
-  for (let i = 0; i < 40; i++) {
-    const a = (i / 40) * Math.PI * 2 + rand() * 0.1;
-    const d = 110 + rand() * 20;
-    const w = 20 + rand() * 18, h = 3 + rand() * 7;
-    statics.box(w, h, w, 0x5b9e45, Math.cos(a) * d, h / 2, Math.sin(a) * d * 0.8, 0, a, 0);
-  }
   // Grass tufts & wildflowers outside the gardens
   const flowerColors = [0xFFEB3B, 0xFF80AB, 0xFFFFFF, 0xB388FF, 0xFF7043];
   for (let i = 0; i < 500; i++) {
@@ -511,6 +520,7 @@ function buildVendor(def) {
   part(0.22, 0.5, 0.25, 0x37474F, -0.13, 0.45, 0);
   part(0.22, 0.5, 0.25, 0x37474F, 0.13, 0.45, 0);
   v.userData = { head, armL, armR };
+  roundify(v);
   return v;
 }
 
@@ -642,14 +652,21 @@ function buildTree(b, x, z, type, rand) {
 }
 
 const clouds = [];
+const CLOUD_GEO = new THREE.SphereGeometry(1, 14, 10);
+const CLOUD_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa4ad, fog: false });
 function buildClouds(rand) {
   for (let i = 0; i < 9; i++) {
-    const b = new VoxelBatch(1);
-    const n = 3 + Math.floor(rand() * 4);
+    // a cluster of soft spheres, flat on the bottom — cartoon cumulus
+    const m = new THREE.Group();
+    const n = 4 + Math.floor(rand() * 4);
     for (let k = 0; k < n; k++) {
-      b.box(4 + rand() * 5, 1.4 + rand() * 1, 3 + rand() * 4, 0xffffff, k * 3 - n * 1.5, rand() * 0.8, (rand() - 0.5) * 3);
+      const r = 2.2 + rand() * 2.4 * (1 - Math.abs(k - n / 2) / n);
+      const puff = new THREE.Mesh(CLOUD_GEO, CLOUD_MAT);
+      puff.scale.set(r, r * 0.8, r);
+      puff.position.set(k * 2.6 - n * 1.3, r * 0.25, (rand() - 0.5) * 3);
+      m.add(puff);
     }
-    const m = new THREE.Mesh(b.build(), new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.92, emissive: 0x666666 }));
+    m.scale.setScalar(1.3);
     m.position.set((rand() - 0.5) * 160, 28 + rand() * 10, (rand() - 0.5) * 160);
     m.userData.speed = 0.6 + rand() * 0.8;
     scene.add(m);
@@ -679,7 +696,7 @@ const tmpColor = new THREE.Color();
 let rainbowHue = 0;
 
 function buildGardenSystems() {
-  const box = new THREE.BoxGeometry(1, 1, 1);
+  const box = bevelBoxGeometry(1, 1, 1, 0.16, 3);
   fruitMesh = new THREE.InstancedMesh(box, MATS.fruit, FRUIT_CAP);
   fruitGlowMesh = new THREE.InstancedMesh(box, MATS.fruitGlow, FRUIT_CAP);
   [fruitMesh, fruitGlowMesh].forEach(m => {
@@ -931,7 +948,7 @@ function buildGardenSigns(names) {
   gardenSigns.forEach(s => scene.remove(s));
   gardenSigns.length = 0;
   GARDENS.forEach((g, i) => {
-    const z = g.z - g.dir * (GARDEN_D / 2 - 0.2);
+    const z = g.z - g.dir * (GARDEN_D / 2 + 0.8);
     const sign = new THREE.Group();
     const b = new VoxelBatch(4);
     b.box(0.15, 1.6, 0.15, 0x6D4C41, -2.6, 0.8, 0); b.box(0.15, 1.6, 0.15, 0x6D4C41, 2.6, 0.8, 0);
@@ -1550,6 +1567,7 @@ function useWateringCan(p) {
 }
 
 function placeGear(gearId, x, z) {
+  if (!GEAR[gearId]) return;
   if (!spotFree(x, z, 0.3)) { Sfx.play('deny'); showToast('🚫', 'Place it on free dirt in your garden.'); return; }
   const def = GEAR[gearId];
   const item = { id: newId(), gear: gearId, x, z };
@@ -2050,7 +2068,7 @@ function updateGuide(time, dt) {
 }
 // ─── Weather & day/night ───
 const skyCols = {
-  dayTop: new THREE.Color(0x3d8fe6), dayHor: new THREE.Color(0xbfe3ff),
+  dayTop: new THREE.Color(0x0AA2FF), dayHor: new THREE.Color(0xB5EAFF),
   setTop: new THREE.Color(0x4a5fa8), setHor: new THREE.Color(0xffa36b),
   nightTop: new THREE.Color(0x0b1030), nightHor: new THREE.Color(0x1e2a5a),
   rainTop: new THREE.Color(0x5d6b7a), rainHor: new THREE.Color(0x9aa7b3),
@@ -2102,9 +2120,8 @@ function updateDayNight(dt) {
   hemiLight.groundColor.setRGB(0.25 + day * 0.15, 0.3 + day * 0.18, 0.2 + day * 0.05);
   ambientLight.intensity = (0.26 + day * 0.06) * rainDim + flash * 1.5;
   if (bloodBlend > 0.01) hemiLight.color.lerp(tmpC.set(0xff4040), bloodBlend * 0.6);
-  MATS.ground.color.copy(WHITE).lerp(GROUND_FROST, frostBlend * 0.6);
+  MATS.ground.color.copy(MATS.groundBase).lerp(GROUND_FROST, frostBlend * 0.6);
   ambientLight.color.setRGB(0.55 + day * 0.45, 0.65 + day * 0.35, 1);
-  renderer.toneMappingExposure = 1.1;
 
   // Sun / moon discs follow the camera
   sunMesh.position.copy(camera.position).addScaledVector(sunDir, 350);
@@ -2316,9 +2333,11 @@ function interact(f) {
     case 'egg': if (f.egg.left <= 0) hatchEgg(f.egg); else { Sfx.play('click'); showToast('🥚', `Hatches in ${fmtTime(f.egg.left)}`); } return;
     case 'placed': Sfx.play('click'); return;
     case 'spot':
+      // the held item may have changed since focus was computed — re-check it
+      if (!sel) return;
       if (sel.kind === 'seed') plantSeed(sel.id, f.x, f.z);
       else if (sel.kind === 'egg') placeEgg(sel.id, f.x, f.z);
-      else placeGear(sel.id, f.x, f.z);
+      else if (PLACEABLE_GEAR.includes(sel.id)) placeGear(sel.id, f.x, f.z);
       return;
     case 'plant': {
       const p = f.plant;
