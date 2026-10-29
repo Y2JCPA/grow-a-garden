@@ -1933,8 +1933,9 @@ const petEntities = new Map();
 // Pets keep the name they hatched with; show default names in the current language
 function petName(pet) {
   const d = PETS[pet.type];
-  if (pet.name === 'Buddy' || pet.name === T('Buddy')) return T('Buddy');
-  if (d && (pet.name === d._en || pet.name === d.name)) return d.name;
+  // a default name in any language/spelling shows in the current one
+  if (['Buddy', HE.Buddy, HE_NK.Buddy].includes(pet.name)) return T('Buddy');
+  if (d && [d._en, d.name, (HE_DATA.pets || {})[pet.type], (HE_DATA_NK.pets || {})[pet.type]].includes(pet.name)) return d.name;
   return pet.name;
 }
 function petLevel(pet) { return 1 + Math.min(99, Math.floor((pet.age || 0) / 300)); }
@@ -3141,6 +3142,14 @@ function showProfileScreen() {
   lb.textContent = IS_HE ? '🌐 English' : '🌐 עברית';
   lb.addEventListener('click', () => setLang(IS_HE ? 'en' : 'he'));
   overlay.appendChild(lb);
+  if (IS_HE) {
+    const nb = document.createElement('button');
+    nb.className = 'btn lang-btn nikud-btn';
+    nb.textContent = NIKUD ? 'נִקּוּד ✓' : 'ניקוד ✗';
+    nb.title = NIKUD ? 'להסתיר ניקוד' : 'להציג ניקוד';
+    nb.addEventListener('click', () => setNikud(!NIKUD));
+    overlay.appendChild(nb);
+  }
   const grid = document.getElementById('profile-grid');
   const bar = document.getElementById('world-bar');
   document.getElementById('new-profile-btn').addEventListener('click', showNewProfileModal);

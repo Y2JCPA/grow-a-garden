@@ -29,6 +29,8 @@ A blocky 3D gardening game for kids, modeled on the Roblox game **Grow a Garden*
 ## עברית / Hebrew
 The whole game can be played in Hebrew, right to left: menus, fruits and vegetables, pets, messages, signs, the Mitzvot book (with the sources in Hebrew) — everything. Tap **🌐 עברית** on the start screen or the 🌐 button in the game. The choice is remembered on each device; a device set to Hebrew starts in Hebrew.
 
+Hebrew is shown **with nikud** by default, so young readers can read everything. The **נִקּוּד ✓** button on the start screen turns it off (regular spelling). The nikud was generated with [Dicta's Nakdan](https://nakdan.dicta.org.il) and then checked by hand (imperatives like שִׁתְלוּ / קִטְפוּ, names like רוּת and בָּאדִי, terms like לַכֹּהֵן, שִׁכְחָה, עָרְלָה); it lives in js/i18n-he-nikud.js.
+
 Texts are wrapped with `` T`…` `` (js/i18n.js); the Hebrew dictionary and Hebrew names for the data tables are in js/i18n-he.js.
 
 ## Mitzvot of the Garden 📜
