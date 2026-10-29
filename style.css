@@ -561,3 +561,6 @@ body.lang-he .lang-btn { right: auto; left: calc(12px + var(--safe-left)); }
 /* keep the right-hand HUD column in the same place as in English */
 body.lang-he #hud-right { direction: ltr; }
 body.lang-he #hud-right .hud-card, body.lang-he #hud-right .lbl { direction: rtl; }
+body.lang-he .nikud-btn { top: calc(60px + var(--safe-top)); background: linear-gradient(#FFD54F, #FFA000); }
+/* nikud needs a little more line height */
+body.lang-he { line-height: 1.35; }
