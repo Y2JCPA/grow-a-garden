@@ -38,7 +38,7 @@ The gardens follow the Torah's farming mitzvot in a kid-sized way. Every day in 
 | 🌱 **Orlah** (ערלה) | A new fruit tree's fruit can't be picked for 3 years. Trees that were already planted are exempt (Mishnah Orlah 1:2) |
 | 🏛️ **Neta Revai** (נטע רבעי) | 4th-year fruit is brought to the Kohen instead of sold |
 | 🎀 **Bikkurim** (ביכורים) | Tie a reed around the first ripe fruit of each of the **Seven Species** and bring it to the Kohen |
-| 🪙 **Terumah & Ma'aser** | Every sale gives 1/50 to the Kohen and 1/10 to the Levi, and a blessing makes it up to you |
+| 🪙 **Terumah & Ma'aser** | Before each sale the kid picks how much Terumah to give the Kohen (generous 1/40, average 1/50 or stingy 1/60, Mishnah Terumot 4:3); then 1/10 goes to the Levi. *Parents' secret:* the blessing that follows is bigger the more generous the Terumah, but it is only revealed after the sale, so kids can discover it for themselves |
 | 🌿 **Shemitah** (שמיטה) | Year 7: no planting, and picked fruit is Shevi'it, for eating, not selling. Year 6 harvests are doubled (Vayikra 25:21) |
 | 🌳 **Bal Tashchit** | Digging up a fruit tree asks you to think twice |
 

@@ -34,9 +34,15 @@ const MITZVAH = {
   VINE_GAP: 2.4,          // a vine needs more room (Kilai HaKerem)
   PEAH_W: 4.5, PEAH_D: 4.5,
   LEKET_CHANCE: 0.08,     // chance that a harvested fruit falls
-  TERUMAH: 1 / 50,        // "an average amount: one fiftieth" (Terumot 4:3)
   MAASER: 1 / 10,
-  TITHE_BRACHA: 0.12,     // "aser bishvil shetitasher" — tithing never makes you poorer here
+};
+// How much Terumah to give is the kid's choice (Mishnah Terumot 4:3).
+// The blessing grows with generosity — on purpose it is NEVER shown before
+// a sale, only revealed after it, so kids can discover it themselves.
+const TERUMAH_CHOICES = {
+  generous: { frac: 1 / 40, name: 'Generous eye', he: 'עַיִן יָפָה', emoji: '🤲', bless: 0.16 },
+  average:  { frac: 1 / 50, name: 'Average',      he: 'בֵּינוֹנִית',  emoji: '🙂', bless: 0.12 },
+  stingy:   { frac: 1 / 60, name: 'Stingy eye',   he: 'עַיִן רָעָה',  emoji: '🤏', bless: 0.09 },
 };
 
 // Generated from the Sefaria API (sefaria.org). Torah/Tanakh English: JPS 1917 (public domain).
@@ -239,7 +245,7 @@ const MITZVOT = [
     sources: ['deut26_2', 'deut8_8', 'm_bik3_1', 'm_bik1_3', 'm_bik3_3'], stat: 'bik', unit: 'of the Seven Species brought' },
   { id: 'maaser', emoji: '🪙', he: 'תְּרוּמוֹת וּמַעַשְׂרוֹת', name: "Terumah & Ma'aser — giving a share",
     what: 'Before eating your crops, you give Terumah to the Kohen and one tenth (Ma\'aser) to the Levi.',
-    game: 'When you sell to Steven, Terumah (1/50) and Ma\'aser (1/10) are given first — and a <b>blessing</b> makes it up to you. Flowers and mushrooms aren\'t food, so they have no Ma\'aser.',
+    game: 'When you sell to Steven, <b>you choose</b> how much Terumah to give the Kohen — a generous eye gives 1/40, an average one 1/50, a stingy eye 1/60. Then Ma\'aser (1/10) goes to the Levi, and Hashem sends a <b>blessing</b>. Flowers and mushrooms aren\'t food, so they have no Ma\'aser.',
     fact: 'Our Sages said: "Aser bishvil shetitasher" — give a tenth so that you will become rich! (Taanit 9a)',
     sources: ['deut14_22', 'deut18_4', 'm_terumot4_3', 'm_maasrot1_1', 'mal3_10'], stat: 'maaser', unit: 'sales with Ma\'aser' },
   { id: 'shemitah', emoji: '🌿', he: 'שְׁמִטָּה', name: 'Shemitah — the land rests',

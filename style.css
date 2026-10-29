@@ -383,6 +383,15 @@ body.touch #interact-prompt { bottom: calc(256px + var(--safe-bottom)); }
 .species span { font-size: 26px; }
 .species small { font-size: 11px; color: var(--ink-soft); }
 .species.got { opacity: 1; border: 2px solid #1b1b1b; background: #FFF8E1; box-shadow: 0 3px 0 #FFB300; }
+.terumah-pick { background: #FFF8E1; border: 2px solid #1b1b1b; border-radius: 12px; padding: 7px 8px; margin: 8px 0 0; }
+.tp-q { font-size: 14px; margin-bottom: 6px; text-align: center; }
+.tp-opts { display: flex; gap: 6px; }
+.tp-opt { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px; border-radius: 10px; border: 2px solid #BCAAA4; background: #fff; font-family: inherit; color: var(--ink); }
+.tp-opt span { font-size: 22px; line-height: 1.1; }
+.tp-opt b { font-size: 13px; }
+.tp-opt small { font-size: 11px; color: var(--ink-soft); }
+.tp-opt small span { font-size: 11px; }
+.tp-opt.on { border-color: #1b1b1b; background: #C8F7C5; box-shadow: 0 3px 0 #2FA82F; }
 .tithe-box { display: flex; flex-direction: column; gap: 3px; background: #E3F2FD; border: 2px solid #1b1b1b; border-radius: 12px; padding: 7px 10px; margin: 8px 0; font-size: 13px; }
 .tithe-box span { display: flex; justify-content: space-between; gap: 8px; }
 .source { background: #FFFDF5; border: 2px solid #D7CCC8; border-left: 6px solid #FFB300; border-radius: 10px; padding: 7px 10px; margin: 8px 0; text-align: left; }
