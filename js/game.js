@@ -3152,7 +3152,7 @@ function showProfileScreen() {
     renderLocal();
     return;
   }
-  bar.innerHTML = `<div class="world-pill"><span>${T`🌍 Family world <b>${esc(world)}</b>`}</span><span id="world-status" class="world-status">${T('Connecting…')}</span><button class="btn small alt" id="world-leave-btn">${T('Leave')}</button></div>`;
+  bar.innerHTML = `<div class="world-pill"><span>${T`🌍 Family world <b>${esc(world)}</b>`}</span><span id="world-status" class="world-status">${T('Connecting…')}</span><button class="btn small alt" id="world-leave-btn">${T('Leave world')}</button></div>`;
   document.getElementById('world-leave-btn').addEventListener('click', () => {
     if (!confirm(T('Leave the family world? You will play on this device only. (You can join again with the same code.)'))) return;
     Net.leaveWorld();
@@ -3657,6 +3657,7 @@ function bindUI() {
   on('#switch-profile-btn', switchProfile);
   on('#emote-btn', toggleEmotePanel);
   on('#mitzvot-btn', () => togglePanel('mitzvot-panel', openMitzvot));
+  on('#lang-btn', () => { if (started) saveGame(true); setLang(IS_HE ? 'en' : 'he'); });
   on('#year-card', () => togglePanel('mitzvot-panel', openMitzvot));
   on('#teach-ok', () => { closeAllPanels(); Sfx.play('click'); setTimeout(showNextTeach, 400); });
   on('#tasks-title', () => $('#tasks').classList.toggle('collapsed'));

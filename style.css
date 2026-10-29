@@ -558,3 +558,6 @@ body.lang-he kbd { direction: ltr; unicode-bidi: isolate; }
 body.lang-he .sheckles, body.lang-he .fr-val, body.lang-he .buy-btn, body.lang-he .slot-count { direction: ltr; unicode-bidi: isolate; }
 .lang-btn { position: fixed; top: calc(12px + var(--safe-top)); right: calc(12px + var(--safe-right)); z-index: 1002; width: auto; font-size: 16px; padding: 7px 14px; background: linear-gradient(#5EC8FF, #1E88E5); }
 body.lang-he .lang-btn { right: auto; left: calc(12px + var(--safe-left)); }
+/* keep the right-hand HUD column in the same place as in English */
+body.lang-he #hud-right { direction: ltr; }
+body.lang-he #hud-right .hud-card, body.lang-he #hud-right .lbl { direction: rtl; }

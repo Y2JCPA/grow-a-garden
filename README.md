@@ -26,12 +26,17 @@ A blocky 3D gardening game for kids, modeled on the Roblox game **Grow a Garden*
 | Emotes (family world) | `T` | 👋 button |
 | Mitzvot book | `L` | 📜 button |
 
+## עברית / Hebrew
+The whole game can be played in Hebrew, right to left: menus, fruits and vegetables, pets, messages, signs, the Mitzvot book (with the sources in Hebrew) — everything. Tap **🌐 עברית** on the start screen or the 🌐 button in the game. The choice is remembered on each device; a device set to Hebrew starts in Hebrew.
+
+Texts are wrapped with `` T`…` `` (js/i18n.js); the Hebrew dictionary and Hebrew names for the data tables are in js/i18n-he.js.
+
 ## Mitzvot of the Garden 📜
 The gardens follow the Torah's farming mitzvot in a kid-sized way. Every day in the game is one **garden year**, shared by everyone.
 
 | Mitzvah | In the game |
 |---|---|
-| 💙 **Peah** (פאה) | Each garden has a roped corner. What ripens there is left for the poor, and **Rut** comes to gather it |
+| 💙 **Peah** (פאה) | Peah is left once per field, at its end — not in every corner (Rashi; Rambam, Matnot Aniyim 2:12). The permanent path splits each garden into two fields (Mishnah Peah 2:1), so each bed has one roped Peah corner at its far end. What ripens there is left for the poor, and **Rut** comes to gather it |
 | 🌾 **Leket** (לקט) | Sometimes a fruit falls while you harvest. Leave it for Rut |
 | 🧺 **Shichecha** (שכחה) | Leave the garden with 1–2 ripe plants forgotten next to what you picked, and they go to the poor (3 or more are not "forgotten", Mishnah Peah 6:5) |
 | 🚧 **Kilayim** (כלאים) | Different kinds of plants need space between them; vines need more. Trees, flowers and mushrooms are exempt |
@@ -64,6 +69,7 @@ There's no build step: plain HTML/CSS/JS, with Three.js loaded from a CDN.
 | `js/pets.js` | Blocky pet models |
 | `js/skins.js` | Player outfits |
 | `js/audio.js` | Synthesized sound effects and music (no audio files) |
+| `js/i18n.js`, `js/i18n-he.js` | English/Hebrew switching and the Hebrew translations |
 | `js/mitzvot.js` | The garden mitzvot, Seven Species, and their Sefaria source texts |
 | `js/net.js` | Multiplayer: family worlds over Firebase |
 | `js/game.js` | World, gameplay, UI, saving |

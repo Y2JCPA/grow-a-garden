@@ -156,7 +156,7 @@ function getSeasonalSeeds() {
 
 function getActiveHolidayLabels() {
   const active = getActiveHolidays();
-  return active.map(h => HOLIDAY_WINDOWS[h].label);
+  return active.map(h => T(HOLIDAY_WINDOWS[h].label));
 }
 
 
@@ -263,17 +263,17 @@ const PETS = {
 
 function describeAbility(a) {
   switch (a.type) {
-    case 'dig': return `Digs up a seed every ${a.every}s${a.boost ? ' (often rare ones!)' : ''}`;
-    case 'sell': return `Fruits sell for ${a.pct}% more`;
-    case 'refund': return `${a.pct}% chance to keep a fruit after selling it`;
-    case 'grow': return `Your plants grow ${a.pct}% faster`;
-    case 'size': return `Fruits grow ${a.pct}% heavier`;
-    case 'eggs': return `Eggs hatch ${a.pct}% faster`;
-    case 'mutate': return `Every ${a.every}s makes a fruit ${MUTATIONS[a.mut].emoji} ${MUTATIONS[a.mut].name}`;
-    case 'water': return `Waters a plant every ${a.every}s`;
-    case 'advance': return `Every ${a.every}s grows a plant ${a.secs}s ahead`;
-    case 'dupe': return `${a.pct}% chance to harvest an extra fruit`;
-    case 'coins': return `Finds ¢${a.amount.toLocaleString()} every ${a.every}s`;
+    case 'dig': return a.boost ? T`Digs up a seed every ${a.every}s (often rare ones!)` : T`Digs up a seed every ${a.every}s`;
+    case 'sell': return T`Fruits sell for ${a.pct}% more`;
+    case 'refund': return T`${a.pct}% chance to keep a fruit after selling it`;
+    case 'grow': return T`Your plants grow ${a.pct}% faster`;
+    case 'size': return T`Fruits grow ${a.pct}% heavier`;
+    case 'eggs': return T`Eggs hatch ${a.pct}% faster`;
+    case 'mutate': return T`Every ${a.every}s makes a fruit ${MUTATIONS[a.mut].emoji} ${MUTATIONS[a.mut].name}`;
+    case 'water': return T`Waters a plant every ${a.every}s`;
+    case 'advance': return T`Every ${a.every}s grows a plant ${a.secs}s ahead`;
+    case 'dupe': return T`${a.pct}% chance to harvest an extra fruit`;
+    case 'coins': return T`Finds ¢${a.amount.toLocaleString()} every ${a.every}s`;
   }
   return '';
 }
