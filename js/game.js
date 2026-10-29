@@ -9,7 +9,7 @@
 'use strict';
 
 // ─── Constants ───
-const WORLD_X = 50, WORLD_Z = 38;    // walkable half-extents
+const WORLD_X = 62, WORLD_Z = 41;    // walkable half-extents
 const PLAYER_HEIGHT = 1.7;
 const WALK_SPEED = 6;
 const RUN_MULT = 1.6;
@@ -21,7 +21,7 @@ const DAY_LENGTH = 420;
 const DIRT_Y = 0.12;                  // top of the garden dirt
 const CLASSIC_SCALE = 1.3;            // older seed models are drawn a bit bigger
 const MAX_FRUITS = 200;               // backpack size (like Roblox)
-const MAX_PLANTS = 120;
+const MAX_PLANTS = 180;
 const MAX_EGGS_PLACED = 3;
 const MAX_PETS_EQUIPPED = 3;
 const SHOP_RESTOCK = 300;             // seconds between seed / gear restocks
@@ -30,25 +30,28 @@ const PROFILES_KEY = 'garden3d_profiles';
 const SAVE_PREFIX = 'garden3d_save_';
 const MAX_PROFILES = 10;
 const AUTO_SAVE_SEC = 10;
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
 // ─── Map: a market street in the middle, three gardens on each side ───
-const GARDEN_D = 24;
+const GARDEN_D = 30;
 const GARDENS = [
-  { x: 0, z: -20, dir: -1 },   // yours (south, facing the market)
-  { x: -32, z: -20, dir: -1 }, { x: 32, z: -20, dir: -1 },
-  { x: -32, z: 20, dir: 1 }, { x: 0, z: 20, dir: 1 }, { x: 32, z: 20, dir: 1 },
+  { x: 0, z: -23, dir: -1 },   // yours (south, facing the market)
+  { x: -42, z: -23, dir: -1 }, { x: 42, z: -23, dir: -1 },
+  { x: -42, z: 23, dir: 1 }, { x: 0, z: 23, dir: 1 }, { x: 42, z: 23, dir: 1 },
 ];
+// Garden centers before the gardens got bigger (save version 3 and older snapshots)
+const OLD_GARDENS = [{ x: 0, z: -20 }, { x: -32, z: -20 }, { x: 32, z: -20 }, { x: -32, z: 20 }, { x: 0, z: 20 }, { x: 32, z: 20 }];
 let MY_GARDEN = GARDENS[0];   // your garden — in a family world each gardener gets their own slot
 let mySlot = 0;
 let netMode = false;            // playing in an online family world
 // Two dirt beds per garden with a path between them (local coords)
-const BED_X0 = 1.6, BED_X1 = 12.6, BED_Z = 10.4;
+const BED_X0 = 1.6, BED_X1 = 16.6, BED_Z = 13.4;
 const STALLS = {
   seeds: { x: -15, label: "🌱 Seeds", npc: 'Shlomo', colors: [0x2E7D32, 0xFFFFFF], shirt: 0xFFF9C4, apron: 0x388E3C, hat: 'straw' },
   sell:  { x: -5,  label: '💰 Sell',  npc: 'Steven', colors: [0xF9A825, 0xFFFFFF], shirt: 0x43A047, apron: 0x795548, hat: 'cap' },
   gear:  { x: 5,   label: '⚙️ Gear',  npc: 'Gear Shop', colors: [0x1565C0, 0xFFFFFF], shirt: 0x90CAF9, apron: 0x1565C0, hat: 'cap' },
   pets:  { x: 15,  label: '🥚 Pet Eggs', npc: 'Pet Shop', colors: [0x8E24AA, 0xFFFFFF], shirt: 0xF8BBD0, apron: 0x8E24AA, hat: 'straw' },
+  temple: { x: 26, label: '🏛️ Kohen', npc: 'Kohen', colors: [0x1E88E5, 0xFFFFFF], shirt: 0xFFFFFF, apron: 0xFFFFFF, hat: 'cap' },
 };
 const STALL_Z = 1.2;           // stall center z; customers stand around z = -2.5
 const STALL_REACH = 3.2;
@@ -57,6 +60,7 @@ const TELEPORTS = {
   sell:  { x: STALLS.sell.x,  z: -3.2, yaw: Math.PI },
   gear:  { x: STALLS.gear.x,  z: -3.2, yaw: Math.PI },
   pets:  { x: STALLS.pets.x,  z: -3.2, yaw: Math.PI },
+  temple: { x: STALLS.temple.x, z: -3.2, yaw: Math.PI },
   get garden() { const g = MY_GARDEN; return { x: g.x, z: g.z - g.dir * (GARDEN_D / 2 - 2), yaw: g.dir < 0 ? 0 : Math.PI }; },
 };
 
@@ -91,7 +95,12 @@ function freshState() {
     harvestedTypes: [],
     petsHatched: [],
     perks: {},
+    gifts: [],               // Leket lying on the ground for the poor: {id, s, kg, m, x, z}
+    mz: freshMitzvot(),      // mitzvah stars and counts
   };
+}
+function freshMitzvot() {
+  return { stars: 0, peah: 0, leket: 0, shich: 0, kil: 0, orlah: 0, revai: 0, bik: [], maaser: 0, shemitah: 0, eaten: 0, terumahTotal: 0, maaserTotal: 0, restYear: null, tips: {} };
 }
 let gameState = freshState();
 let activeProfileId = null;
@@ -227,7 +236,7 @@ function initRenderer() {
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xbfe3ff, 40, 140);
+  scene.fog = new THREE.Fog(0xbfe3ff, 45, 160);
   camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
   clock = new THREE.Clock();
 
@@ -408,13 +417,26 @@ function buildWorld() {
   GARDENS.forEach(g => {
     paths.box(3, 0.04, GARDEN_D + 2, 0xC9B38C, g.x, 0.02, g.z);
     buildGardenGround(g, statics, dirt);
+    // Peah corner: a blue-and-white rope around the corner left for the poor
+    const pr = peahRect(g);
+    [[pr.x1, pr.z1], [pr.x1, pr.z2], [pr.x2, pr.z1], [pr.x2, pr.z2]].forEach(([x, z]) => statics.box(0.12, 0.55, 0.12, 0xECEFF1, x, 0.28, z));
+    [[pr.x1, pr.z1, pr.x2, pr.z1], [pr.x1, pr.z2, pr.x2, pr.z2], [pr.x1, pr.z1, pr.x1, pr.z2], [pr.x2, pr.z1, pr.x2, pr.z2]].forEach(([x1, z1, x2, z2]) => {
+      const len = Math.hypot(x2 - x1, z2 - z1), along = x1 === x2;
+      for (let t = 0; t < len; t += 0.5) {
+        const c = Math.floor(t / 0.5) % 2 ? 0xFFFFFF : 0x1E88E5;
+        decor.box(along ? 0.06 : 0.5, 0.06, along ? 0.5 : 0.06, c, along ? x1 : x1 + t + 0.25, 0.45, along ? z1 + t + 0.25 : z1);
+      }
+    });
+    const ps = textSprite('💙 Peah פאה', '#1565C0', true);
+    ps.position.set((pr.x1 + pr.x2) / 2, 1.05, pr.back);
+    scene.add(ps);
   });
   // curbs along the street
   for (let x = -WORLD_X; x < WORLD_X; x += 4) {
     [-5.6, 5.6].forEach(z => decor.box(3.9, 0.12, 0.25, 0xBDBDBD, x + 2, 0.06, z));
   }
   // Street lamps
-  [-42, -24, -9, 9, 24, 42].forEach(x => {
+  [-56, -40, -28, -9, 9, 30, 40, 56].forEach(x => {
     [-6.2, 6.2].forEach(z => {
       statics.box(0.18, 3, 0.18, 0x37474F, x, 1.5, z);
       statics.box(0.5, 0.1, 0.5, 0x263238, x, 3.05, z);
@@ -423,8 +445,8 @@ function buildWorld() {
     });
   });
   // Flower boxes between gardens
-  [-16, 16].forEach(x => [-20, 20].forEach(z => {
-    for (let k = -2; k <= 2; k++) {
+  [-21, 21].forEach(x => [-23, 23].forEach(z => {
+    for (let k = -3; k <= 3; k++) {
       statics.box(1.2, 0.5, 1.2, 0x8D6E63, x, 0.25, z + k * 4);
       const c = [0xFF80AB, 0xFFEB3B, 0xB388FF, 0xFF7043][(k + 4) % 4];
       decor.box(0.9, 0.25, 0.9, 0x66BB6A, x, 0.6, z + k * 4);
@@ -464,13 +486,13 @@ function buildWorld() {
     else { z = (rand() - 0.5) * 2 * (WORLD_Z + 22); x = (rand() > 0.5 ? 1 : -1) * (WORLD_X + 3 + rand() * 25); }
     buildTree(statics, x, z, treeTypes[Math.floor(rand() * treeTypes.length)], rand);
   }
-  [[-48, -8], [48, -8], [-48, 8], [48, 8], [-16, -34], [16, -34], [-16, 34], [16, 34]].forEach(([x, z]) => {
+  [[-60, -8], [60, -8], [-60, 8], [60, 8], [-21, -38], [21, -38], [-21, 38], [21, 38]].forEach(([x, z]) => {
     buildTree(statics, x, z, treeTypes[Math.floor(rand() * treeTypes.length)], rand);
     addCollider(x, z, 0.8);
   });
   // Grass tufts & wildflowers outside the gardens
   const flowerColors = [0xFFEB3B, 0xFF80AB, 0xFFFFFF, 0xB388FF, 0xFF7043];
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 650; i++) {
     const x = (rand() - 0.5) * 2 * WORLD_X, z = (rand() - 0.5) * 2 * WORLD_Z;
     if (Math.abs(z) < 7) continue;
     if (GARDENS.some(g => Math.abs(x - g.x) < BED_X1 + 0.6 && Math.abs(z - g.z) < BED_Z + 0.6)) continue;
@@ -510,7 +532,8 @@ function buildVendor(def) {
   part(0.08, 0.1, 0.05, 0x222222, -0.12, 0.04, 0.25, head);
   part(0.08, 0.1, 0.05, 0x222222, 0.12, 0.04, 0.25, head);
   part(0.22, 0.05, 0.05, 0x8B4513, 0, -0.12, 0.25, head);
-  if (def.npc === 'Shlomo') part(0.42, 0.14, 0.06, 0x5D4037, 0, -0.2, 0.24, head);
+  if (def.npc === 'Shlomo' || def.npc === 'Kohen') part(0.42, 0.14, 0.06, def.npc === 'Kohen' ? 0x9E9E9E : 0x5D4037, 0, -0.2, 0.24, head);
+  if (def.npc === 'Kohen') part(0.52, 0.12, 0.34, 0x42A5F5, 0, 1.12, 0);   // blue sash
   if (def.hat === 'straw') { part(0.9, 0.06, 0.9, 0xF9A825, 0, 0.27, 0, head); part(0.5, 0.3, 0.5, 0xF9A825, 0, 0.43, 0, head); part(0.52, 0.08, 0.52, def.apron, 0, 0.32, 0, head); }
   else { part(0.54, 0.18, 0.54, def.apron, 0, 0.32, 0, head); part(0.5, 0.06, 0.3, def.apron, 0, 0.25, 0.3, head); }
   part(0.5, 0.6, 0.3, def.shirt, 0, 1.0, 0);
@@ -549,6 +572,11 @@ function buildStall(id, def) {
     b.box(0.2, 0.5, 0.2, 0x90A4AE, -0.2, 1.33, 1.0); b.box(0.5, 0.06, 0.1, 0x546E7A, -0.2, 1.6, 1.0);
     b.box(0.08, 0.5, 0.08, 0x8D6E63, 0.6, 1.33, 1.0); b.box(0.25, 0.25, 0.06, 0x9E9E9E, 0.6, 1.62, 1.0);
     b.box(0.06, 0.8, 0.06, 0xFFD54F, 1.2, 1.5, 1.0);
+  } else if (id === 'temple') {
+    // baskets of first fruits and a little golden menorah
+    [[-1.0, 0xC62828], [-0.35, 0x6A1B9A], [0.3, 0xE8B83A]].forEach(([x, c]) => { b.box(0.5, 0.24, 0.4, 0xA1887F, x, 1.2, 1.0); b.box(0.4, 0.1, 0.3, c, x, 1.36, 1.0); });
+    b.box(0.08, 0.5, 0.08, 0xFFC107, 1.0, 1.35, 1.0); b.box(0.5, 0.06, 0.08, 0xFFC107, 1.0, 1.42, 1.0);
+    [-0.24, -0.12, 0, 0.12, 0.24].forEach(dx => b.box(0.05, 0.22, 0.05, 0xFFC107, 1.0 + dx, 1.56, 1.0));
   }
   g.add(voxelMesh(b));
   const sign = textSprite(def.label, '#4E342E', true);
@@ -685,6 +713,7 @@ const SEED_RADIUS = {
   carrot: 0.35, strawberry: 0.5, blueberry: 0.55, orange_tulip: 0.3, tomato: 0.5, corn: 0.55, daffodil: 0.3,
   watermelon: 0.6, pumpkin: 0.6, apple: 1.1, bamboo: 0.6, coconut: 1.0, cactus: 0.65, dragon_fruit: 0.7,
   mango: 1.1, grape: 0.9, mushroom: 0.8, pepper: 0.5, cacao: 0.9, beanstalk: 0.55,
+  wheat: 0.35, barley: 0.35, olive: 1.0, fig: 1.0, pomegranate: 0.8, gefen: 0.9, date_palm: 0.9,
 };
 function seedRadius(id) { return SEED_RADIUS[id] || 0.5; }
 
@@ -790,6 +819,8 @@ function refreshPlantView(p) {
   if (!v.pop) v.mesh.scale.setScalar(s);
   const ripe = ripeFruitCount(p) > 0;
   v.iconOn = ripe;
+  const badge = plantBadge(p) || seed.emoji;
+  if (v.badge !== badge) { v.badge = badge; v.icon.material = Tex.emojiMaterial(badge, true); }
   v.icon.position.y = v.height * s + 0.7;
 }
 
@@ -1012,6 +1043,14 @@ function setNeighborMesh(gi, plants) {
 }
 function clearNeighborMeshes() { [...neighborMeshes.keys()].forEach(gi => setNeighborMesh(gi, null)); }
 
+// The gardens got bigger and moved apart: keep everything in the same spot relative to its garden
+function shiftFromOldLayout(state, slot) {
+  const a = OLD_GARDENS[slot] || OLD_GARDENS[0], b = GARDENS[slot] || GARDENS[0];
+  const move = o => { o.x += b.x - a.x; o.z += b.z - a.z; };
+  (state.plants || []).forEach(move);
+  (state.placed || []).forEach(move);
+  (state.placedEggs || []).forEach(move);
+}
 // Move a save's plants/gear/eggs from one garden slot to another
 function relocateState(state, fromSlot, toSlot) {
   if ((fromSlot || 0) === (toSlot || 0)) return;
@@ -1532,9 +1571,17 @@ function plantSeed(seedId, x, z) {
   if (!gameState.seeds[seedId]) return false;
   if (gameState.plants.length >= MAX_PLANTS) { Sfx.play('deny'); showToast('🌳', 'Your garden is full! Dig something up with the ⛏️ Shovel.'); return false; }
   if (!spotFree(x, z, seedRadius(seedId))) { Sfx.play('deny'); showToast('🚫', inMyGarden(x, z) ? 'Too close to another plant!' : 'Plant on the dirt in your garden!'); return false; }
+  if (isShemitah()) { Sfx.play('deny'); if (!teach('shemitah')) showToast('🌿', `Shemitah! The land rests this year — you can plant again in ${fmtTime(yearSecondsLeft())}.`); return false; }
+  const kil = kilayimConflict(seedId, x, z);
+  if (kil) { Sfx.play('deny'); if (!teach('kilayim')) showToast('🚧', `Kilayim! Too close to your ${getSeedData(kil.plant.s).name} — leave space between different kinds.`); return false; }
+  const careful = keptKilayim(seedId, x, z);
   consume('seed', seedId);
   const p = { id: newId(), s: seedId, x, z, r: Math.random() * Math.PI * 2, age: 0, grow: seed.grow, kg: 0, m: [], fruits: seed.multi ? [] : null, water: 0 };
+  if (isFruitTree(seedId)) { p.py = gardenYearIndex(); p.ol = 'orlah'; }
   gameState.plants.push(p);
+  if (careful) mitzvah('kil', 1, 'Kept apart!', x, z);
+  if (p.py != null && !teach('orlah')) floatText(x, 2.2, z, '🌱 Orlah for 3 years', '#C5E1A5');
+  if (inPeah(x, z)) teach('peah');
   refreshPlantView(p);
   plantViewPop(p);
   Sfx.play('plant');
@@ -1560,9 +1607,31 @@ function harvestPlant(p) {
     gameState.plants = gameState.plants.filter(x => x !== p);
     removePlantView(p.id);
   }
+  // Bikkurim: the first fruit you tied a reed around
+  if (p.bk && got.length) { got[0].bk = 1; p.bk = 0; }
   // pets with "dupe" can give an extra copy
   const dupe = petPower('dupe');
   got.slice().forEach(f => { if (Math.random() * 100 < dupe) { got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); floatText(p.x, 2.4, p.z, '🐜 Extra fruit!', '#FFCC80'); } });
+  // Year 6: "it shall bring forth produce for the three years"
+  if (isBlessedYear()) { got.slice().forEach(f => { if (!f.bk) got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); }); floatText(p.x, 2.8, p.z, '✨ Year-6 blessing: doubled!', '#FFF59D'); }
+  const shemitah = isShemitah(), revai = orlahPhase(p) === 'revai';
+  got.forEach(f => { if (shemitah) f.sv = 1; if (revai && !f.bk) f.rv = 1; });
+  // Leket: sometimes a fruit falls while you harvest — it belongs to the poor
+  if (!shemitah && Math.random() < MITZVAH.LEKET_CHANCE) {
+    const i = got.findIndex(f => !f.bk);
+    if (i >= 0) {
+      const f = got.splice(i, 1)[0];
+      const a = Math.random() * Math.PI * 2;
+      gameState.gifts.push({ id: newId(), s: f.s, kg: f.kg, m: f.m, x: p.x + Math.cos(a) * 0.7, z: p.z + Math.sin(a) * 0.7 });
+      refreshGifts();
+      setTimeout(() => floatText(p.x, 1.2, p.z, '🌾 Oops, it fell — Leket!', '#FFE082'), 300);
+      teach('leket');
+    }
+  }
+  tripHarvests.push({ x: p.x, z: p.z });
+  if (got.some(f => f.bk)) setTimeout(() => showToast('🎀', 'Bikkurim! Bring them to the Kohen 🏛️ at the market.'), 500);
+  if (got.some(f => f.rv)) teach('revai');
+  if (shemitah) teach('shemitah');
   let added = 0;
   for (const f of got) {
     if (gameState.fruits.length >= MAX_FRUITS) { showToast('🎒', 'Backpack full! Sell at the 💰 Sell stand.'); break; }
@@ -1578,7 +1647,7 @@ function harvestPlant(p) {
     if (f.kg >= seed.kg * 2) checkAchievement('heavyweight');
     taskEvent('harvest', 1, { seedId: f.s, mutation: mx.length > 0 });
   }
-  if (!added) return 0;
+  if (!added) { saveGame(); return 0; }
   if (!gameState.harvestedTypes.includes(p.s)) gameState.harvestedTypes.push(p.s);
   const best = got.reduce((a, b) => fruitValue(b) > fruitValue(a) ? b : a, got[0]);
   const special = got.some(f => f.m.length) || ['mythical', 'divine', 'prismatic'].includes(seed.rarity);
@@ -1643,7 +1712,9 @@ function digUp(p) {
   if (!shovelArmed || shovelArmed.id !== p.id || performance.now() > shovelArmed.until) {
     shovelArmed = { id: p.id, until: performance.now() + 3000 };
     Sfx.play('click');
-    showToast('⛏️', `Press again to dig up this ${getSeedData(p.s).name}.`);
+    if (isFruitTree(p.s) && p.age >= p.grow && teach('tashchit')) shovelArmed.until += 20000;
+    else if (isFruitTree(p.s) && p.age >= p.grow) showToast('🌳', `Bal Tashchit — the Torah says not to destroy fruit trees! Press again only if you really must.`);
+    else showToast('⛏️', `Press again to dig up this ${getSeedData(p.s).name}.`);
     return;
   }
   shovelArmed = null;
@@ -1662,6 +1733,8 @@ function pickUpWithTrowel(p) {
 }
 function dropCarried(x, z) {
   if (!spotFree(x, z, seedRadius(carrying.s), carrying.id)) { Sfx.play('deny'); showToast('🚫', 'Find a free spot in your garden.'); return; }
+  const kil = kilayimConflict(carrying.s, x, z, carrying.id);
+  if (kil) { Sfx.play('deny'); showToast('🚧', `Kilayim! Too close to your ${getSeedData(kil.plant.s).name}.`); return; }
   carrying.x = x; carrying.z = z;
   refreshPlantView(carrying);
   plantViewPop(carrying);
@@ -1693,14 +1766,33 @@ function hatchEgg(e) {
 }
 
 // ─── Selling ───
+// Terumah (1/50) to the Kohen and Ma'aser (1/10) to the Levi come out first; a blessing makes it up
+function titheSplit(list) {
+  let food = 0, exempt = 0;
+  list.forEach(f => { const v = fruitValue(f); if (isFood(f.s)) food += v; else exempt += v; });
+  const terumah = Math.round(food * MITZVAH.TERUMAH);
+  const maaser = Math.round((food - terumah) * MITZVAH.MAASER);
+  const bracha = Math.round(food * MITZVAH.TITHE_BRACHA);
+  return { food, exempt, terumah, maaser, bracha, net: food - terumah - maaser + bracha + exempt };
+}
+const sellableFruit = f => !f.bk && !f.rv && !f.sv;
 function sellFruits(list) {
-  let total = 0, kept = 0;
+  list = list.filter(sellableFruit);
+  let kept = 0;
   const refund = petPower('refund');
+  const split = titheSplit(list);
+  const total = split.net;
   list.forEach(f => {
-    total += fruitValue(f);
     if (Math.random() * 100 < refund) kept++;
     else gameState.fruits.splice(gameState.fruits.indexOf(f), 1);
   });
+  if (split.food > 0) {
+    gameState.mz.terumahTotal += split.terumah;
+    gameState.mz.maaserTotal += split.maaser;
+    mitzvah('maaser', 1);
+    setTimeout(() => showToast('🪙', `Terumah ¢${fmtSheckles(split.terumah)} → Kohen • Ma'aser ¢${fmtSheckles(split.maaser)} → Levi • Blessing +¢${fmtSheckles(split.bracha)} ✨`), 700);
+    teach('maaser');
+  }
   gameState.sheckles += total;
   gameState.totalEarned += total;
   if (gameState.totalEarned >= 10000) checkAchievement('entrepreneur');
@@ -1727,7 +1819,7 @@ function stockFor(list, table, slot, salt) {
   return out;
 }
 function seedShopList() {
-  const extra = Object.keys(getSeasonalSeeds());
+  const extra = Object.keys(getSeasonalSeeds()).filter(id => !SHOP_SEED_LIST.includes(id));
   return SHOP_SEED_LIST.concat(extra);
 }
 function currentSeedStock() {
@@ -2001,6 +2093,16 @@ const ACHIEVEMENTS = {
   best_friends:    { name: 'Best Friends',     emoji: '🦴', desc: 'Your pets dig up 5 treasures' },
   fashion_forward: { name: 'Fashion Forward',  emoji: '🎭', desc: 'Buy an outfit in the wardrobe' },
   task_master:     { name: 'Task Master',      emoji: '📋', desc: 'Finish 10 garden tasks' },
+  peah_keeper:     { name: 'Peah Keeper',      emoji: '💙', desc: 'Leave 5 Peah gifts for the poor' },
+  gleaner_friend:  { name: "Rut's Friend",     emoji: '🌾', desc: 'Leave 5 Leket fruits for Rut' },
+  forgot_mitzvah:  { name: 'Mitzvah by Forgetting', emoji: '🧺', desc: 'Keep Shichecha — the mitzvah you do by forgetting!' },
+  kilayim_keeper:  { name: 'Neat Rows',        emoji: '🚧', desc: 'Keep different kinds apart 10 times (Kilayim)' },
+  orlah_patience:  { name: 'Patient Planter',  emoji: '🌳', desc: 'Wait out 3 years of Orlah on a tree' },
+  bikkurim_first:  { name: 'First Fruits',     emoji: '🎀', desc: 'Bring Bikkurim to the Kohen' },
+  seven_species:   { name: 'Seven Species',    emoji: '✡️', desc: 'Bring Bikkurim from all Seven Species' },
+  tither:          { name: 'Ma\'aser Giver',    emoji: '🪙', desc: 'Give Terumah & Ma\'aser on 10 sales' },
+  shemitah_rest:   { name: 'Shabbat for the Land', emoji: '🌿', desc: 'Keep a Shemitah year' },
+  mitzvah_100:     { name: '100 Mitzvah Stars', emoji: '⭐', desc: 'Earn 100 mitzvah stars' },
 };
 function checkAchievement(id) {
   if (!ACHIEVEMENTS[id] || gameState.achievements.includes(id)) return;
@@ -2314,7 +2416,10 @@ function computeFocus() {
   }
   const pr = probePoint();
   const sel = selectedItem();
-  if (carrying) return { kind: 'drop', x: pr.x, z: pr.z, ok: spotFree(pr.x, pr.z, seedRadius(carrying.s), carrying.id) };
+  if (carrying) {
+    const kil = kilayimConflict(carrying.s, pr.x, pr.z, carrying.id);
+    return { kind: 'drop', x: pr.x, z: pr.z, ok: spotFree(pr.x, pr.z, seedRadius(carrying.s), carrying.id) && !kil, kil };
+  }
   const egg = nearestEgg(pr.x, pr.z, 1.2);
   if (egg) return { kind: 'egg', egg };
   const p = nearestPlant(pr.x, pr.z, REACH);
@@ -2322,9 +2427,13 @@ function computeFocus() {
   for (const e of petEntities.values()) if (Math.hypot(e.pos.x - playerPos.x, e.pos.z - playerPos.z) < 1.3) return { kind: 'pet', id: e.pet.id };
   const it = nearestPlaced(pr.x, pr.z, 0.9);
   if (it) return { kind: 'placed', item: it };
+  const gift = nearestGift(pr.x, pr.z, 0.9);
+  if (gift) return { kind: 'gift', gift };
   if (sel && (sel.kind === 'seed' || sel.kind === 'egg' || (sel.kind === 'gear' && PLACEABLE_GEAR.includes(sel.id))) && inMyGarden(playerPos.x, playerPos.z)) {
     const r = sel.kind === 'seed' ? seedRadius(sel.id) : 0.4;
-    return { kind: 'spot', x: pr.x, z: pr.z, ok: spotFree(pr.x, pr.z, r) };
+    const ok = spotFree(pr.x, pr.z, r);
+    const kil = ok && sel.kind === 'seed' ? kilayimConflict(sel.id, pr.x, pr.z) : null;
+    return { kind: 'spot', x: pr.x, z: pr.z, ok: ok && !kil && !(sel.kind === 'seed' && isShemitah()), kil };
   }
   return null;
 }
@@ -2334,25 +2443,37 @@ function focusInfo(f) {
   if (!f) return null;
   const sel = selectedItem();
   if (f.kind === 'stall') {
-    const n = { seeds: ["Shlomo's <b>Seed Shop</b>", '🌱', 'Shop'], sell: ['<b>Steven</b> — sell your fruit', '💰', 'Sell'], gear: ['<b>Gear Shop</b>', '⚙️', 'Shop'], pets: ['<b>Pet Egg Shop</b>', '🥚', 'Shop'] }[f.id];
+    const n = { seeds: ["Shlomo's <b>Seed Shop</b>", '🌱', 'Shop'], sell: ['<b>Steven</b> — sell your fruit', '💰', 'Sell'], gear: ['<b>Gear Shop</b>', '⚙️', 'Shop'], pets: ['<b>Pet Egg Shop</b>', '🥚', 'Shop'], temple: ['<b>Kohen</b> — Bikkurim & Revai', '🏛️', 'Visit'] }[f.id];
     return { icon: n[1], text: n[0], act: n[2] };
   }
-  if (f.kind === 'drop') return { icon: '⛏️', text: f.ok ? 'Put the plant down here' : 'Find a free spot in your garden', act: 'Place', dim: !f.ok };
+  if (f.kind === 'drop') return { icon: f.kil ? '🚧' : '⛏️', text: f.ok ? 'Put the plant down here' : f.kil ? `<b>Kilayim</b> — too close to the ${getSeedData(f.kil.plant.s).name}` : 'Find a free spot in your garden', act: 'Place', dim: !f.ok };
+  if (f.kind === 'gift') return { icon: '🌾', text: '<b>Leket</b> — fallen fruit is for the poor. Leave it!', act: 'Leave', dim: true };
   if (f.kind === 'pet') { const e = petEntities.get(f.id); const d = PETS[e.pet.type]; return { icon: '❤️', text: `Pet <b>${e.pet.name}</b> <span class="dim">${d.emoji} Age ${petLevel(e.pet)}</span>`, act: 'Pet' }; }
   if (f.kind === 'egg') { const e = f.egg; return e.left > 0 ? { icon: '🥚', text: `${EGGS[e.egg].name} — hatches in ${fmtTime(e.left / (1 + petPower('eggs') / 100))}`, act: 'Wait', dim: true } : { icon: '🐣', text: `Hatch your <b>${EGGS[e.egg].name}</b>!`, act: 'Hatch' }; }
   if (f.kind === 'placed') { const it = f.item, d = GEAR[it.gear]; return { icon: d.emoji, text: `<b>${d.name}</b> ${it.left != null ? '— ' + fmtTime(it.left) + ' left' : '— catches ' + it.uses + ' more bolts'}`, act: 'Info', dim: true }; }
   if (f.kind === 'spot') {
-    if (sel.kind === 'seed') { const s = getSeedData(sel.id); return { icon: s.emoji, text: f.ok ? `Plant <b>${s.name}</b> <span class="dim">(${gameState.seeds[sel.id]} left)</span>` : 'Too close to something — move a little', act: 'Plant', dim: !f.ok }; }
+    if (sel.kind === 'seed') {
+      const s = getSeedData(sel.id);
+      if (isShemitah()) return { icon: '🌿', text: `<b>Shemitah</b> — the land rests. Plant again in ${fmtTime(yearSecondsLeft())}`, act: 'Rest', dim: true };
+      if (f.kil) return { icon: '🚧', text: `<b>Kilayim</b> — too close to your ${getSeedData(f.kil.plant.s).name}. Leave some space!`, act: 'Plant', dim: true };
+      return { icon: s.emoji, text: f.ok ? `Plant <b>${s.name}</b>${inPeah(f.x, f.z) ? ' in the 💙 Peah corner' : ''} <span class="dim">(${gameState.seeds[sel.id]} left)</span>` : 'Too close to something — move a little', act: 'Plant', dim: !f.ok };
+    }
     if (sel.kind === 'egg') return { icon: '🥚', text: f.ok ? `Place <b>${EGGS[sel.id].name}</b>` : 'Find a free spot', act: 'Place', dim: !f.ok };
     return { icon: GEAR[sel.id].emoji, text: f.ok ? `Place <b>${GEAR[sel.id].name}</b>` : 'Find a free spot', act: 'Place', dim: !f.ok };
   }
   const p = f.plant, seed = getSeedData(p.s);
   const mine = gameState.plants.includes(p);
   if (!mine) return null;
-  if (sel && sel.kind === 'gear' && sel.id === 'shovel') return { icon: '⛏️', text: `Dig up <b>${seed.name}</b>`, act: 'Dig' };
+  if (sel && sel.kind === 'gear' && sel.id === 'shovel') return { icon: '⛏️', text: `Dig up <b>${seed.name}</b>${isFruitTree(p.s) ? ' <span class="dim">— Bal Tashchit!</span>' : ''}`, act: 'Dig' };
   if (sel && sel.kind === 'gear' && sel.id === 'trowel') return { icon: '⛏️', text: `Pick up <b>${seed.name}</b> to move it`, act: 'Move' };
   if (sel && sel.kind === 'gear' && sel.id === 'watering_can') return { icon: '🚿', text: `Water <b>${seed.name}</b> <span class="dim">(${gameState.gear.watering_can} uses)</span>`, act: 'Water' };
   const ripe = ripeFruitCount(p);
+  const block = harvestBlock(p);
+  if (block === 'orlah' && p.age >= p.grow) return { icon: '🚫', text: `<b>Orlah</b> — tree year ${treeYear(p)} of 3. Its fruit isn't for us yet!`, act: 'Info', dim: true };
+  if (ripe && block === 'peah') return { icon: '💙', text: '<b>Peah</b> — this corner is for the poor. Leave it!', act: 'Leave', dim: true };
+  if (ripe && block === 'shich') return { icon: '🧺', text: "<b>Shichecha</b> — you forgot it. Don't go back!", act: 'Leave', dim: true };
+  if (ripe && needsReed(p)) return { icon: '🎀', text: `First ${seed.name}! Tie a reed: <b>"These are Bikkurim!"</b>`, act: 'Tie' };
+  if (ripe && orlahPhase(p) === 'revai') return { icon: '🏛️', text: `Pick <b>${ripe} Neta Revai</b> ${seed.emoji} — bring them to the Kohen`, act: 'Harvest' };
   if (ripe) {
     if (!seed.multi) return { icon: '🧺', text: `Harvest ${fruitLabel({ s: p.s, m: p.m })} <span class="dim">${p.kg}kg • ¢${fmtSheckles(fruitValue({ s: p.s, kg: p.kg, m: p.m }))}</span>`, act: 'Harvest' };
     return { icon: '🧺', text: `Harvest <b>${ripe} ${seed.emoji} ${seed.name}</b>`, act: 'Harvest' };
@@ -2378,6 +2499,7 @@ function interact(f) {
     case 'pet': petPetAt(petEntities.get(f.id)); return;
     case 'egg': if (f.egg.left <= 0) hatchEgg(f.egg); else { Sfx.play('click'); showToast('🥚', `Hatches in ${fmtTime(f.egg.left)}`); } return;
     case 'placed': Sfx.play('click'); return;
+    case 'gift': Sfx.play('click'); if (!teach('leket')) showToast('🌾', "That's Leket — leave it for the poor. Rut will come for it!"); return;
     case 'spot':
       // the held item may have changed since focus was computed — re-check it
       if (!sel) return;
@@ -2391,14 +2513,36 @@ function interact(f) {
       if (sel && sel.id === 'shovel') { digUp(p); return; }
       if (sel && sel.id === 'trowel') { pickUpWithTrowel(p); return; }
       if (sel && sel.id === 'watering_can') { useWateringCan(p); return; }
-      if (ripeFruitCount(p)) { harvestPlant(p); return; }
+      if (ripeFruitCount(p)) {
+        const block = harvestBlock(p);
+        if (block) { explainBlock(block, p); return; }
+        if (needsReed(p)) { tieReed(p); return; }
+        harvestPlant(p); return;
+      }
+      if (orlahPhase(p) === 'orlah' && p.age >= p.grow) { explainBlock('orlah', p); return; }
       Sfx.play('click');
       floatText(p.x, 1.8, p.z, p.age < p.grow ? `⏳ ${fmtTime((p.grow - p.age) / growthRate(p))}` : '🌱 Fruit growing…', '#FFFFFF');
     }
   }
 }
 
+function explainBlock(block, p) {
+  Sfx.play('deny');
+  if (block === 'peah') { if (!teach('peah')) showToast('💙', "This is your Peah corner — it's for the poor. Leave it, and Rut will come!"); }
+  else if (block === 'shich') { if (!teach('shichecha')) showToast('🧺', "You forgot this one, so it's Shichecha — don't go back for it!"); }
+  else if (block === 'orlah') { if (!teach('orlah')) showToast('🚫', `Orlah: this tree is in year ${treeYear(p)} of 3. Its fruit isn't for us yet!`); }
+}
+function tieReed(p) {
+  p.bk = 1;
+  Sfx.play('sparkle');
+  spawnParticles(p.x, 1.4, p.z, [0xFFD54F, 0xFF80AB, 0xFFFFFF], 24, 2.5, 0.09);
+  floatText(p.x, 2.4, p.z, '🎀 "These are Bikkurim!"', '#FFE082');
+  teach('bikkurim');
+  refreshPlantView(p);
+  saveGame();
+}
 function openStall(id) {
+  if (id === 'temple') { openTemple(); return; }
   if (id === 'sell') openSell();
   else openShop(id);
 }
@@ -2514,7 +2658,8 @@ function updatePrompt() {
   // Sprinkler range ring
   const sel = selectedItem();
   let ring = null;
-  if (focus && focus.kind === 'placed' && GEAR[focus.item.gear].radius) ring = { x: focus.item.x, z: focus.item.z, r: GEAR[focus.item.gear].radius };
+  if (spot && spot.kil) ring = { x: spot.kil.plant.x, z: spot.kil.plant.z, r: spot.kil.need };
+  else if (focus && focus.kind === 'placed' && GEAR[focus.item.gear].radius) ring = { x: focus.item.x, z: focus.item.z, r: GEAR[focus.item.gear].radius };
   else if (spot && sel && sel.kind === 'gear' && GEAR[sel.id].radius) ring = { x: spot.x, z: spot.z, r: GEAR[sel.id].radius };
   rangeRing.visible = !!ring;
   if (ring) { rangeRing.position.set(ring.x, DIRT_Y + 0.05, ring.z); rangeRing.scale.setScalar(ring.r); }
@@ -2536,7 +2681,7 @@ function renderTasks() {
 }
 
 // ─── Panels ───
-const PANEL_IDS = ['shop-panel', 'sell-panel', 'bag-panel', 'pets-panel', 'wardrobe-panel', 'achieve-panel', 'help-panel', 'gift-panel'];
+const PANEL_IDS = ['shop-panel', 'sell-panel', 'bag-panel', 'pets-panel', 'wardrobe-panel', 'achieve-panel', 'help-panel', 'gift-panel', 'temple-panel', 'mitzvot-panel', 'teach-panel'];
 function isPanelOpen(id) { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }
 function isAnyPanelOpen() { return PANEL_IDS.some(isPanelOpen); }
 function closeAllPanels() { PANEL_IDS.concat('emote-panel').forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }
@@ -2580,7 +2725,7 @@ function renderShop() {
       }
       const s = getSeedData(id);
       body.appendChild(shopRow({ emoji: s.emoji, name: s.name, rarity: s.rarity, price: s.price, stock: stock[id],
-        sub: `${s.multi ? '♻️ Multi-harvest' : '🌾 Single harvest'} • grows in ${fmtTime(s.grow)} • fruit ¢${fmtSheckles(s.sell)}+` }, () => buyFromShop('seed', id)));
+        sub: `${SPECIES_OF_SEED[id] ? '<span class="tag seven">✡️ Seven Species</span> ' : ''}${s.multi ? '♻️ Multi-harvest' : '🌾 Single harvest'}${isFruitTree(id) ? ' • 🌳 Orlah 3 yrs' : ''} • grows in ${fmtTime(s.grow)} • fruit ¢${fmtSheckles(s.sell)}+` }, () => buyFromShop('seed', id)));
     });
   } else if (shopKind === 'gear') {
     const stock = currentGearStock();
@@ -2639,8 +2784,9 @@ function openSell() { renderSell(); openPanel('sell-panel'); }
 function renderSell() {
   const body = $('#sell-body');
   body.innerHTML = '';
-  const sellable = gameState.fruits.filter(f => !f.fav);
-  const total = sellable.reduce((a, f) => a + fruitValue(f), 0);
+  const sellable = gameState.fruits.filter(f => !f.fav && sellableFruit(f));
+  const split = titheSplit(sellable);
+  const total = split.net;
   const all = document.createElement('button');
   all.className = 'btn big sell-all';
   all.disabled = !sellable.length;
@@ -2654,6 +2800,14 @@ function renderSell() {
     renderSell(); updateHotbar();
   });
   body.appendChild(all);
+  if (split.food > 0) {
+    const t = document.createElement('div'); t.className = 'tithe-box';
+    t.innerHTML = `<span>🌾 Terumah → Kohen <b>−¢${fmtSheckles(split.terumah)}</b></span><span>🪙 Ma'aser → Levi <b>−¢${fmtSheckles(split.maaser)}</b></span><span>✨ Blessing for giving <b>+¢${fmtSheckles(split.bracha)}</b></span>${split.exempt ? '<span class="dim">🌷 Flowers & mushrooms aren\'t food — no Ma\'aser</span>' : ''}`;
+    body.appendChild(t);
+  }
+  if (gameState.fruits.some(f => !sellableFruit(f))) {
+    const note = document.createElement('p'); note.className = 'note'; note.textContent = "🎀 Bikkurim and 🏛️ Revai go to the Kohen. 🌿 Shevi'it fruit is for eating, not selling."; body.appendChild(note);
+  }
   if (gameState.fruits.some(f => f.fav)) {
     const note = document.createElement('p'); note.className = 'note'; note.textContent = '⭐ Favorited fruit are kept when you sell everything.'; body.appendChild(note);
   }
@@ -2668,9 +2822,18 @@ function fruitList(fruits, sellButtons) {
     const row = document.createElement('div');
     row.className = 'fruit-row';
     row.style.setProperty('--rar', RARITY[s.rarity].color);
-    const muts = (f.m || []).map(k => `<span class="mut" style="--mc:${MUTATIONS[k].color}">${MUTATIONS[k].emoji} ${MUTATIONS[k].name}</span>`).join('');
+    const tags = (f.bk ? '<span class="mut" style="--mc:#FFB300">🎀 Bikkurim</span>' : '') + (f.rv ? '<span class="mut" style="--mc:#42A5F5">🏛️ Revai</span>' : '') + (f.sv ? '<span class="mut" style="--mc:#66BB6A">🌿 Shevi\'it</span>' : '');
+    const muts = tags + (f.m || []).map(k => `<span class="mut" style="--mc:${MUTATIONS[k].color}">${MUTATIONS[k].emoji} ${MUTATIONS[k].name}</span>`).join('');
+    const canSell = sellButtons && sellableFruit(f);
     row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>${s.name}</b> <span class="kg">${f.kg}kg</span><div>${muts}</div></div><span class="fr-val">¢${fmtSheckles(fruitValue(f))}</span>
-      <button class="fav${f.fav ? ' on' : ''}" title="Favorite">⭐</button>${sellButtons ? '<button class="btn small sell1">Sell</button>' : ''}`;
+      <button class="fav${f.fav ? ' on' : ''}" title="Favorite">⭐</button>${canSell ? '<button class="btn small sell1">Sell</button>' : ''}${f.sv && !sellButtons ? '<button class="btn small eat1">🍽️ Eat</button>' : ''}`;
+    const eat = row.querySelector('.eat1');
+    if (eat) eat.addEventListener('click', () => {
+      gameState.fruits = gameState.fruits.filter(x => x !== f);
+      mitzvah('eaten', 1);
+      floatText(playerPos.x, 2.4, playerPos.z, "😋 Yum! Holy Shevi'it fruit", '#C5E1A5');
+      Sfx.play('pop'); saveGame(); openBag();
+    });
     row.querySelector('.fav').addEventListener('click', () => { f.fav = !f.fav; Sfx.play('click'); saveGame(); sellButtons ? renderSell() : openBag(); });
     const sb = row.querySelector('.sell1');
     if (sb) sb.addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); const got = sellFruits([f]); Sfx.play('coin'); floatTextScreen(r.left, r.top, `+¢${fmtSheckles(got)}`); renderSell(); updateHotbar(); });
@@ -2744,6 +2907,7 @@ function openWardrobe() {
   const body = $('#wardrobe-body');
   body.innerHTML = '';
   const cur = currentSkin();
+  const sh = document.createElement('p'); sh.className = 'note'; sh.textContent = '🧵 Every outfit is checked: no shatnez (wool + linen together)!'; body.appendChild(sh);
   const g = document.createElement('div'); g.className = 'card-grid';
   Object.entries(CHARACTER_SKINS).forEach(([key, skin]) => {
     const unlocked = gameState.unlockedSkins.includes(key);
@@ -3128,14 +3292,24 @@ function oldPlotCell(i) {
 
 function normalizeState(st) {
   ['seeds', 'gear', 'eggs', 'shop', 'perks'].forEach(k => { if (!st[k] || typeof st[k] !== 'object' || Array.isArray(st[k])) st[k] = {}; });
-  ['fruits', 'plants', 'placed', 'placedEggs', 'pets', 'equipped', 'achievements', 'tasks', 'harvestedTypes', 'petsHatched', 'unlockedSkins'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
+  ['fruits', 'plants', 'placed', 'placedEggs', 'pets', 'equipped', 'achievements', 'tasks', 'harvestedTypes', 'petsHatched', 'unlockedSkins', 'gifts'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
+  st.mz = Object.assign(freshMitzvot(), st.mz && typeof st.mz === 'object' ? st.mz : {});
+  if (!Array.isArray(st.mz.bik)) st.mz.bik = [];
+  if (!st.mz.tips || typeof st.mz.tips !== 'object') st.mz.tips = {};
+  st.gifts = st.gifts.filter(g => g && getSeedData(g.s) && isFinite(g.x) && isFinite(g.z)).slice(0, 60);
   if (typeof st.sheckles !== 'number' || !isFinite(st.sheckles)) st.sheckles = 50;
   st.gear.shovel = 1;
   ['farmer', 'noob'].forEach(s => { if (!st.unlockedSkins.includes(s)) st.unlockedSkins.push(s); });
   if (!st.pets.length) st.pets.push({ id: 'buddy', type: 'dog', name: 'Buddy', age: 0 });
   st.pets = st.pets.filter(p => PETS[p.type]);
   st.equipped = st.equipped.filter(id => st.pets.some(p => p.id === id)).slice(0, MAX_PETS_EQUIPPED);
-  st.fruits = st.fruits.filter(f => f && getSeedData(f.s)).map(f => ({ s: f.s, kg: f.kg || getSeedData(f.s).kg, m: Array.isArray(f.m) ? f.m.filter(k => MUTATIONS[k]) : [], fav: !!f.fav }));
+  st.fruits = st.fruits.filter(f => f && getSeedData(f.s)).map(f => {
+    const o = { s: f.s, kg: f.kg || getSeedData(f.s).kg, m: Array.isArray(f.m) ? f.m.filter(k => MUTATIONS[k]) : [], fav: !!f.fav };
+    if (f.bk) o.bk = 1;   // Bikkurim
+    if (f.rv) o.rv = 1;   // Neta Revai
+    if (f.sv) o.sv = 1;   // Shevi'it (picked in Shemitah)
+    return o;
+  });
   st.plants = st.plants.filter(p => p && getSeedData(p.s)).map(p => {
     const seed = getSeedData(p.s);
     p.id = p.id || newId();
@@ -3162,6 +3336,8 @@ function migrateSaveToV3(data) {
   if (!data) return st;
   if (data.version >= 3) {
     Object.keys(st).forEach(k => { if (data[k] !== undefined && data[k] !== null) st[k] = data[k]; });
+    if (data.version < 4) shiftFromOldLayout(st, st.slot || 0);
+    st.version = SAVE_VERSION;
     return normalizeState(st);
   }
   // ── Version 1/2 (grid garden with coins) ──
@@ -3358,6 +3534,7 @@ function bindInput() {
       case 'KeyH': togglePanel('help-panel', openHelp); return;
       case 'KeyM': Sfx.toggle('music'); refreshSoundButtons(); return;
       case 'KeyT': toggleEmotePanel(); return;
+      case 'KeyL': togglePanel('mitzvot-panel', openMitzvot); return;
     }
     if (isAnyPanelOpen()) return;
     switch (e.code) {
@@ -3426,6 +3603,9 @@ function bindUI() {
   on('#music-btn', () => { Sfx.toggle('music'); refreshSoundButtons(); });
   on('#switch-profile-btn', switchProfile);
   on('#emote-btn', toggleEmotePanel);
+  on('#mitzvot-btn', () => togglePanel('mitzvot-panel', openMitzvot));
+  on('#year-card', () => togglePanel('mitzvot-panel', openMitzvot));
+  on('#teach-ok', () => { closeAllPanels(); Sfx.play('click'); setTimeout(showNextTeach, 400); });
   on('#tasks-title', () => $('#tasks').classList.toggle('collapsed'));
   on('#leaderboard-title', () => $('#leaderboard').classList.toggle('collapsed'));
   document.querySelectorAll('.panel-close').forEach(b => b.addEventListener('click', () => { closeAllPanels(); Sfx.play('click'); }));
@@ -3460,6 +3640,435 @@ function updateSnow(dt, time) {
     if (a[i + 1] < 0) a[i + 1] = 20 + Math.random() * 3;
   }
   snow.geometry.attributes.position.needsUpdate = true;
+}
+
+// ════════════════════════════════════════════
+//  MITZVOT OF THE GARDEN (rules + texts live in mitzvot.js)
+//  Every day in the game is one "garden year": year 7 is Shemitah,
+//  young trees are Orlah, the corner is Peah, and Rut comes to glean.
+// ════════════════════════════════════════════
+function gardenYearIndex() { return Math.floor(Date.now() / 1000 / DAY_LENGTH + dayOffset); }
+function cycleYear(yi) {
+  const y = yi == null ? gardenYearIndex() : yi, n = MITZVAH.YEAR_CYCLE;
+  return ((y % n) + n) % n + 1;
+}
+function isShemitah() { return cycleYear() === MITZVAH.YEAR_CYCLE; }
+function isBlessedYear() { return cycleYear() === MITZVAH.YEAR_CYCLE - 1; }
+function yearSecondsLeft() { const t = Date.now() / 1000 / DAY_LENGTH + dayOffset; return (Math.floor(t) + 1 - t) * DAY_LENGTH; }
+const isFruitTree = id => FRUIT_TREES.includes(id);
+const isVine = id => VINES.includes(id);
+const isFood = id => !NOT_FOOD.includes(id);
+function treeYear(p) { return p.py == null ? 99 : gardenYearIndex() - p.py + 1; }
+function orlahPhase(p) {
+  if (!isFruitTree(p.s) || p.py == null) return 'free';
+  const y = treeYear(p);
+  return y <= MITZVAH.ORLAH_YEARS ? 'orlah' : y === MITZVAH.ORLAH_YEARS + 1 ? 'revai' : 'free';
+}
+
+// ─── Peah: the back corner of each garden's right-hand bed ───
+function peahRect(g) {
+  g = g || MY_GARDEN;
+  const back = g.z + g.dir * BED_Z, inner = back - g.dir * MITZVAH.PEAH_D;
+  return { x1: g.x + BED_X1 - MITZVAH.PEAH_W, x2: g.x + BED_X1, z1: Math.min(back, inner), z2: Math.max(back, inner), back };
+}
+function inPeah(x, z) { const r = peahRect(); return x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2; }
+const isPeahPlant = p => inPeah(p.x, p.z);
+// Why you may not pick this yourself (null = go ahead)
+function harvestBlock(p) {
+  if (isPeahPlant(p)) return 'peah';
+  if (p.sh) return 'shich';
+  if (orlahPhase(p) === 'orlah') return 'orlah';
+  return null;
+}
+// ─── Bikkurim: the first ripe fruit of each of the Seven Species ───
+function bikkurimPending(sp) {
+  return gameState.fruits.some(f => f.bk && SPECIES_OF_SEED[f.s] === sp) || gameState.plants.some(q => q.bk && SPECIES_OF_SEED[q.s] === sp);
+}
+function needsReed(p) {
+  const sp = SPECIES_OF_SEED[p.s];
+  if (!sp || p.bk || isShemitah() || gameState.mz.bik.includes(sp) || bikkurimPending(sp)) return false;
+  return orlahPhase(p) === 'free' && !harvestBlock(p) && ripeFruitCount(p) > 0;
+}
+function plantBadge(p) {
+  const ripe = ripeFruitCount(p) > 0;
+  if (!ripe) return null;
+  if (isPeahPlant(p)) return '💙';
+  if (p.sh) return '🧺';
+  const ph = orlahPhase(p);
+  if (ph === 'orlah') return '🚫';
+  if (p.bk || needsReed(p)) return '🎀';
+  if (ph === 'revai') return '🏛️';
+  return null;
+}
+
+// ─── Kilayim: different kinds of plants need space between them ───
+function kilayimConflict(seedId, x, z, ignoreId) {
+  if (!isFood(seedId)) return null;
+  const vine = isVine(seedId), tree = isFruitTree(seedId) && !vine;
+  if (tree) return null;                                   // trees are fine next to anything
+  for (const q of gameState.plants) {
+    if (q.id === ignoreId || q.s === seedId || !isFood(q.s)) continue;
+    const qVine = isVine(q.s), qTree = isFruitTree(q.s) && !qVine;
+    if (qTree || (vine && qVine)) continue;
+    const need = seedRadius(seedId) + seedRadius(q.s) + (vine || qVine ? MITZVAH.VINE_GAP : MITZVAH.KILAYIM_GAP);
+    if (Math.hypot(q.x - x, q.z - z) < need) return { plant: q, need };
+  }
+  return null;
+}
+// A careful planting: another kind is close by, but you left the space
+function keptKilayim(seedId, x, z, id) {
+  if (!isFood(seedId) || (isFruitTree(seedId) && !isVine(seedId))) return false;
+  return gameState.plants.some(q => q.id !== id && q.s !== seedId && isFood(q.s) && !(isFruitTree(q.s) && !isVine(q.s)) && !(isVine(seedId) && isVine(q.s)) &&
+    Math.hypot(q.x - x, q.z - z) < seedRadius(seedId) + seedRadius(q.s) + (isVine(seedId) || isVine(q.s) ? MITZVAH.VINE_GAP : MITZVAH.KILAYIM_GAP) + 1.5);
+}
+
+// ─── Stars ⭐ for keeping mitzvot ───
+function mitzvah(stat, stars, text, x, z) {
+  const mz = gameState.mz;
+  if (stat) mz[stat] = (mz[stat] || 0) + 1;
+  mz.stars += stars;
+  if (x != null) floatText(x, 2.4, z, `⭐+${stars} ${text || ''}`, '#FFE082');
+  updateYearHUD(true);
+  if (mz.peah >= 5) checkAchievement('peah_keeper');
+  if (mz.leket >= 5) checkAchievement('gleaner_friend');
+  if (mz.shich >= 1) checkAchievement('forgot_mitzvah');
+  if (mz.kil >= 10) checkAchievement('kilayim_keeper');
+  if (mz.orlah >= 1) checkAchievement('orlah_patience');
+  if (mz.maaser >= 10) checkAchievement('tither');
+  if (mz.shemitah >= 1) checkAchievement('shemitah_rest');
+  if (mz.stars >= 100) checkAchievement('mitzvah_100');
+}
+
+// ─── "Did you know?" cards the first time each mitzvah comes up ───
+const teachQueue = [];
+function teach(id) {
+  const mz = gameState.mz;
+  if (mz.tips[id]) return false;
+  mz.tips[id] = 1;
+  teachQueue.push(id);
+  showNextTeach();
+  return true;
+}
+function showNextTeach() {
+  if (!teachQueue.length || !started || isAnyPanelOpen()) return;
+  const id = teachQueue.shift();
+  const body = $('#teach-body');
+  if (id === 'rut') {
+    body.innerHTML = `<div class="teach-emoji">👩‍🌾</div><h3>Meet Rut!</h3><p>Rut comes to gather the gifts you leave for the poor — just like <b>Ruth</b> gleaning in Boaz's field. Every gift you leave brings you a <b>blessing</b>!</p>${sourceHTML('ruth2_2')}`;
+  } else if (id === 'intro') {
+    body.innerHTML = `<div class="teach-emoji">📜</div><h3>Mitzvot of the Garden!</h3><p>Your garden is bigger now, and it follows the Torah's farming mitzvot: <b>Peah, Leket, Shichecha, Kilayim, Orlah, Bikkurim, Ma'aser</b> and <b>Shemitah</b>. Keep them to earn ⭐ stars and blessings!</p><p>Every day in the game is one garden year. Open the 📜 <b>Mitzvot</b> book to learn them all.</p>`;
+  } else {
+    const m = MITZVOT.find(x => x.id === id);
+    if (!m) return;
+    body.innerHTML = `<div class="teach-emoji">${m.emoji}</div><h3><span class="he">${m.he}</span> ${m.name}</h3><p>${m.what}</p><p class="teach-game">🎮 ${m.game}</p>${sourceHTML(m.sources[0])}`;
+  }
+  openPanel('teach-panel');
+  Sfx.play('quest');
+}
+function sourceHTML(key) {
+  const s = SOURCES[key];
+  if (!s) return '';
+  const url = 'https://www.sefaria.org/' + encodeURIComponent(s.ref.replace(/ /g, '_').replace(':', '.'));
+  return `<div class="source"><div class="src-he" dir="rtl" lang="he">${s.he}</div><div class="src-en">“${s.en}”</div><a class="src-ref" href="${url}" target="_blank" rel="noopener">📖 ${s.ref}</a></div>`;
+}
+
+// ─── Leket on the ground ───
+const giftViews = new Map();
+function refreshGifts() {
+  const alive = new Set(gameState.gifts.map(g => g.id));
+  for (const [id, v] of giftViews) if (!alive.has(id)) { scene.remove(v); giftViews.delete(id); }
+  gameState.gifts.forEach(g => {
+    if (giftViews.has(g.id)) return;
+    const seed = getSeedData(g.s);
+    const grp = new THREE.Group();
+    const b = new VoxelBatch(8);
+    const sh = FRUIT_SHAPES[g.s] || [0.25, 0.25, 0.25];
+    b.box(sh[0] * 1.1, sh[1] * 1.1, sh[2] * 1.1, seed ? (seed.fruitColor || seed.color) : 0xFFB300, 0, sh[1] * 0.55, 0, 0, 0, 0.6);
+    grp.add(new THREE.Mesh(b.build(), MATS.voxel));
+    const icon = new THREE.Sprite(Tex.emojiMaterial('🌾', true));
+    icon.scale.set(0.5, 0.5, 1);
+    icon.position.y = 0.8;
+    grp.add(icon);
+    grp.position.set(g.x, DIRT_Y, g.z);
+    scene.add(grp);
+    giftViews.set(g.id, grp);
+  });
+}
+function nearestGift(x, z, maxD) {
+  let best = null, bd = maxD;
+  for (const g of gameState.gifts) { const d = Math.hypot(g.x - x, g.z - z); if (d < bd) { bd = d; best = g; } }
+  return best;
+}
+
+// ─── Rut, who gleans what you leave for the poor ───
+let rut = null, rutTimer = 6;
+function rutGate() { return { x: MY_GARDEN.x + 0.8, z: MY_GARDEN.z - MY_GARDEN.dir * (BED_Z + 3.5) }; }
+function pendingGifts() {
+  const list = gameState.gifts.map(g => ({ kind: 'leket', ref: g, x: g.x, z: g.z }));
+  gameState.plants.forEach(p => {
+    if (!ripeFruitCount(p)) return;
+    if (isPeahPlant(p)) list.push({ kind: 'peah', ref: p, x: p.x, z: p.z });
+    else if (p.sh) list.push({ kind: 'shich', ref: p, x: p.x, z: p.z });
+  });
+  return list;
+}
+function spawnRut() {
+  const gate = rutGate();
+  const model = buildVendor({ npc: 'Rut', shirt: 0x8E24AA, apron: 0xE1BEE7, hat: 'straw' });
+  const bb = new VoxelBatch(4);
+  bb.box(0.45, 0.25, 0.32, 0xA1887F, 0, 0, 0);
+  bb.box(0.36, 0.08, 0.24, 0xFFD54F, 0, 0.14, 0);
+  const basket = new THREE.Mesh(bb.build(), MATS.voxel);
+  basket.position.set(0.42, 0.75, 0.15);
+  model.add(basket);
+  const label = textSprite('🌾 Rut', '#FFFFFF');
+  label.scale.multiplyScalar(0.8);
+  scene.add(model, label);
+  rut = { model, label, x: gate.x, z: gate.z, target: null, wait: 0, leaving: false, got: 0, value: 0, stars: 0, walk: 0 };
+  model.position.set(rut.x, 0, rut.z);
+  if (!teach('rut') && Math.hypot(playerPos.x - gate.x, playerPos.z - gate.z) < 30) showToast('👩‍🌾', 'Rut is coming to gather the gifts for the poor!');
+}
+function despawnRut() {
+  scene.remove(rut.model, rut.label);
+  rut.label.material.map.dispose(); rut.label.material.dispose();
+  if (rut.got) {
+    showToast('💙', `Rut gathered ${rut.got} gift${rut.got > 1 ? 's' : ''} for the poor. Blessing: +¢${fmtSheckles(rut.value)} ⭐+${rut.stars}`);
+    Sfx.play('quest');
+  }
+  rut = null;
+  rutTimer = 8;
+}
+function collectGift(t) {
+  let value = 0, stars = 0, count = 0;
+  if (t.kind === 'leket') {
+    if (!gameState.gifts.includes(t.ref)) return;
+    value = fruitValue(t.ref); stars = 1; count = 1;
+    gameState.gifts = gameState.gifts.filter(g => g !== t.ref);
+    refreshGifts();
+  } else {
+    const p = t.ref, seed = getSeedData(p.s);
+    if (!gameState.plants.includes(p) || !ripeFruitCount(p)) return;
+    if (seed.multi) {
+      p.fruits.forEach((f, i) => { if (f && f.age >= seed.fruitTime) { value += fruitValue({ s: p.s, kg: f.kg, m: f.m }); count++; p.fruits[i] = null; } });
+      p.sh = 0;
+      refreshPlantView(p);
+    } else {
+      value = fruitValue({ s: p.s, kg: p.kg || seed.kg, m: p.m }); count = 1;
+      gameState.plants = gameState.plants.filter(x => x !== p);
+      removePlantView(p.id);
+    }
+    stars = t.kind === 'shich' ? 2 : count;
+  }
+  // "...that the LORD thy G-d may bless thee in all the work of thy hands" (Devarim 24:19)
+  value = Math.max(1, Math.round(value));
+  gameState.sheckles += value;
+  gameState.totalEarned += value;
+  rut.got += count; rut.value += value; rut.stars += stars;
+  mitzvah(t.kind, stars, t.kind === 'peah' ? 'Peah' : t.kind === 'leket' ? 'Leket' : 'Shichecha', t.x, t.z);
+  floatText(t.x, 1.7, t.z, '💙 Thank you!', '#B3E5FC');
+  spawnParticles(t.x, 0.8, t.z, [0x90CAF9, 0xFFFFFF, 0xFFE082], 16, 2.5, 0.09);
+  Sfx.play('coin');
+  updateHUD(); saveGame();
+}
+function updateRut(dt, time) {
+  if (!rut) {
+    rutTimer -= dt;
+    if (rutTimer > 0) return;
+    rutTimer = 5;
+    if (pendingGifts().length) spawnRut();
+    return;
+  }
+  if (rut.wait > 0) {
+    rut.wait -= dt;
+    rut.model.userData.armR.rotation.x = -1.2;
+    if (rut.wait <= 0) { collectGift(rut.target); rut.target = null; }
+  } else {
+    if (!rut.target && !rut.leaving) {
+      const left = pendingGifts();
+      if (left.length) rut.target = left.reduce((a, b) => Math.hypot(a.x - rut.x, a.z - rut.z) < Math.hypot(b.x - rut.x, b.z - rut.z) ? a : b);
+      else rut.leaving = true;
+    }
+    const goal = rut.leaving ? rutGate() : rut.target;
+    const dx = goal.x - rut.x, dz = goal.z - rut.z, d = Math.hypot(dx, dz);
+    if (d < 0.7) {
+      if (rut.leaving) { despawnRut(); return; }
+      rut.wait = 0.8;
+    } else {
+      const step = Math.min(d, 3.4 * dt);
+      rut.x += dx / d * step; rut.z += dz / d * step;
+      rut.model.rotation.y = Math.atan2(dx, dz);
+      rut.walk += dt * 9;
+      const u = rut.model.userData;
+      u.armL.rotation.x = Math.sin(rut.walk) * 0.6;
+      u.armR.rotation.x = -Math.sin(rut.walk) * 0.6;
+    }
+  }
+  rut.model.position.set(rut.x, Math.abs(Math.sin(rut.walk)) * 0.05, rut.z);
+  rut.label.position.set(rut.x, 2.55 + Math.sin(time * 2) * 0.04, rut.z);
+}
+
+// ─── Shichecha: leaving your garden after harvesting, with 1 or 2 ripe plants left behind ───
+let tripHarvests = [], wasInGarden = false;
+function gardenArea(x, z) { return Math.abs(x - MY_GARDEN.x) < BED_X1 + 1.2 && Math.abs(z - MY_GARDEN.z) < BED_Z + 1.2; }
+function checkShichecha() {
+  const inside = gardenArea(playerPos.x, playerPos.z);
+  if (wasInGarden && !inside && tripHarvests.length && !isShemitah()) {
+    const forgot = gameState.plants.filter(p => !p.sh && !p.bk && ripeFruitCount(p) && !harvestBlock(p) && !needsReed(p) &&
+      tripHarvests.some(h => Math.hypot(h.x - p.x, h.z - p.z) < 3.2));
+    if (forgot.length && forgot.length <= 2) {
+      forgot.forEach(p => { p.sh = 1; refreshPlantView(p); });
+      if (!teach('shichecha')) showToast('🧺', `You forgot ${forgot.length === 1 ? 'one' : 'two'} — that's Shichecha! Don't go back; it's for the poor.`);
+      saveGame();
+    } else if (forgot.length >= 3 && !gameState.mz.tips.three) {
+      gameState.mz.tips.three = 1;
+      showToast('🧺', 'You left 3 or more behind — that\'s not "forgetting", so they\'re still yours! (Mishnah Peah 6:5)');
+    }
+    tripHarvests = [];
+  }
+  if (!wasInGarden && inside) tripHarvests = [];
+  wasInGarden = inside;
+}
+
+// ─── Years, Orlah and Shemitah (checked once a second) ───
+let lastYear = null;
+function tickYears() {
+  const yi = gardenYearIndex();
+  if (isShemitah()) gameState.mz.restYear = yi;
+  if (!gameState.mz.tips.intro && gameState.tutorialStep >= TUTORIAL_TASKS.length) teach('intro');   // new players: after the tutorial
+  // young trees finishing Orlah / Revai
+  gameState.plants.forEach(p => {
+    if (p.py == null) return;
+    const ph = orlahPhase(p);
+    if (p.ol === ph) return;
+    const was = p.ol;
+    p.ol = ph;
+    if (was === 'orlah') {
+      if (p.fruits) p.fruits = p.fruits.map(() => null);   // fruit that grew in the Orlah years is buried
+      spawnParticles(p.x, 1.5, p.z, [0xFFE082, 0xFFFFFF, 0x81C784], 30, 3, 0.1);
+      const s = getSeedData(p.s);
+      mitzvah('orlah', 3, 'Orlah kept!', p.x, p.z);
+      showToast('🌳', `Your ${s.name} finished 3 years of Orlah! Its old fruit falls away — new fruit is Revai 🏛️.`);
+      teach('revai');
+    } else if (was === 'revai' && ph === 'free') {
+      showToast('🌳', `Your ${getSeedData(p.s).name}'s fruit is now yours to sell!`);
+    }
+    refreshPlantView(p);
+  });
+  if (lastYear !== null && yi !== lastYear) {
+    const cy = cycleYear(yi);
+    refreshAllPlants();
+    if (cy === MITZVAH.YEAR_CYCLE) {
+      bigBanner('🌿 Shemitah Year!', 'The land rests — no planting this year.<br>Fruit you pick is holy Shevi\'it fruit: eat it, don\'t sell it.');
+      teach('shemitah');
+    } else if (cy === 1 && gameState.mz.restYear === yi - 1) {
+      mitzvah('shemitah', 7);
+      bigBanner('🌱 The land rested!', `You kept Shemitah! ⭐+7<br>A new 7-year cycle begins — you can plant again.`);
+    } else if (cy === MITZVAH.YEAR_CYCLE - 1) {
+      bigBanner('✨ Year 6 — a blessing!', '"I will command My blessing upon you in the sixth year" (Vayikra 25:21)<br>Every harvest is doubled this year!');
+    } else showToast('📅', `A new garden year: Year ${cy} of 7`);
+    saveGame();
+  }
+  lastYear = yi;
+  updateYearHUD();
+  showNextTeach();
+}
+function updateYearHUD(bump) {
+  const cy = cycleYear();
+  const el = $('#year-text');
+  if (!el) return;
+  const left = fmtTime(yearSecondsLeft());
+  setHTML(el, cy === 7 ? `🌿 <b>Shemitah</b> <span class="dim">${left}</span>` : cy === 6 ? `✨ <b>Year 6</b> blessed <span class="dim">${left}</span>` : `📅 Year <b>${cy}</b> of 7 <span class="dim">${left}</span>`);
+  $('#year-card').classList.toggle('shemitah', cy === 7);
+  $('#year-card').classList.toggle('blessed', cy === 6);
+  setText($('#star-count'), fmtSheckles(gameState.mz.stars));
+  if (bump) { const s = $('#star-pill'); s.classList.remove('bump'); void s.offsetWidth; s.classList.add('bump'); }
+}
+
+// ─── Kohen at the Temple stall: Bikkurim and Neta Revai ───
+function openTemple() {
+  const body = $('#temple-body');
+  body.innerHTML = '';
+  const mz = gameState.mz;
+  const basket = document.createElement('div');
+  basket.className = 'species-basket';
+  basket.innerHTML = '<div class="section-title">🎀 Bikkurim — the Seven Species</div>' + Object.entries(SEVEN_SPECIES).map(([k, s]) =>
+    `<div class="species${mz.bik.includes(k) ? ' got' : ''}"><span>${s.emoji}</span><b>${s.name}</b><small dir="rtl">${s.he}</small></div>`).join('');
+  body.appendChild(basket);
+  const bik = gameState.fruits.filter(f => f.bk);
+  const rv = gameState.fruits.filter(f => f.rv);
+  if (!bik.length && !rv.length) {
+    const p = document.createElement('p'); p.className = 'empty-msg';
+    p.innerHTML = 'Grow the Seven Species 🌾🍇🫒🌴 in your garden. When one ripens for the first time, tie a reed 🎀 and bring it here!<br><br>Fruit from a tree in its 4th year (Neta Revai 🏛️) comes here too.';
+    body.appendChild(p);
+  }
+  bik.forEach(f => {
+    const s = getSeedData(f.s), sp = SPECIES_OF_SEED[f.s];
+    const row = document.createElement('div'); row.className = 'fruit-row'; row.style.setProperty('--rar', '#FFD54F');
+    row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>Bikkurim: ${s.name}</b><div class="kg">First fruits of the ${SEVEN_SPECIES[sp].name}</div></div><button class="btn small">Give 🧺</button>`;
+    row.querySelector('button').addEventListener('click', e => bringBikkurim(f, e.currentTarget));
+    body.appendChild(row);
+  });
+  if (rv.length) {
+    const worth = rv.reduce((a, f) => a + fruitValue(f), 0);
+    const row = document.createElement('div'); row.className = 'fruit-row'; row.style.setProperty('--rar', '#90CAF9');
+    row.innerHTML = `<span class="fr-emoji">🏛️</span><div class="fr-info"><b>${rv.length} Neta Revai fruit</b><div class="kg">Eat them in Yerushalayim, praising Hashem</div></div><button class="btn small">¢${fmtSheckles(worth)}</button>`;
+    row.querySelector('button').addEventListener('click', e => {
+      const r = e.currentTarget.getBoundingClientRect();
+      gameState.fruits = gameState.fruits.filter(f => !f.rv);
+      gameState.sheckles += worth; gameState.totalEarned += worth;
+      rv.forEach(() => { gameState.mz.revai = (gameState.mz.revai || 0) + 1; });
+      mitzvah(null, rv.length);
+      coinFly(r.left + r.width / 2, r.top, 6);
+      Sfx.play('coin');
+      showToast('🏛️', `You enjoyed your Revai fruit in Yerushalayim! +¢${fmtSheckles(worth)} ⭐+${rv.length}`);
+      updateHUD(); saveGame(); openTemple();
+    });
+    body.appendChild(row);
+  }
+  const t = document.createElement('p'); t.className = 'note';
+  t.innerHTML = `From your sales so far: 🌾 Terumah to the Kohen ¢${fmtSheckles(mz.terumahTotal || 0)} • 🪙 Ma'aser to the Levi ¢${fmtSheckles(mz.maaserTotal || 0)}`;
+  body.appendChild(t);
+  body.insertAdjacentHTML('beforeend', sourceHTML('deut26_2'));
+  openPanel('temple-panel');
+}
+function bringBikkurim(f, btn) {
+  const sp = SPECIES_OF_SEED[f.s];
+  gameState.fruits = gameState.fruits.filter(x => x !== f);
+  const reward = Math.round(Math.max(fruitValue(f) * 3, 100 * wealthScale()));
+  gameState.sheckles += reward; gameState.totalEarned += reward;
+  if (!gameState.mz.bik.includes(sp)) gameState.mz.bik.push(sp);
+  mitzvah(null, 5);
+  checkAchievement('bikkurim_first');
+  const r = btn.getBoundingClientRect();
+  coinFly(r.left + r.width / 2, r.top, 8);
+  Sfx.play('unlock');
+  confetti(40);
+  if (gameState.mz.bik.length >= 7) {
+    const bonus = Math.round(7000 * wealthScale());
+    gameState.sheckles += bonus; gameState.totalEarned += bonus;
+    checkAchievement('seven_species');
+    setTimeout(() => bigBanner('✡️ All Seven Species!', `"A land of wheat and barley, vines, figs and pomegranates, olives and dates"<br>Bonus +¢${fmtSheckles(bonus)}`), 400);
+  } else bigBanner('🎀 Bikkurim!', `"I have brought the first of the fruit of the land" (Devarim 26:10)<br>+¢${fmtSheckles(reward)} ⭐+5 • ${gameState.mz.bik.length} of 7 species`);
+  updateHUD(); refreshAllPlants(); saveGame(); openTemple();
+}
+
+// ─── 📜 The Mitzvot book ───
+function openMitzvot() {
+  const body = $('#mitzvot-body');
+  const mz = gameState.mz;
+  const cy = cycleYear();
+  let html = `<div class="mz-head"><div class="mz-stars">⭐ <b>${fmtSheckles(mz.stars)}</b> mitzvah stars</div>
+    <div class="mz-year">${cy === 7 ? '🌿 Shemitah year — the land rests' : cy === 6 ? '✨ Year 6 — harvests are doubled!' : `📅 Garden year ${cy} of 7`} <span class="dim">• next year in ${fmtTime(yearSecondsLeft())}</span></div>
+    <div class="species-row">${Object.entries(SEVEN_SPECIES).map(([k, s]) => `<span class="${mz.bik.includes(k) ? 'got' : ''}" title="${s.name}">${s.emoji}</span>`).join('')}</div></div>`;
+  MITZVOT.forEach(m => {
+    const n = m.stat === 'bik' ? mz.bik.length : m.stat ? (mz[m.stat] || 0) : null;
+    html += `<details class="mz-card"${m.id === 'peah' ? ' open' : ''}><summary><span class="mz-emoji">${m.emoji}</span><span class="mz-title"><span class="he" dir="rtl">${m.he}</span><b>${m.name}</b></span>${n != null ? `<span class="mz-count">${n}${m.stat === 'bik' ? '/7' : ''}</span>` : ''}</summary>
+      <p>${m.what}</p><p class="teach-game">🎮 ${m.game}</p>${m.fact ? `<p class="mz-fact">💡 ${m.fact}</p>` : ''}
+      ${m.sources.map(sourceHTML).join('')}${n != null && m.unit ? `<p class="mz-done">You did it <b>${n}</b> ${m.stat === 'bik' ? 'of 7 — ' + m.unit : m.unit}</p>` : ''}</details>`;
+  });
+  html += `<p class="mz-credit">Texts from <a href="https://www.sefaria.org" target="_blank" rel="noopener">Sefaria</a>: Tanakh in English from JPS 1917 (public domain); Mishnah in English from Mishnah Yomit by Dr. Joshua Kulp (CC-BY). The game makes the halachot simpler so they're fun to learn — ask your rabbi for the real details!</p>`;
+  body.innerHTML = html;
+  openPanel('mitzvot-panel');
 }
 
 // ════════════════════════════════════════════
@@ -3690,6 +4299,7 @@ function toggleEmotePanel() {
 const r2 = v => Math.round(v * 100) / 100;
 function gardenSnapshot() {
   return {
+    v: 4,
     slot: mySlot,
     s: Math.floor(gameState.sheckles),
     p: gameState.plants.map(p => {
@@ -3730,7 +4340,9 @@ function snapshotPlants(snap, sentAt, toSlot) {
     plants.push(p);
   });
   const st = { plants };
-  relocateState(st, validSlot(snap.slot) ? snap.slot : toSlot, toSlot);
+  const from = validSlot(snap.slot) ? snap.slot : toSlot;
+  if (!snap.v) shiftFromOldLayout(st, from);
+  relocateState(st, from, toSlot);
   return st.plants;
 }
 function gardenStillGrowing(plants) {
@@ -3826,12 +4438,15 @@ function animate() {
     updatePets(dt, time);
     updateGuide(time, dt);
     updateNet(dt);
+    updateRut(dt, time);
+    checkShichecha();
     autoSaveTimer += dt;
     if (autoSaveTimer >= AUTO_SAVE_SEC) { autoSaveTimer = 0; saveGame(); }
     secondTimer -= dt;
     if (secondTimer <= 0) {
       secondTimer = 1;
       checkRestock();
+      tickYears();
       updateRestockTimer();
       updateTimeHUD();
       leaderTimer++;
@@ -3872,10 +4487,14 @@ function startProfile() {
   camPos.set(playerPos.x + Math.sin(yaw) * 12, 8, playerPos.z + Math.cos(yaw) * 12);
   moveTarget = null; focus = null; carrying = null; shovelArmed = null;
   weather = null; moonlitCount = 0;
+  if (rut) despawnRut();
+  rutTimer = 6; tripHarvests = []; wasInGarden = false; lastYear = null; teachQueue.length = 0;
+  gameState.plants.forEach(p => { if (p.py != null && !p.ol) p.ol = orlahPhase(p); });
   [...plantViews.keys()].forEach(removePlantView);
   [...petEntities.keys()].forEach(id => { scene.remove(petEntities.get(id).model); petEntities.delete(id); });
   buildPlayerModel();
   refreshAllPlants();
+  refreshGifts();
   refreshPlaced();
   syncPetEntities();
   if (netMode) startNetSession();
@@ -3884,6 +4503,8 @@ function startProfile() {
   fillTasks();
   updateHUD(); updateHotbar(); updateLeaderboard(); refreshSoundButtons(); weatherBanner();
   started = true;
+  tickYears();
+  if (!gameState.mz.tips.intro && result !== 'new') setTimeout(() => teach('intro'), 1500);
   document.body.classList.add('playing');
   lastFocusKey = '?';
   lastSlot = shopSlot(SHOP_RESTOCK);
@@ -3938,6 +4559,13 @@ window.__garden = {
   get focus() { return focus; },
   petTick(sec) { for (const e of petEntities.values()) e.timer = Math.min(e.timer, 0.01); updatePets(0.05, 0); void sec; },
   get player() { return { x: playerPos.x, z: playerPos.z, target: moveTarget && { x: moveTarget.x, z: moveTarget.z } }; },
+  get mz() { return gameState.mz; },
+  poke(x, z) { playerPos.set(x - Math.sin(playerFacing), 0, z - Math.cos(playerFacing)); focus = computeFocus(); const k = focus && focus.kind; interact(focus); return k; },
+  get garden() { return { x: MY_GARDEN.x, z: MY_GARDEN.z, dir: MY_GARDEN.dir, peah: peahRect() }; },
+  get year() { return { cy: cycleYear(), idx: gardenYearIndex() }; },
+  setYear(cy) { const cur = cycleYear(); dayOffset += ((cy - cur) % 7 + 7) % 7 || 0; tickYears(); },
+  get gifts() { return gameState.gifts; },
+  get rut() { return rut && { x: rut.x, z: rut.z, got: rut.got }; },
   get net() { return { netMode, mySlot, world: Net.world, remotes: [...remotePlayers.entries()].map(([id, r]) => ({ id, name: r.name, x: r.x, z: r.z, bubble: !!r.bubble })), neighbors: [...neighborMeshes.keys()], profiles: [...worldProfiles.entries()].map(([id, p]) => Object.assign({ id }, p)) }; },
 };
 

@@ -366,6 +366,71 @@ body.touch #interact-prompt { bottom: calc(256px + var(--safe-bottom)); }
 .modal-buttons { display: flex; gap: 10px; margin-top: 16px; }
 .modal-buttons .btn { flex: 1; }
 
+/* ─── Mitzvot of the Garden ─── */
+.tag.seven { background: #1E88E5; color: #fff; border-radius: 99px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+.tp.temple { background: linear-gradient(#64B5F6, #1E88E5); }
+#year-card { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 9px; font-size: 13px; cursor: pointer; }
+#year-card .dim { font-size: 11px; opacity: 0.7; }
+#year-card.shemitah { background: linear-gradient(#DCEDC8, #AED581); }
+#year-card.blessed { background: linear-gradient(#FFF9C4, #FFE082); }
+.star-pill { font-weight: 700; white-space: nowrap; background: #FFF3C4; border: 2px solid #1b1b1b; border-radius: 99px; padding: 0 8px; }
+.star-pill.bump { animation: bump 0.4s ease; }
+.temple-header { background: linear-gradient(#90CAF9, #42A5F5); }
+.mitzvot-header { background: linear-gradient(#FFE082, #FFB300); }
+.species-basket { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.species-basket .section-title { width: 100%; }
+.species { display: flex; flex-direction: column; align-items: center; width: 84px; padding: 5px 2px; border-radius: 12px; border: 2px dashed #A1887F; background: #fff; opacity: 0.55; font-size: 12px; }
+.species span { font-size: 26px; }
+.species small { font-size: 11px; color: var(--ink-soft); }
+.species.got { opacity: 1; border: 2px solid #1b1b1b; background: #FFF8E1; box-shadow: 0 3px 0 #FFB300; }
+.tithe-box { display: flex; flex-direction: column; gap: 3px; background: #E3F2FD; border: 2px solid #1b1b1b; border-radius: 12px; padding: 7px 10px; margin: 8px 0; font-size: 13px; }
+.tithe-box span { display: flex; justify-content: space-between; gap: 8px; }
+.source { background: #FFFDF5; border: 2px solid #D7CCC8; border-left: 6px solid #FFB300; border-radius: 10px; padding: 7px 10px; margin: 8px 0; text-align: left; }
+.src-he { font-family: 'Frank Ruhl Libre', 'David', 'Times New Roman', serif; font-size: 18px; line-height: 1.6; color: #3E2723; text-align: right; }
+.src-en { font-size: 13px; line-height: 1.45; color: var(--ink-soft); margin-top: 4px; font-style: italic; }
+.src-ref { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 700; color: #1565C0; text-decoration: none; }
+.mz-head { text-align: center; margin-bottom: 8px; }
+.mz-stars { font-size: 22px; font-weight: 700; }
+.mz-year { font-size: 14px; margin: 3px 0 6px; }
+.species-row { display: flex; justify-content: center; gap: 6px; font-size: 26px; }
+.species-row span { opacity: 0.25; filter: grayscale(1); }
+.species-row span.got { opacity: 1; filter: none; }
+.mz-card { background: #fff; border: 3px solid #1b1b1b; border-radius: 14px; margin: 8px 0; padding: 4px 10px; }
+.mz-card summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; padding: 5px 0; }
+.mz-card summary::-webkit-details-marker { display: none; }
+.mz-emoji { font-size: 28px; }
+.mz-title { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
+.mz-title .he { font-size: 15px; color: #6D4C41; text-align: left; }
+.mz-count { font-weight: 700; background: #FFF3C4; border: 2px solid #1b1b1b; border-radius: 99px; padding: 0 9px; }
+.mz-card p { font-size: 14px; line-height: 1.45; margin: 6px 0; }
+.teach-game { background: #F1F8E9; border-radius: 10px; padding: 5px 8px; }
+.mz-fact { color: #5D4037; }
+.mz-done { font-weight: 600; color: #2E7D32; }
+.mz-credit { font-size: 11px; color: var(--ink-soft); text-align: center; margin-top: 12px; line-height: 1.4; }
+.mz-credit a { color: #1565C0; }
+.panel.teach { text-align: center; }
+.teach-emoji { font-size: 54px; line-height: 1.1; }
+#teach-body h3 { font-size: 21px; margin: 4px 0 8px; }
+#teach-body h3 .he { display: block; font-size: 18px; color: #6D4C41; }
+#teach-body p { font-size: 15px; line-height: 1.45; margin: 6px 0; }
+#teach-ok { margin-top: 8px; width: 100%; }
+@media (max-width: 700px) {
+  #year-card { font-size: 11px; padding: 4px 7px; }
+  #year-card .dim { display: none; }
+}
+@media (max-width: 440px) {
+  #tp-bar .tp { font-size: 10px; padding: 4px 4px; letter-spacing: -0.2px; }
+  #hud-top #tp-bar { gap: 2px; }
+}
+.panel.teach { max-height: 94vh; overflow-y: auto; }
+@media (max-height: 500px) {
+  .teach-emoji { font-size: 34px; }
+  #teach-body h3 { font-size: 18px; margin: 2px 0 4px; }
+  #teach-body p { font-size: 13px; margin: 4px 0; }
+  .panel.teach .source { display: none; }
+  #teach-ok { min-height: 40px; padding: 6px; }
+}
+
 /* ─── Family worlds (multiplayer) ─── */
 .net-only { display: none !important; }
 body.online .net-only { display: flex !important; }

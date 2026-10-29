@@ -22,6 +22,7 @@
       <button class="tp garden" data-tp="garden">🏡 Garden</button>
       <button class="tp gear" data-tp="gear">⚙️ Gear</button>
       <button class="tp pets" data-tp="pets">🥚 Pets</button>
+      <button class="tp temple" data-tp="temple">🏛️ Kohen</button>
     </div>
   </div>
   <div id="weather-banner"></div>
@@ -38,6 +39,10 @@
       <span class="sheckles"><span class="cent">¢</span><span id="coin-amount">0</span></span>
       <span class="fruit-pill" title="Fruit in backpack">🎒 <span id="fruit-count">0</span></span>
     </div>
+    <div id="year-card" class="hud-card" title="Mitzvot of the Garden (L)">
+      <span id="year-text">📅 Year 1 of 7</span>
+      <span id="star-pill" class="star-pill">⭐ <b id="star-count">0</b></span>
+    </div>
     <div id="tasks" class="hud-card">
       <div id="tasks-title">📋 Tasks</div>
       <div id="tasks-list"></div>
@@ -53,6 +58,7 @@
     <div class="menu-col">
       <button class="icon-btn" id="bag-btn" title="Backpack (I)">🎒<span class="lbl">Backpack</span></button>
       <button class="icon-btn" id="pets-btn" title="Pets (P)">🐾<span class="lbl">Pets</span></button>
+      <button class="icon-btn" id="mitzvot-btn" title="Mitzvot of the Garden (L)">📜<span class="lbl">Mitzvot</span></button>
       <button class="icon-btn" id="wardrobe-btn" title="Outfits">👕<span class="lbl">Outfits</span></button>
       <button class="icon-btn" id="achieve-btn" title="Badges (J)">🏅<span class="lbl">Badges</span></button>
       <button class="icon-btn net-only" id="emote-btn" title="Say something (T)">👋<span class="lbl">Emotes</span><span id="online-count" class="online-count">1</span></button>
@@ -138,6 +144,29 @@
     </div>
   </div>
 
+  <div class="panel-overlay hidden" id="temple-panel">
+    <div class="panel">
+      <div class="panel-header temple-header">
+        <div class="shop-title"><span class="shop-face">🏛️</span><div><h2>The Kohen</h2><p>"Bring your Bikkurim and Neta Revai — with joy!"</p></div></div>
+        <button class="panel-close" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-body" id="temple-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="mitzvot-panel">
+    <div class="panel wide">
+      <div class="panel-header mitzvot-header"><h2>📜 Mitzvot of the Garden</h2><button class="panel-close" aria-label="Close">✕</button></div>
+      <div class="panel-body" id="mitzvot-body"></div>
+    </div>
+  </div>
+
+  <div class="panel-overlay hidden" id="teach-panel">
+    <div class="panel small teach">
+      <div class="panel-body"><div id="teach-body"></div><button class="btn big" id="teach-ok">Got it! 👍</button></div>
+    </div>
+  </div>
+
   <div class="panel-overlay hidden" id="help-panel">
     <div class="panel">
       <div class="panel-header"><h2>❓ How to Play</h2><button class="panel-close" aria-label="Close">✕</button></div>
@@ -155,11 +184,12 @@
           <p>🌙 Night → Moonlit • 🩸 Blood Moon → Bloodlit • 🌠 Meteors → Celestial (120x)</p>
           <p>💦 Sprinklers make nearby plants grow faster and mutate more. 🚿 Watering cans speed up one plant.</p>
           <p>⭐ Favorite a fruit in your backpack to keep it when you sell.</p>
+          <p>📜 <b>Mitzvot of the Garden:</b> leave the 💙 Peah corner and fallen 🌾 Leket for Rut, keep different kinds apart (Kilayim), wait out Orlah on young trees, bring 🎀 Bikkurim to the 🏛️ Kohen, and rest in the 🌿 Shemitah year. Every game day is one garden year!</p>
           <p>🌍 <b>Play together:</b> on the start screen tap <b>Play together with family</b> — everyone types the same secret code and you share one world, each with your own garden!</p>
         </div>
         <div class="controls desktop-only">
           <p><kbd>W A S D</kbd> move • <kbd>Shift</kbd> run • <kbd>Space</kbd> jump • <kbd>E</kbd> plant / harvest / use</p>
-          <p><kbd>1-9</kbd> hold an item • <kbd>0</kbd> empty hands • <kbd>G</kbd> go to garden • <kbd>B</kbd> shop • <kbd>I</kbd> backpack • <kbd>P</kbd> pets • <kbd>T</kbd> emotes</p>
+          <p><kbd>1-9</kbd> hold an item • <kbd>0</kbd> empty hands • <kbd>G</kbd> go to garden • <kbd>B</kbd> shop • <kbd>I</kbd> backpack • <kbd>P</kbd> pets • <kbd>T</kbd> emotes • <kbd>L</kbd> mitzvot</p>
           <p>🖱️ Click the dirt to plant there • click anything to walk to it • drag to look • scroll to zoom</p>
         </div>
         <div class="controls touch-only">
@@ -177,6 +207,7 @@
   <script src="js/pets.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/mitzvot.js"></script>
   <!-- Multiplayer (family worlds). If these can't load, the game just plays on this device. -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
