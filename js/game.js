@@ -1766,14 +1766,26 @@ function hatchEgg(e) {
 }
 
 // ─── Selling ───
-// Terumah (1/50) to the Kohen and Ma'aser (1/10) to the Levi come out first; a blessing makes it up
+// Terumah (the kid picks how much) to the Kohen and Ma'aser (1/10) to the Levi come out first,
+// then a blessing — bigger for a more generous Terumah, revealed only after the sale
+function terumahPick() { return TERUMAH_CHOICES[gameState.mz.tPick] ? gameState.mz.tPick : 'average'; }
 function titheSplit(list) {
   let food = 0, exempt = 0;
   list.forEach(f => { const v = fruitValue(f); if (isFood(f.s)) food += v; else exempt += v; });
-  const terumah = Math.round(food * MITZVAH.TERUMAH);
+  const pick = TERUMAH_CHOICES[terumahPick()];
+  const terumah = Math.round(food * pick.frac);
   const maaser = Math.round((food - terumah) * MITZVAH.MAASER);
-  const bracha = Math.round(food * MITZVAH.TITHE_BRACHA);
-  return { food, exempt, terumah, maaser, bracha, net: food - terumah - maaser + bracha + exempt };
+  const bracha = Math.round(food * pick.bless);
+  return { food, exempt, terumah, maaser, bracha, gross: food + exempt, net: food - terumah - maaser + bracha + exempt };
+}
+// The blessing is a surprise: show it only once the sale is done
+function revealBlessing(split) {
+  if (!split.food) return;
+  setTimeout(() => {
+    floatTextScreen(window.innerWidth / 2, window.innerHeight * 0.42, `✨ Blessing +¢${fmtSheckles(split.bracha)}`);
+    Sfx.play('sparkle');
+    showToast('✨', `Terumah ¢${fmtSheckles(split.terumah)} → Kohen • Ma'aser ¢${fmtSheckles(split.maaser)} → Levi • Hashem's blessing +¢${fmtSheckles(split.bracha)}`);
+  }, 650);
 }
 const sellableFruit = f => !f.bk && !f.rv && !f.sv;
 function sellFruits(list) {
@@ -1787,10 +1799,14 @@ function sellFruits(list) {
     else gameState.fruits.splice(gameState.fruits.indexOf(f), 1);
   });
   if (split.food > 0) {
-    gameState.mz.terumahTotal += split.terumah;
-    gameState.mz.maaserTotal += split.maaser;
+    const mz = gameState.mz;
+    mz.terumahTotal += split.terumah;
+    mz.maaserTotal += split.maaser;
+    mz.picks = mz.picks || {};
+    mz.picks[terumahPick()] = (mz.picks[terumahPick()] || 0) + 1;
+    if ((mz.picks.generous || 0) >= 10) checkAchievement('ayin_yafah');
     mitzvah('maaser', 1);
-    setTimeout(() => showToast('🪙', `Terumah ¢${fmtSheckles(split.terumah)} → Kohen • Ma'aser ¢${fmtSheckles(split.maaser)} → Levi • Blessing +¢${fmtSheckles(split.bracha)} ✨`), 700);
+    revealBlessing(split);
     teach('maaser');
   }
   gameState.sheckles += total;
@@ -2101,6 +2117,7 @@ const ACHIEVEMENTS = {
   bikkurim_first:  { name: 'First Fruits',     emoji: '🎀', desc: 'Bring Bikkurim to the Kohen' },
   seven_species:   { name: 'Seven Species',    emoji: '✡️', desc: 'Bring Bikkurim from all Seven Species' },
   tither:          { name: 'Ma\'aser Giver',    emoji: '🪙', desc: 'Give Terumah & Ma\'aser on 10 sales' },
+  ayin_yafah:      { name: 'Generous Eye',     emoji: '🤲', desc: 'Give a generous Terumah (1/40) 10 times' },
   shemitah_rest:   { name: 'Shabbat for the Land', emoji: '🌿', desc: 'Keep a Shemitah year' },
   mitzvah_100:     { name: '100 Mitzvah Stars', emoji: '⭐', desc: 'Earn 100 mitzvah stars' },
 };
@@ -2786,11 +2803,10 @@ function renderSell() {
   body.innerHTML = '';
   const sellable = gameState.fruits.filter(f => !f.fav && sellableFruit(f));
   const split = titheSplit(sellable);
-  const total = split.net;
   const all = document.createElement('button');
   all.className = 'btn big sell-all';
   all.disabled = !sellable.length;
-  all.innerHTML = sellable.length ? `💰 Sell my inventory (${sellable.length}) — ¢${fmtSheckles(total)}` : 'Nothing to sell — go harvest some fruit!';
+  all.innerHTML = sellable.length ? `💰 Sell my inventory (${sellable.length}) — worth ¢${fmtSheckles(split.gross)}` : 'Nothing to sell — go harvest some fruit!';
   all.addEventListener('click', e => {
     const r = e.currentTarget.getBoundingClientRect();
     const got = sellFruits(sellable.slice());
@@ -2800,9 +2816,16 @@ function renderSell() {
     renderSell(); updateHotbar();
   });
   body.appendChild(all);
-  if (split.food > 0) {
+  if (sellable.some(f => isFood(f.s))) {
+    // Pick how much Terumah to give (Mishnah Terumot 4:3)
+    const cur = terumahPick();
+    const choose = document.createElement('div'); choose.className = 'terumah-pick';
+    choose.innerHTML = '<div class="tp-q">🌾 How much <b>Terumah</b> will you give the Kohen?</div><div class="tp-opts">' +
+      Object.entries(TERUMAH_CHOICES).map(([k, c]) => `<button class="tp-opt${k === cur ? ' on' : ''}" data-k="${k}"><span>${c.emoji}</span><b>${c.name}</b><small>1/${Math.round(1 / c.frac)} • <span dir="rtl">${c.he}</span></small></button>`).join('') + '</div>';
+    choose.querySelectorAll('.tp-opt').forEach(b => b.addEventListener('click', () => { gameState.mz.tPick = b.dataset.k; Sfx.play('click'); saveGame(); renderSell(); }));
+    body.appendChild(choose);
     const t = document.createElement('div'); t.className = 'tithe-box';
-    t.innerHTML = `<span>🌾 Terumah → Kohen <b>−¢${fmtSheckles(split.terumah)}</b></span><span>🪙 Ma'aser → Levi <b>−¢${fmtSheckles(split.maaser)}</b></span><span>✨ Blessing for giving <b>+¢${fmtSheckles(split.bracha)}</b></span>${split.exempt ? '<span class="dim">🌷 Flowers & mushrooms aren\'t food — no Ma\'aser</span>' : ''}`;
+    t.innerHTML = `<span>🌾 Terumah → Kohen <b>¢${fmtSheckles(split.terumah)}</b></span><span>🪙 Ma'aser → Levi <b>¢${fmtSheckles(split.maaser)}</b></span>${split.exempt ? '<span class="dim">🌷 Flowers & mushrooms aren\'t food — no Ma\'aser</span>' : ''}`;
     body.appendChild(t);
   }
   if (gameState.fruits.some(f => !sellableFruit(f))) {
