@@ -7,6 +7,7 @@
    ============================================ */
 (function() {
 'use strict';
+applyDataLanguage();
 
 // ─── Constants ───
 const WORLD_X = 62, WORLD_Z = 41;    // walkable half-extents
@@ -47,11 +48,11 @@ let netMode = false;            // playing in an online family world
 // Two dirt beds per garden with a path between them (local coords)
 const BED_X0 = 1.6, BED_X1 = 16.6, BED_Z = 13.4;
 const STALLS = {
-  seeds: { x: -15, label: "🌱 Seeds", npc: 'Shlomo', colors: [0x2E7D32, 0xFFFFFF], shirt: 0xFFF9C4, apron: 0x388E3C, hat: 'straw' },
-  sell:  { x: -5,  label: '💰 Sell',  npc: 'Steven', colors: [0xF9A825, 0xFFFFFF], shirt: 0x43A047, apron: 0x795548, hat: 'cap' },
-  gear:  { x: 5,   label: '⚙️ Gear',  npc: 'Gear Shop', colors: [0x1565C0, 0xFFFFFF], shirt: 0x90CAF9, apron: 0x1565C0, hat: 'cap' },
-  pets:  { x: 15,  label: '🥚 Pet Eggs', npc: 'Pet Shop', colors: [0x8E24AA, 0xFFFFFF], shirt: 0xF8BBD0, apron: 0x8E24AA, hat: 'straw' },
-  temple: { x: 26, label: '🏛️ Kohen', npc: 'Kohen', colors: [0x1E88E5, 0xFFFFFF], shirt: 0xFFFFFF, apron: 0xFFFFFF, hat: 'cap' },
+  seeds: { x: -15, label: T`🌱 Seeds`, npc: 'Shlomo', colors: [0x2E7D32, 0xFFFFFF], shirt: 0xFFF9C4, apron: 0x388E3C, hat: 'straw' },
+  sell:  { x: -5,  label: T`💰 Sell`,  npc: 'Steven', colors: [0xF9A825, 0xFFFFFF], shirt: 0x43A047, apron: 0x795548, hat: 'cap' },
+  gear:  { x: 5,   label: T`⚙️ Gear`,  npc: 'Gear Shop', colors: [0x1565C0, 0xFFFFFF], shirt: 0x90CAF9, apron: 0x1565C0, hat: 'cap' },
+  pets:  { x: 15,  label: T`🥚 Pet Eggs`, npc: 'Pet Shop', colors: [0x8E24AA, 0xFFFFFF], shirt: 0xF8BBD0, apron: 0x8E24AA, hat: 'straw' },
+  temple: { x: 26, label: T`🏛️ Kohen`, npc: 'Kohen', colors: [0x1E88E5, 0xFFFFFF], shirt: 0xFFFFFF, apron: 0xFFFFFF, hat: 'cap' },
 };
 const STALL_Z = 1.2;           // stall center z; customers stand around z = -2.5
 const STALL_REACH = 3.2;
@@ -79,7 +80,7 @@ function freshState() {
     plants: [],              // {id, s, x, z, r, age, grow, kg, m, fruits[], water}
     placed: [],              // sprinklers / lightning rods: {id, gear, x, z, left, uses}
     placedEggs: [],          // {id, egg, x, z, left, total}
-    pets: [{ id: 'buddy', type: 'dog', name: 'Buddy', age: 0 }],
+    pets: [{ id: 'buddy', type: 'dog', name: T('Buddy'), age: 0 }],
     equipped: ['buddy'],
     selected: 'seed:carrot',
     shop: { slot: -1, seeds: {}, gearSlot: -1, gear: {}, eggSlot: -1, eggs: [] },
@@ -418,18 +419,19 @@ function buildWorld() {
     paths.box(3, 0.04, GARDEN_D + 2, 0xC9B38C, g.x, 0.02, g.z);
     buildGardenGround(g, statics, dirt);
     // Peah corner: a blue-and-white rope around the corner left for the poor
-    const pr = peahRect(g);
-    [[pr.x1, pr.z1], [pr.x1, pr.z2], [pr.x2, pr.z1], [pr.x2, pr.z2]].forEach(([x, z]) => statics.box(0.12, 0.55, 0.12, 0xECEFF1, x, 0.28, z));
-    [[pr.x1, pr.z1, pr.x2, pr.z1], [pr.x1, pr.z2, pr.x2, pr.z2], [pr.x1, pr.z1, pr.x1, pr.z2], [pr.x2, pr.z1, pr.x2, pr.z2]].forEach(([x1, z1, x2, z2]) => {
-      const len = Math.hypot(x2 - x1, z2 - z1), along = x1 === x2;
-      for (let t = 0; t < len; t += 0.5) {
-        const c = Math.floor(t / 0.5) % 2 ? 0xFFFFFF : 0x1E88E5;
-        decor.box(along ? 0.06 : 0.5, 0.06, along ? 0.5 : 0.06, c, along ? x1 : x1 + t + 0.25, 0.45, along ? z1 + t + 0.25 : z1);
-      }
+    peahRects(g).forEach(pr => {
+      [[pr.x1, pr.z1], [pr.x1, pr.z2], [pr.x2, pr.z1], [pr.x2, pr.z2]].forEach(([x, z]) => statics.box(0.12, 0.55, 0.12, 0xECEFF1, x, 0.28, z));
+      [[pr.x1, pr.z1, pr.x2, pr.z1], [pr.x1, pr.z2, pr.x2, pr.z2], [pr.x1, pr.z1, pr.x1, pr.z2], [pr.x2, pr.z1, pr.x2, pr.z2]].forEach(([x1, z1, x2, z2]) => {
+        const len = Math.hypot(x2 - x1, z2 - z1), along = x1 === x2;
+        for (let t = 0; t < len; t += 0.5) {
+          const c = Math.floor(t / 0.5) % 2 ? 0xFFFFFF : 0x1E88E5;
+          decor.box(along ? 0.06 : 0.5, 0.06, along ? 0.5 : 0.06, c, along ? x1 : x1 + t + 0.25, 0.45, along ? z1 + t + 0.25 : z1);
+        }
+      });
+      const ps = textSprite(T`💙 Peah פאה`, '#1565C0', true);
+      ps.position.set((pr.x1 + pr.x2) / 2, 1.05, pr.back);
+      scene.add(ps);
     });
-    const ps = textSprite('💙 Peah פאה', '#1565C0', true);
-    ps.position.set((pr.x1 + pr.x2) / 2, 1.05, pr.back);
-    scene.add(ps);
   });
   // curbs along the street
   for (let x = -WORLD_X; x < WORLD_X; x += 4) {
@@ -473,7 +475,7 @@ function buildWorld() {
   [-9.5, 9.5].forEach(x => statics.box(0.35, 5.2, 0.35, 0x6D4C41, x, 2.6, 6.3));
   statics.box(19.4, 0.3, 0.3, 0x6D4C41, 0, 5.25, 6.3);
   statics.box(7.5, 1.3, 0.2, 0xFFF8E1, 0, 6.05, 6.3);
-  const title = textSprite('🌱 Grow a Garden 🌱', '#2E7D32', true);
+  const title = textSprite(T`🌱 Grow a Garden 🌱`, '#2E7D32', true);
   title.position.set(0, 6.05, 6.15);
   title.scale.multiplyScalar(2.1);
   scene.add(title);
@@ -626,9 +628,11 @@ function textSprite(text, color, plain) {
   const ctx = c.getContext('2d');
   const font = 'bold 44px "Fredoka", "Segoe UI", system-ui, sans-serif';
   ctx.font = font;
+  ctx.direction = IS_HE ? 'rtl' : 'ltr';
   const w = Math.ceil(ctx.measureText(text).width) + 40;
   c.width = w; c.height = 72;
   ctx.font = font;
+  ctx.direction = IS_HE ? 'rtl' : 'ltr';
   if (!plain) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     const r = 30;
@@ -987,7 +991,7 @@ function buildGardenSigns(names, mine) {
     b.box(0.15, 1.6, 0.15, 0x6D4C41, -2.6, 0.8, 0); b.box(0.15, 1.6, 0.15, 0x6D4C41, 2.6, 0.8, 0);
     b.box(5.6, 1.0, 0.12, i === mine ? 0xFFF59D : 0xFFF8E1, 0, 1.75, 0);
     sign.add(voxelMesh(b));
-    const t = textSprite(names[i] ? `${names[i]}'s Garden` : 'Empty Garden', i === mine ? '#2E7D32' : '#5D4037', true);
+    const t = textSprite(names[i] ? T`${names[i]}'s Garden` : T`Empty Garden`, i === mine ? '#2E7D32' : '#5D4037', true);
     t.position.set(0, 1.75, g.dir < 0 ? 0.1 : -0.1);
     t.scale.multiplyScalar(1.25);
     sign.add(t);
@@ -1068,7 +1072,7 @@ function buildNeighborGardens() {
   clearNeighborMeshes();
   const names = [];
   const me = getProfiles().find(p => p.id === activeProfileId);
-  names[0] = me ? me.name : 'My';
+  names[0] = me ? me.name : T`My`;
   const others = getProfiles().filter(p => p.id !== activeProfileId).slice(0, GARDENS.length - 1);
   others.forEach((prof, k) => {
     const gi = k + 1;
@@ -1329,10 +1333,10 @@ function updateGarden(dt) {
   for (const it of gameState.placed) if (it.left != null) it.left -= dt;
   const before = gameState.placed.length;
   gameState.placed = gameState.placed.filter(it => (it.left == null || it.left > 0) && (it.uses == null || it.uses > 0));
-  if (gameState.placed.length !== before) { refreshPlaced(); showToast('💦', 'A sprinkler ran out.'); }
+  if (gameState.placed.length !== before) { refreshPlaced(); showToast('💦', T`A sprinkler ran out.`); }
   const eggRate = 1 + petPower('eggs') / 100;
   gameState.placedEggs.forEach(e => {
-    if (e.left > 0) { e.left -= dt * eggRate; if (e.left <= 0) { Sfx.play('pop'); floatText(e.x, 1.4, e.z, '🥚 Ready to hatch!', '#FFF59D'); } }
+    if (e.left > 0) { e.left -= dt * eggRate; if (e.left <= 0) { Sfx.play('pop'); floatText(e.x, 1.4, e.z, T`🥚 Ready to hatch!`, '#FFF59D'); } }
   });
   viewRefreshTimer -= dt;
   if (viewRefreshTimer <= 0) { viewRefreshTimer = 0.4; refreshAllPlants(); }
@@ -1424,7 +1428,7 @@ function updateWeather(dt) {
     Sfx.play(w.id === 'thunderstorm' ? 'thunder' : 'restock');
     weatherBanner();
   } else if (!w && prev) {
-    showToast(WEATHER[prev].emoji, `The ${WEATHER[prev].name} is over.`);
+    showToast(WEATHER[prev].emoji, T`The ${WEATHER[prev].name} is over.`);
     weather = null;
     weatherBanner();
   } else if (w) weather.left = w.left;
@@ -1463,7 +1467,7 @@ function lightningStrike() {
   let shocked = 0;
   forEachFruit((m, p) => { if (Math.hypot(p.x - x, p.z - z) <= radius && addMutation(m, 'shocked')) shocked++; });
   showBolt(x, z);
-  if (shocked) { showToast('⚡', `Lightning! ${shocked} fruit${shocked > 1 ? 's are' : ' is'} now Shocked (100x)!`); checkAchievement('shocking'); }
+  if (shocked) { showToast('⚡', shocked > 1 ? T`Lightning! ${shocked} fruits are now Shocked (100x)!` : T`Lightning! 1 fruit is now Shocked (100x)!`); checkAchievement('shocking'); }
 }
 function showBolt(x, z) {
   if (!boltMesh) {
@@ -1511,7 +1515,7 @@ function updateMeteors(dt) {
       let n = 0;
       forEachFruit((m, p) => { if (Math.hypot(p.x - mt.x, p.z - mt.z) <= 1.6 && addMutation(m, 'celestial')) n++; });
       spawnParticles(mt.x, 0.5, mt.z, [0xEA80FC, 0xFFFFFF, 0xFFD1FF], 40, 6, 0.12);
-      if (n) { showToast('🌠', `A meteor made ${n} fruit Celestial (120x)!`); checkAchievement('celestial'); }
+      if (n) { showToast('🌠', n > 1 ? T`A meteor made ${n} fruit Celestial (120x)!` : T`A meteor made 1 fruit Celestial (120x)!`); checkAchievement('celestial'); }
     }
   }
 }
@@ -1569,18 +1573,18 @@ function consume(kind, id) {
 function plantSeed(seedId, x, z) {
   const seed = getSeedData(seedId);
   if (!gameState.seeds[seedId]) return false;
-  if (gameState.plants.length >= MAX_PLANTS) { Sfx.play('deny'); showToast('🌳', 'Your garden is full! Dig something up with the ⛏️ Shovel.'); return false; }
-  if (!spotFree(x, z, seedRadius(seedId))) { Sfx.play('deny'); showToast('🚫', inMyGarden(x, z) ? 'Too close to another plant!' : 'Plant on the dirt in your garden!'); return false; }
-  if (isShemitah()) { Sfx.play('deny'); if (!teach('shemitah')) showToast('🌿', `Shemitah! The land rests this year — you can plant again in ${fmtTime(yearSecondsLeft())}.`); return false; }
+  if (gameState.plants.length >= MAX_PLANTS) { Sfx.play('deny'); showToast('🌳', T`Your garden is full! Dig something up with the ⛏️ Shovel.`); return false; }
+  if (!spotFree(x, z, seedRadius(seedId))) { Sfx.play('deny'); showToast('🚫', inMyGarden(x, z) ? T`Too close to another plant!` : T`Plant on the dirt in your garden!`); return false; }
+  if (isShemitah()) { Sfx.play('deny'); if (!teach('shemitah')) showToast('🌿', T`Shemitah! The land rests this year — you can plant again in ${fmtTime(yearSecondsLeft())}.`); return false; }
   const kil = kilayimConflict(seedId, x, z);
-  if (kil) { Sfx.play('deny'); if (!teach('kilayim')) showToast('🚧', `Kilayim! Too close to your ${getSeedData(kil.plant.s).name} — leave space between different kinds.`); return false; }
+  if (kil) { Sfx.play('deny'); if (!teach('kilayim')) showToast('🚧', T`Kilayim! Too close to your ${getSeedData(kil.plant.s).name} — leave space between different kinds.`); return false; }
   const careful = keptKilayim(seedId, x, z);
   consume('seed', seedId);
   const p = { id: newId(), s: seedId, x, z, r: Math.random() * Math.PI * 2, age: 0, grow: seed.grow, kg: 0, m: [], fruits: seed.multi ? [] : null, water: 0 };
   if (isFruitTree(seedId)) { p.py = gardenYearIndex(); p.ol = 'orlah'; }
   gameState.plants.push(p);
-  if (careful) mitzvah('kil', 1, 'Kept apart!', x, z);
-  if (p.py != null && !teach('orlah')) floatText(x, 2.2, z, '🌱 Orlah for 3 years', '#C5E1A5');
+  if (careful) mitzvah('kil', 1, T`Kept apart!`, x, z);
+  if (p.py != null && !teach('orlah')) floatText(x, 2.2, z, T`🌱 Orlah for 3 years`, '#C5E1A5');
   if (inPeah(x, z)) teach('peah');
   refreshPlantView(p);
   plantViewPop(p);
@@ -1611,9 +1615,9 @@ function harvestPlant(p) {
   if (p.bk && got.length) { got[0].bk = 1; p.bk = 0; }
   // pets with "dupe" can give an extra copy
   const dupe = petPower('dupe');
-  got.slice().forEach(f => { if (Math.random() * 100 < dupe) { got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); floatText(p.x, 2.4, p.z, '🐜 Extra fruit!', '#FFCC80'); } });
+  got.slice().forEach(f => { if (Math.random() * 100 < dupe) { got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); floatText(p.x, 2.4, p.z, T`🐜 Extra fruit!`, '#FFCC80'); } });
   // Year 6: "it shall bring forth produce for the three years"
-  if (isBlessedYear()) { got.slice().forEach(f => { if (!f.bk) got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); }); floatText(p.x, 2.8, p.z, '✨ Year-6 blessing: doubled!', '#FFF59D'); }
+  if (isBlessedYear()) { got.slice().forEach(f => { if (!f.bk) got.push({ s: f.s, kg: f.kg, m: f.m.slice() }); }); floatText(p.x, 2.8, p.z, T`✨ Year-6 blessing: doubled!`, '#FFF59D'); }
   const shemitah = isShemitah(), revai = orlahPhase(p) === 'revai';
   got.forEach(f => { if (shemitah) f.sv = 1; if (revai && !f.bk) f.rv = 1; });
   // Leket: sometimes a fruit falls while you harvest — it belongs to the poor
@@ -1624,17 +1628,17 @@ function harvestPlant(p) {
       const a = Math.random() * Math.PI * 2;
       gameState.gifts.push({ id: newId(), s: f.s, kg: f.kg, m: f.m, x: p.x + Math.cos(a) * 0.7, z: p.z + Math.sin(a) * 0.7 });
       refreshGifts();
-      setTimeout(() => floatText(p.x, 1.2, p.z, '🌾 Oops, it fell — Leket!', '#FFE082'), 300);
+      setTimeout(() => floatText(p.x, 1.2, p.z, T`🌾 Oops, it fell — Leket!`, '#FFE082'), 300);
       teach('leket');
     }
   }
   tripHarvests.push({ x: p.x, z: p.z });
-  if (got.some(f => f.bk)) setTimeout(() => showToast('🎀', 'Bikkurim! Bring them to the Kohen 🏛️ at the market.'), 500);
+  if (got.some(f => f.bk)) setTimeout(() => showToast('🎀', T`Bikkurim! Bring them to the Kohen 🏛️ at the market.`), 500);
   if (got.some(f => f.rv)) teach('revai');
   if (shemitah) teach('shemitah');
   let added = 0;
   for (const f of got) {
-    if (gameState.fruits.length >= MAX_FRUITS) { showToast('🎒', 'Backpack full! Sell at the 💰 Sell stand.'); break; }
+    if (gameState.fruits.length >= MAX_FRUITS) { showToast('🎒', T`Backpack full! Sell at the 💰 Sell stand.`); break; }
     gameState.fruits.push(f);
     added++;
     gameState.totalHarvested++;
@@ -1655,7 +1659,7 @@ function harvestPlant(p) {
   if (special) setTimeout(() => Sfx.play('sparkle'), 180);
   spawnParticles(p.x, 1, p.z, [seed.fruitColor || seed.color, 0xFFFFFF, 0xFFF59D], special ? 26 : 14, 4, 0.12);
   floatText(p.x, 2, p.z, `+${added} ${seed.emoji}`, '#FFFFFF');
-  setTimeout(() => floatText(p.x, 1.5, p.z, `${best.kg}kg • ¢${fmtSheckles(fruitValue(best))}`, best.m.length ? MUTATIONS[topMutation(best.m)].color : '#B9F6CA'), 220);
+  setTimeout(() => floatText(p.x, 1.5, p.z, T`${best.kg}kg • ¢${fmtSheckles(fruitValue(best))}`, best.m.length ? MUTATIONS[topMutation(best.m)].color : '#B9F6CA'), 220);
   if (gameState.totalHarvested >= 10) checkAchievement('green_thumb');
   if (gameState.totalHarvested >= 50) checkAchievement('master_gardener');
   if (['rare', 'legendary', 'mythical', 'divine', 'prismatic'].includes(seed.rarity)) checkAchievement('rare_find');
@@ -1668,7 +1672,7 @@ function harvestPlant(p) {
 }
 
 function useWateringCan(p) {
-  if (!p) { showToast('🚿', 'Walk up to a plant to water it!'); return; }
+  if (!p) { showToast('🚿', T`Walk up to a plant to water it!`); return; }
   consume('gear', 'watering_can');
   p.water = 60;
   const seed = getSeedData(p.s);
@@ -1676,14 +1680,14 @@ function useWateringCan(p) {
   else if (seed.multi) p.fruits.forEach(f => { if (f) f.age = Math.min(seed.fruitTime, f.age + seed.fruitTime * 0.1); });
   Sfx.play('water');
   spawnParticles(p.x, 2, p.z, [0x4FC3F7, 0x81D4FA, 0xB3E5FC], 24, 1.2, 0.08, { down: true, spread: 1.4, life: 0.7, grav: 12 });
-  floatText(p.x, 1.8, p.z, '💧 Growing faster!', '#81D4FA');
+  floatText(p.x, 1.8, p.z, T`💧 Growing faster!`, '#81D4FA');
   taskEvent('water', 1);
   refreshPlantView(p);
 }
 
 function placeGear(gearId, x, z) {
   if (!GEAR[gearId]) return;
-  if (!spotFree(x, z, 0.3)) { Sfx.play('deny'); showToast('🚫', 'Place it on free dirt in your garden.'); return; }
+  if (!spotFree(x, z, 0.3)) { Sfx.play('deny'); showToast('🚫', T`Place it on free dirt in your garden.`); return; }
   const def = GEAR[gearId];
   const item = { id: newId(), gear: gearId, x, z };
   if (def.time) item.left = def.time * (1 + petPower('sprinkler') / 100);
@@ -1698,8 +1702,8 @@ function placeGear(gearId, x, z) {
 }
 
 function placeEgg(eggId, x, z) {
-  if (gameState.placedEggs.length >= MAX_EGGS_PLACED) { Sfx.play('deny'); showToast('🥚', `You can only hatch ${MAX_EGGS_PLACED} eggs at once.`); return; }
-  if (!spotFree(x, z, 0.45)) { Sfx.play('deny'); showToast('🚫', 'Put the egg on free dirt in your garden.'); return; }
+  if (gameState.placedEggs.length >= MAX_EGGS_PLACED) { Sfx.play('deny'); showToast('🥚', T`You can only hatch ${MAX_EGGS_PLACED} eggs at once.`); return; }
+  if (!spotFree(x, z, 0.45)) { Sfx.play('deny'); showToast('🚫', T`Put the egg on free dirt in your garden.`); return; }
   consume('egg', eggId);
   const e = EGGS[eggId];
   gameState.placedEggs.push({ id: newId(), egg: eggId, x, z, left: e.hatch, total: e.hatch });
@@ -1713,8 +1717,8 @@ function digUp(p) {
     shovelArmed = { id: p.id, until: performance.now() + 3000 };
     Sfx.play('click');
     if (isFruitTree(p.s) && p.age >= p.grow && teach('tashchit')) shovelArmed.until += 20000;
-    else if (isFruitTree(p.s) && p.age >= p.grow) showToast('🌳', `Bal Tashchit — the Torah says not to destroy fruit trees! Press again only if you really must.`);
-    else showToast('⛏️', `Press again to dig up this ${getSeedData(p.s).name}.`);
+    else if (isFruitTree(p.s) && p.age >= p.grow) showToast('🌳', T`Bal Tashchit — the Torah says not to destroy fruit trees! Press again only if you really must.`);
+    else showToast('⛏️', T`Press again to dig up this ${getSeedData(p.s).name}.`);
     return;
   }
   shovelArmed = null;
@@ -1729,12 +1733,12 @@ function pickUpWithTrowel(p) {
   carrying = p;
   removePlantView(p.id);
   Sfx.play('pop');
-  showToast('⛏️', `Carrying ${getSeedData(p.s).name} — press E on free dirt to put it down.`);
+  showToast('⛏️', T`Carrying ${getSeedData(p.s).name} — press E on free dirt to put it down.`);
 }
 function dropCarried(x, z) {
-  if (!spotFree(x, z, seedRadius(carrying.s), carrying.id)) { Sfx.play('deny'); showToast('🚫', 'Find a free spot in your garden.'); return; }
+  if (!spotFree(x, z, seedRadius(carrying.s), carrying.id)) { Sfx.play('deny'); showToast('🚫', T`Find a free spot in your garden.`); return; }
   const kil = kilayimConflict(carrying.s, x, z, carrying.id);
-  if (kil) { Sfx.play('deny'); showToast('🚧', `Kilayim! Too close to your ${getSeedData(kil.plant.s).name}.`); return; }
+  if (kil) { Sfx.play('deny'); showToast('🚧', T`Kilayim! Too close to your ${getSeedData(kil.plant.s).name}.`); return; }
   carrying.x = x; carrying.z = z;
   refreshPlantView(carrying);
   plantViewPop(carrying);
@@ -1758,7 +1762,7 @@ function hatchEgg(e) {
   Sfx.play('hatch');
   spawnParticles(e.x, 0.6, e.z, [EGGS[e.egg].color, EGGS[e.egg].spot, 0xFFFFFF, 0xFFD54F], 40, 5, 0.12);
   const rar = RARITY[def.rarity];
-  setTimeout(() => bigBanner(`${def.emoji} ${def.name}!`, `<span style="color:${rar.color}">${rar.name}</span> • ${describeAbility(def.ability)}${equippedNow ? '' : '<br>Equip it from the 🐾 Pets menu'}`), 500);
+  setTimeout(() => bigBanner(`${def.emoji} ${def.name}!`, `<span style="color:${rar.color}">${rar.name}</span> • ${describeAbility(def.ability)}${equippedNow ? '' : '<br>' + T`Equip it from the 🐾 Pets menu`}`), 500);
   checkAchievement('first_pet');
   if (gameState.petsHatched.length >= 5) checkAchievement('pet_collector');
   taskEvent('hatch', 1);
@@ -1782,9 +1786,9 @@ function titheSplit(list) {
 function revealBlessing(split) {
   if (!split.food) return;
   setTimeout(() => {
-    floatTextScreen(window.innerWidth / 2, window.innerHeight * 0.42, `✨ Blessing +¢${fmtSheckles(split.bracha)}`);
+    floatTextScreen(window.innerWidth / 2, window.innerHeight * 0.42, T`✨ Blessing +¢${fmtSheckles(split.bracha)}`);
     Sfx.play('sparkle');
-    showToast('✨', `Terumah ¢${fmtSheckles(split.terumah)} → Kohen • Ma'aser ¢${fmtSheckles(split.maaser)} → Levi • Hashem's blessing +¢${fmtSheckles(split.bracha)}`);
+    showToast('✨', T`Terumah ¢${fmtSheckles(split.terumah)} → Kohen • Ma'aser ¢${fmtSheckles(split.maaser)} → Levi • Hashem's blessing +¢${fmtSheckles(split.bracha)}`);
   }, 650);
 }
 const sellableFruit = f => !f.bk && !f.rv && !f.sv;
@@ -1813,7 +1817,7 @@ function sellFruits(list) {
   gameState.totalEarned += total;
   if (gameState.totalEarned >= 10000) checkAchievement('entrepreneur');
   if (gameState.sheckles >= 1000000) checkAchievement('millionaire');
-  if (kept) setTimeout(() => showToast('🐒', `Your monkey kept ${kept} fruit for you!`), 600);
+  if (kept) setTimeout(() => showToast('🐒', kept > 1 ? T`Your monkey kept ${kept} fruit for you!` : T`Your monkey kept 1 fruit for you!`), 600);
   taskEvent('sell', list.length);
   taskEvent('earn', total);
   updateHUD(); updateLeaderboard(); saveGame();
@@ -1873,7 +1877,7 @@ function checkRestock() {
     Sfx.play('restock');
     const stock = currentSeedStock();
     const rare = seedShopList().filter(id => stock[id] > 0 && ['mythical', 'divine', 'prismatic'].includes(getSeedData(id).rarity));
-    showToast('🛒', rare.length ? `Seed Shop restocked — ${rare.map(id => getSeedData(id).emoji + ' ' + getSeedData(id).name).join(', ')} in stock!` : 'The Seed & Gear shops restocked!');
+    showToast('🛒', rare.length ? T`Seed Shop restocked — ${rare.map(id => getSeedData(id).emoji + ' ' + getSeedData(id).name).join(', ')} in stock!` : T`The Seed & Gear shops restocked!`);
     if (isPanelOpen('shop-panel')) renderShop();
     updateEggDisplay();
   }
@@ -1926,6 +1930,13 @@ function buyFromShop(kind, id) {
 //  PETS — they live in your garden and use their abilities
 // ════════════════════════════════════════════
 const petEntities = new Map();
+// Pets keep the name they hatched with; show default names in the current language
+function petName(pet) {
+  const d = PETS[pet.type];
+  if (pet.name === 'Buddy' || pet.name === T('Buddy')) return T('Buddy');
+  if (d && (pet.name === d._en || pet.name === d.name)) return d.name;
+  return pet.name;
+}
 function petLevel(pet) { return 1 + Math.min(99, Math.floor((pet.age || 0) / 300)); }
 function petStrength(pet) { return 1 + (petLevel(pet) - 1) * 0.02; }
 function equippedPets() { return gameState.equipped.map(id => gameState.pets.find(p => p.id === id)).filter(Boolean); }
@@ -1946,7 +1957,7 @@ function spawnPetEntity(pet, x, z) {
   const spot = x != null ? { x, z } : randomGardenSpot();
   model.position.set(spot.x, 0, spot.z);
   const def = PETS[pet.type];
-  const label = textSprite(`${def.emoji} ${pet.name}`);
+  const label = textSprite(`${def.emoji} ${petName(pet)}`);
   label.scale.multiplyScalar(0.55);
   label.position.y = (model.userData.height || 0.8) + 0.35 + (model.userData.mode === 'fly' ? 1 : 0);
   model.add(label);
@@ -2040,8 +2051,8 @@ function finishPetAbility(e, a) {
     while (i < list.length - 1 && Math.random() < 0.45 + a.boost * 0.07) i++;
     const id = list[i];
     gameState.seeds[id] = (gameState.seeds[id] || 0) + 1;
-    floatText(x, 1.6, z, `${getSeedData(id).emoji} +1 seed!`, '#FFE082');
-    showToast(def.emoji, `${e.pet.name} dug up a ${getSeedData(id).emoji} ${getSeedData(id).name} seed!`);
+    floatText(x, 1.6, z, T`${getSeedData(id).emoji} +1 seed!`, '#FFE082');
+    showToast(def.emoji, T`${petName(e.pet)} dug up a ${getSeedData(id).emoji} ${getSeedData(id).name} seed!`);
     Sfx.play(e.pet.type === 'dog' || e.pet.type === 'golden_lab' ? 'bark' : 'pop');
     gameState.petFinds = (gameState.petFinds || 0) + 1;
     if (gameState.petFinds >= 5) checkAchievement('best_friends');
@@ -2054,7 +2065,7 @@ function finishPetAbility(e, a) {
   } else if (a.type === 'mutate' && e.plan) {
     if (addMutation(e.plan.m, a.mut)) {
       floatText(x, 1.8, z, `${MUTATIONS[a.mut].emoji} ${MUTATIONS[a.mut].name}!`, MUTATIONS[a.mut].color);
-      showToast(def.emoji, `${e.pet.name} made a fruit ${MUTATIONS[a.mut].name}!`);
+      showToast(def.emoji, T`${petName(e.pet)} made a fruit ${MUTATIONS[a.mut].name}!`);
       Sfx.play('sparkle');
     }
   } else if ((a.type === 'water' || a.type === 'advance') && e.plan && gameState.plants.includes(e.plan)) {
@@ -2063,7 +2074,7 @@ function finishPetAbility(e, a) {
     if (p.age < p.grow) p.age = Math.min(p.grow, p.age + secs);
     else if (seed.multi) p.fruits.forEach(f => { if (f) f.age = Math.min(seed.fruitTime, f.age + secs); });
     if (a.type === 'water') { p.water = 60; spawnParticles(p.x, 1.5, p.z, [0x4FC3F7, 0xB3E5FC], 14, 1, 0.07, { down: true, spread: 1 }); }
-    floatText(x, 1.6, z, a.type === 'water' ? '💧 Watered!' : '⏩ Growth!', '#B3E5FC');
+    floatText(x, 1.6, z, a.type === 'water' ? T`💧 Watered!` : T`⏩ Growth!`, '#B3E5FC');
     refreshPlantView(p);
   }
   e.plan = null;
@@ -2084,42 +2095,42 @@ function petPetAt(e) {
 //  ACHIEVEMENTS & TASKS
 // ════════════════════════════════════════════
 const ACHIEVEMENTS = {
-  first_sprout:    { name: 'First Sprout',     emoji: '🌱', desc: 'Plant your first seed' },
-  green_thumb:     { name: 'Green Thumb',      emoji: '🌻', desc: 'Harvest 10 fruits' },
-  master_gardener: { name: 'Master Gardener',  emoji: '🏆', desc: 'Harvest 50 fruits' },
-  entrepreneur:    { name: 'Entrepreneur',     emoji: '💰', desc: 'Earn ¢10,000 selling fruit' },
-  millionaire:     { name: 'Millionaire',      emoji: '💵', desc: 'Have ¢1,000,000 at once' },
-  rare_find:       { name: 'Rare Find',        emoji: '💎', desc: 'Harvest a Rare (or better) plant' },
-  mythic:          { name: 'Mythical Grower',  emoji: '🦄', desc: 'Harvest a Mythical (or better) plant' },
-  prismatic:       { name: 'Jack & the Beanstalk', emoji: '🌿', desc: 'Harvest a Prismatic Beanstalk' },
-  variety_pack:    { name: 'Variety Pack',     emoji: '🌈', desc: 'Harvest 8 different kinds of plants' },
-  full_garden:     { name: 'Jungle',           emoji: '🌳', desc: 'Have 50 plants in your garden' },
-  heavyweight:     { name: 'Heavyweight',      emoji: '🏋️', desc: 'Harvest a fruit twice its normal weight' },
-  golden_touch:    { name: 'Golden Touch',     emoji: '✨', desc: 'Harvest a Gold fruit' },
-  over_rainbow:    { name: 'Over the Rainbow', emoji: '🌈', desc: 'Harvest a Rainbow fruit' },
-  rain_dancer:     { name: 'Rain Dancer',      emoji: '🌧️', desc: 'Harvest a Wet fruit' },
-  frozen_solid:    { name: 'Frozen Solid',     emoji: '🧊', desc: 'Harvest a Frozen fruit' },
-  shocking:        { name: 'Shocking!',        emoji: '⚡', desc: 'Get a fruit struck by lightning' },
-  celestial:       { name: 'Star Struck',      emoji: '🌠', desc: 'Get a Celestial fruit from a meteor' },
-  night_owl:       { name: 'Night Owl',        emoji: '🦉', desc: 'Harvest a Moonlit fruit' },
-  sprinkler_pro:   { name: 'Sprinkler Pro',    emoji: '💦', desc: 'Place gear in your garden' },
-  first_pet:       { name: 'New Friend',       emoji: '🐣', desc: 'Hatch a pet egg' },
-  pet_collector:   { name: 'Pet Collector',    emoji: '🐾', desc: 'Hatch 5 different pets' },
-  dog_lover:       { name: 'Pet Lover',        emoji: '❤️', desc: 'Pet one of your pets' },
-  best_friends:    { name: 'Best Friends',     emoji: '🦴', desc: 'Your pets dig up 5 treasures' },
-  fashion_forward: { name: 'Fashion Forward',  emoji: '🎭', desc: 'Buy an outfit in the wardrobe' },
-  task_master:     { name: 'Task Master',      emoji: '📋', desc: 'Finish 10 garden tasks' },
-  peah_keeper:     { name: 'Peah Keeper',      emoji: '💙', desc: 'Leave 5 Peah gifts for the poor' },
-  gleaner_friend:  { name: "Rut's Friend",     emoji: '🌾', desc: 'Leave 5 Leket fruits for Rut' },
-  forgot_mitzvah:  { name: 'Mitzvah by Forgetting', emoji: '🧺', desc: 'Keep Shichecha — the mitzvah you do by forgetting!' },
-  kilayim_keeper:  { name: 'Neat Rows',        emoji: '🚧', desc: 'Keep different kinds apart 10 times (Kilayim)' },
-  orlah_patience:  { name: 'Patient Planter',  emoji: '🌳', desc: 'Wait out 3 years of Orlah on a tree' },
-  bikkurim_first:  { name: 'First Fruits',     emoji: '🎀', desc: 'Bring Bikkurim to the Kohen' },
-  seven_species:   { name: 'Seven Species',    emoji: '✡️', desc: 'Bring Bikkurim from all Seven Species' },
-  tither:          { name: 'Ma\'aser Giver',    emoji: '🪙', desc: 'Give Terumah & Ma\'aser on 10 sales' },
-  ayin_yafah:      { name: 'Generous Eye',     emoji: '🤲', desc: 'Give a generous Terumah (1/40) 10 times' },
-  shemitah_rest:   { name: 'Shabbat for the Land', emoji: '🌿', desc: 'Keep a Shemitah year' },
-  mitzvah_100:     { name: '100 Mitzvah Stars', emoji: '⭐', desc: 'Earn 100 mitzvah stars' },
+  first_sprout:    { name: T`First Sprout`,     emoji: '🌱', desc: T`Plant your first seed` },
+  green_thumb:     { name: T`Green Thumb`,      emoji: '🌻', desc: T`Harvest 10 fruits` },
+  master_gardener: { name: T`Master Gardener`,  emoji: '🏆', desc: T`Harvest 50 fruits` },
+  entrepreneur:    { name: T`Entrepreneur`,     emoji: '💰', desc: T`Earn ¢10,000 selling fruit` },
+  millionaire:     { name: T`Millionaire`,      emoji: '💵', desc: T`Have ¢1,000,000 at once` },
+  rare_find:       { name: T`Rare Find`,        emoji: '💎', desc: T`Harvest a Rare (or better) plant` },
+  mythic:          { name: T`Mythical Grower`,  emoji: '🦄', desc: T`Harvest a Mythical (or better) plant` },
+  prismatic:       { name: T`Jack & the Beanstalk`, emoji: '🌿', desc: T`Harvest a Prismatic Beanstalk` },
+  variety_pack:    { name: T`Variety Pack`,     emoji: '🌈', desc: T`Harvest 8 different kinds of plants` },
+  full_garden:     { name: T`Jungle`,           emoji: '🌳', desc: T`Have 50 plants in your garden` },
+  heavyweight:     { name: T`Heavyweight`,      emoji: '🏋️', desc: T`Harvest a fruit twice its normal weight` },
+  golden_touch:    { name: T`Golden Touch`,     emoji: '✨', desc: T`Harvest a Gold fruit` },
+  over_rainbow:    { name: T`Over the Rainbow`, emoji: '🌈', desc: T`Harvest a Rainbow fruit` },
+  rain_dancer:     { name: T`Rain Dancer`,      emoji: '🌧️', desc: T`Harvest a Wet fruit` },
+  frozen_solid:    { name: T`Frozen Solid`,     emoji: '🧊', desc: T`Harvest a Frozen fruit` },
+  shocking:        { name: T`Shocking!`,        emoji: '⚡', desc: T`Get a fruit struck by lightning` },
+  celestial:       { name: T`Star Struck`,      emoji: '🌠', desc: T`Get a Celestial fruit from a meteor` },
+  night_owl:       { name: T`Night Owl`,        emoji: '🦉', desc: T`Harvest a Moonlit fruit` },
+  sprinkler_pro:   { name: T`Sprinkler Pro`,    emoji: '💦', desc: T`Place gear in your garden` },
+  first_pet:       { name: T`New Friend`,       emoji: '🐣', desc: T`Hatch a pet egg` },
+  pet_collector:   { name: T`Pet Collector`,    emoji: '🐾', desc: T`Hatch 5 different pets` },
+  dog_lover:       { name: T`Pet Lover`,        emoji: '❤️', desc: T`Pet one of your pets` },
+  best_friends:    { name: T`Best Friends`,     emoji: '🦴', desc: T`Your pets dig up 5 treasures` },
+  fashion_forward: { name: T`Fashion Forward`,  emoji: '🎭', desc: T`Buy an outfit in the wardrobe` },
+  task_master:     { name: T`Task Master`,      emoji: '📋', desc: T`Finish 10 garden tasks` },
+  peah_keeper:     { name: T`Peah Keeper`,      emoji: '💙', desc: T`Leave 5 Peah gifts for the poor` },
+  gleaner_friend:  { name: T`Rut's Friend`,     emoji: '🌾', desc: T`Leave 5 Leket fruits for Rut` },
+  forgot_mitzvah:  { name: T`Mitzvah by Forgetting`, emoji: '🧺', desc: T`Keep Shichecha — the mitzvah you do by forgetting!` },
+  kilayim_keeper:  { name: T`Neat Rows`,        emoji: '🚧', desc: T`Keep different kinds apart 10 times (Kilayim)` },
+  orlah_patience:  { name: T`Patient Planter`,  emoji: '🌳', desc: T`Wait out 3 years of Orlah on a tree` },
+  bikkurim_first:  { name: T`First Fruits`,     emoji: '🎀', desc: T`Bring Bikkurim to the Kohen` },
+  seven_species:   { name: T`Seven Species`,    emoji: '✡️', desc: T`Bring Bikkurim from all Seven Species` },
+  tither:          { name: T`Ma'aser Giver`,    emoji: '🪙', desc: T`Give Terumah & Ma'aser on 10 sales` },
+  ayin_yafah:      { name: T`Generous Eye`,     emoji: '🤲', desc: T`Give a generous Terumah (1/40) 10 times` },
+  shemitah_rest:   { name: T`Shabbat for the Land`, emoji: '🌿', desc: T`Keep a Shemitah year` },
+  mitzvah_100:     { name: T`100 Mitzvah Stars`, emoji: '⭐', desc: T`Earn 100 mitzvah stars` },
 };
 function checkAchievement(id) {
   if (!ACHIEVEMENTS[id] || gameState.achievements.includes(id)) return;
@@ -2129,7 +2140,7 @@ function checkAchievement(id) {
     Sfx.play('quest');
     const el = document.createElement('div');
     el.className = 'achieve-pop';
-    el.innerHTML = `<span class="ap-emoji">${a.emoji}</span><div><div class="ap-label">Badge earned!</div><div class="ap-name">${a.name}</div></div>`;
+    el.innerHTML = `<span class="ap-emoji">${a.emoji}</span><div><div class="ap-label">${T`Badge earned!`}</div><div class="ap-name">${a.name}</div></div>`;
     document.body.appendChild(el);
     setTimeout(() => el.classList.add('exiting'), 2800);
     setTimeout(() => el.remove(), 3300);
@@ -2139,20 +2150,34 @@ function checkAchievement(id) {
 
 // Rewards grow with how rich you are, but slowly (square root) so they stay fair
 function wealthScale() { return Math.round(clamp(Math.sqrt((gameState.totalEarned + gameState.sheckles) / 300), 1, 5000) * 10) / 10; }
+function taskText(t) {
+  if (t.tutorial) { const tt = TUTORIAL_TASKS.find(x => x.type === t.type); return tt ? tt.text : t.text; }
+  const s = t.seedId && getSeedData(t.seedId), g = t.goal;
+  switch (t.type) {
+    case 'plant': return T`Plant ${g} seeds`;
+    case 'harvest': return s ? T`Harvest ${g} ${s.emoji} ${s.name}` : T`Harvest ${g} fruits`;
+    case 'sell': return T`Sell ${g} fruits to Steven`;
+    case 'earn': return T`Earn ¢${fmtSheckles(g)} selling`;
+    case 'special': return T`Harvest a mutated fruit ✨`;
+    case 'water': return T`Water 3 plants with the 🚿 can`;
+    case 'pet': return T`Give one of your pets a pet`;
+  }
+  return t.text;
+}
 function makeTask() {
   const r = Math.random();
   const sc = wealthScale();
   const owned = Object.keys(gameState.seeds).concat(gameState.plants.map(p => p.s)).filter(id => getSeedData(id));
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let t;
-  if (r < 0.18) { const g = 3 + Math.floor(Math.random() * 4); t = { type: 'plant', goal: g, text: `Plant ${g} seeds`, icon: '🌱', reward: Math.round(15 * g * sc) }; }
-  else if (r < 0.4) { const g = 5 + Math.floor(Math.random() * 10); t = { type: 'harvest', goal: g, text: `Harvest ${g} fruits`, icon: '🧺', reward: Math.round(15 * g * sc) }; }
-  else if (r < 0.55 && owned.length) { const id = pick(owned); const s = getSeedData(id); const g = 2 + Math.floor(Math.random() * 3); t = { type: 'harvest', seedId: id, goal: g, text: `Harvest ${g} ${s.emoji} ${s.name}`, icon: s.emoji, reward: Math.round(Math.max(40 * sc, s.sell * g)) }; }
-  else if (r < 0.7) { const g = 8 + Math.floor(Math.random() * 15); t = { type: 'sell', goal: g, text: `Sell ${g} fruits to Steven`, icon: '💰', reward: Math.round(10 * g * sc) }; }
-  else if (r < 0.8) { const g = Math.round(300 * sc * (1 + Math.floor(Math.random() * 4))); t = { type: 'earn', goal: g, text: `Earn ¢${fmtSheckles(g)} selling`, icon: '🪙', reward: Math.round(g * 0.25) }; }
-  else if (r < 0.9) { t = { type: 'special', goal: 1, text: 'Harvest a mutated fruit ✨', icon: '🌈', reward: Math.round(200 * sc) }; }
-  else if (r < 0.95 && gameState.gear.watering_can) { const g = 3; t = { type: 'water', goal: g, text: 'Water 3 plants with the 🚿 can', icon: '🚿', reward: Math.round(100 * sc) }; }
-  else { t = { type: 'pet', goal: 1, text: 'Give one of your pets a pet', icon: '🐾', reward: Math.round(40 * sc) }; }
+  if (r < 0.18) { const g = 3 + Math.floor(Math.random() * 4); t = { type: 'plant', goal: g, text: T`Plant ${g} seeds`, icon: '🌱', reward: Math.round(15 * g * sc) }; }
+  else if (r < 0.4) { const g = 5 + Math.floor(Math.random() * 10); t = { type: 'harvest', goal: g, text: T`Harvest ${g} fruits`, icon: '🧺', reward: Math.round(15 * g * sc) }; }
+  else if (r < 0.55 && owned.length) { const id = pick(owned); const s = getSeedData(id); const g = 2 + Math.floor(Math.random() * 3); t = { type: 'harvest', seedId: id, goal: g, text: T`Harvest ${g} ${s.emoji} ${s.name}`, icon: s.emoji, reward: Math.round(Math.max(40 * sc, s.sell * g)) }; }
+  else if (r < 0.7) { const g = 8 + Math.floor(Math.random() * 15); t = { type: 'sell', goal: g, text: T`Sell ${g} fruits to Steven`, icon: '💰', reward: Math.round(10 * g * sc) }; }
+  else if (r < 0.8) { const g = Math.round(300 * sc * (1 + Math.floor(Math.random() * 4))); t = { type: 'earn', goal: g, text: T`Earn ¢${fmtSheckles(g)} selling`, icon: '🪙', reward: Math.round(g * 0.25) }; }
+  else if (r < 0.9) { t = { type: 'special', goal: 1, text: T`Harvest a mutated fruit ✨`, icon: '🌈', reward: Math.round(200 * sc) }; }
+  else if (r < 0.95 && gameState.gear.watering_can) { const g = 3; t = { type: 'water', goal: g, text: T`Water 3 plants with the 🚿 can`, icon: '🚿', reward: Math.round(100 * sc) }; }
+  else { t = { type: 'pet', goal: 1, text: T`Give one of your pets a pet`, icon: '🐾', reward: Math.round(40 * sc) }; }
   t.progress = 0;
   return t;
 }
@@ -2184,7 +2209,7 @@ function completeTask(t) {
     Sfx.play('quest');
     gameState.sheckles += t.reward;
     gameState.tasksDone = (gameState.tasksDone || 0) + 1;
-    showToast('✅', `Task done! +¢${fmtSheckles(t.reward)}`);
+    showToast('✅', T`Task done! +¢${fmtSheckles(t.reward)}`);
     const el = $('#tasks-list');
     const r = el ? el.getBoundingClientRect() : { left: 80, top: 160 };
     coinFly(r.left + 60, r.top + 20, 5);
@@ -2193,7 +2218,7 @@ function completeTask(t) {
     setTimeout(() => {
       gameState.tasks = gameState.tasks.filter(x => x !== t);
       fillTasks();
-      if (t.tutorial && gameState.tutorialStep >= TUTORIAL_TASKS.length) bigBanner('🎓 You did it!', 'Keep growing, collect mutations, hatch pets and get rich!');
+      if (t.tutorial && gameState.tutorialStep >= TUTORIAL_TASKS.length) bigBanner(T`🎓 You did it!`, T`Keep growing, collect mutations, hatch pets and get rich!`);
       saveGame();
     }, 900);
     renderTasks(); updateHUD();
@@ -2460,45 +2485,45 @@ function focusInfo(f) {
   if (!f) return null;
   const sel = selectedItem();
   if (f.kind === 'stall') {
-    const n = { seeds: ["Shlomo's <b>Seed Shop</b>", '🌱', 'Shop'], sell: ['<b>Steven</b> — sell your fruit', '💰', 'Sell'], gear: ['<b>Gear Shop</b>', '⚙️', 'Shop'], pets: ['<b>Pet Egg Shop</b>', '🥚', 'Shop'], temple: ['<b>Kohen</b> — Bikkurim & Revai', '🏛️', 'Visit'] }[f.id];
+    const n = { seeds: [T`Shlomo's <b>Seed Shop</b>`, '🌱', T`Shop`], sell: [T`<b>Steven</b> — sell your fruit`, '💰', T`Sell`], gear: [T`<b>Gear Shop</b>`, '⚙️', T`Shop`], pets: [T`<b>Pet Egg Shop</b>`, '🥚', T`Shop`], temple: [T`<b>Kohen</b> — Bikkurim & Revai`, '🏛️', T`Visit`] }[f.id];
     return { icon: n[1], text: n[0], act: n[2] };
   }
-  if (f.kind === 'drop') return { icon: f.kil ? '🚧' : '⛏️', text: f.ok ? 'Put the plant down here' : f.kil ? `<b>Kilayim</b> — too close to the ${getSeedData(f.kil.plant.s).name}` : 'Find a free spot in your garden', act: 'Place', dim: !f.ok };
-  if (f.kind === 'gift') return { icon: '🌾', text: '<b>Leket</b> — fallen fruit is for the poor. Leave it!', act: 'Leave', dim: true };
-  if (f.kind === 'pet') { const e = petEntities.get(f.id); const d = PETS[e.pet.type]; return { icon: '❤️', text: `Pet <b>${e.pet.name}</b> <span class="dim">${d.emoji} Age ${petLevel(e.pet)}</span>`, act: 'Pet' }; }
-  if (f.kind === 'egg') { const e = f.egg; return e.left > 0 ? { icon: '🥚', text: `${EGGS[e.egg].name} — hatches in ${fmtTime(e.left / (1 + petPower('eggs') / 100))}`, act: 'Wait', dim: true } : { icon: '🐣', text: `Hatch your <b>${EGGS[e.egg].name}</b>!`, act: 'Hatch' }; }
-  if (f.kind === 'placed') { const it = f.item, d = GEAR[it.gear]; return { icon: d.emoji, text: `<b>${d.name}</b> ${it.left != null ? '— ' + fmtTime(it.left) + ' left' : '— catches ' + it.uses + ' more bolts'}`, act: 'Info', dim: true }; }
+  if (f.kind === 'drop') return { icon: f.kil ? '🚧' : '⛏️', text: f.ok ? T`Put the plant down here` : f.kil ? T`<b>Kilayim</b> — too close to the ${getSeedData(f.kil.plant.s).name}` : T`Find a free spot in your garden`, act: T`Place`, dim: !f.ok };
+  if (f.kind === 'gift') return { icon: '🌾', text: T`<b>Leket</b> — fallen fruit is for the poor. Leave it!`, act: T`Leave`, dim: true };
+  if (f.kind === 'pet') { const e = petEntities.get(f.id); const d = PETS[e.pet.type]; return { icon: '❤️', text: T`Pet <b>${petName(e.pet)}</b> <span class="dim">${d.emoji} Age ${petLevel(e.pet)}</span>`, act: T`Pet` }; }
+  if (f.kind === 'egg') { const e = f.egg; return e.left > 0 ? { icon: '🥚', text: T`${EGGS[e.egg].name} — hatches in ${fmtTime(e.left / (1 + petPower('eggs') / 100))}`, act: T`Wait`, dim: true } : { icon: '🐣', text: T`Hatch your <b>${EGGS[e.egg].name}</b>!`, act: T`Hatch` }; }
+  if (f.kind === 'placed') { const it = f.item, d = GEAR[it.gear]; return { icon: d.emoji, text: it.left != null ? T`<b>${d.name}</b> — ${fmtTime(it.left)} left` : T`<b>${d.name}</b> — catches ${it.uses} more bolts`, act: T`Info`, dim: true }; }
   if (f.kind === 'spot') {
     if (sel.kind === 'seed') {
       const s = getSeedData(sel.id);
-      if (isShemitah()) return { icon: '🌿', text: `<b>Shemitah</b> — the land rests. Plant again in ${fmtTime(yearSecondsLeft())}`, act: 'Rest', dim: true };
-      if (f.kil) return { icon: '🚧', text: `<b>Kilayim</b> — too close to your ${getSeedData(f.kil.plant.s).name}. Leave some space!`, act: 'Plant', dim: true };
-      return { icon: s.emoji, text: f.ok ? `Plant <b>${s.name}</b>${inPeah(f.x, f.z) ? ' in the 💙 Peah corner' : ''} <span class="dim">(${gameState.seeds[sel.id]} left)</span>` : 'Too close to something — move a little', act: 'Plant', dim: !f.ok };
+      if (isShemitah()) return { icon: '🌿', text: T`<b>Shemitah</b> — the land rests. Plant again in ${fmtTime(yearSecondsLeft())}`, act: T`Rest`, dim: true };
+      if (f.kil) return { icon: '🚧', text: T`<b>Kilayim</b> — too close to your ${getSeedData(f.kil.plant.s).name}. Leave some space!`, act: T`Plant`, dim: true };
+      return { icon: s.emoji, text: f.ok ? (inPeah(f.x, f.z) ? T`Plant <b>${s.name}</b> in the 💙 Peah corner <span class="dim">(${gameState.seeds[sel.id]} left)</span>` : T`Plant <b>${s.name}</b> <span class="dim">(${gameState.seeds[sel.id]} left)</span>`) : T`Too close to something — move a little`, act: T`Plant`, dim: !f.ok };
     }
-    if (sel.kind === 'egg') return { icon: '🥚', text: f.ok ? `Place <b>${EGGS[sel.id].name}</b>` : 'Find a free spot', act: 'Place', dim: !f.ok };
-    return { icon: GEAR[sel.id].emoji, text: f.ok ? `Place <b>${GEAR[sel.id].name}</b>` : 'Find a free spot', act: 'Place', dim: !f.ok };
+    if (sel.kind === 'egg') return { icon: '🥚', text: f.ok ? T`Place <b>${EGGS[sel.id].name}</b>` : T`Find a free spot`, act: T`Place`, dim: !f.ok };
+    return { icon: GEAR[sel.id].emoji, text: f.ok ? T`Place <b>${GEAR[sel.id].name}</b>` : T`Find a free spot`, act: T`Place`, dim: !f.ok };
   }
   const p = f.plant, seed = getSeedData(p.s);
   const mine = gameState.plants.includes(p);
   if (!mine) return null;
-  if (sel && sel.kind === 'gear' && sel.id === 'shovel') return { icon: '⛏️', text: `Dig up <b>${seed.name}</b>${isFruitTree(p.s) ? ' <span class="dim">— Bal Tashchit!</span>' : ''}`, act: 'Dig' };
-  if (sel && sel.kind === 'gear' && sel.id === 'trowel') return { icon: '⛏️', text: `Pick up <b>${seed.name}</b> to move it`, act: 'Move' };
-  if (sel && sel.kind === 'gear' && sel.id === 'watering_can') return { icon: '🚿', text: `Water <b>${seed.name}</b> <span class="dim">(${gameState.gear.watering_can} uses)</span>`, act: 'Water' };
+  if (sel && sel.kind === 'gear' && sel.id === 'shovel') return { icon: '⛏️', text: isFruitTree(p.s) ? T`Dig up <b>${seed.name}</b> <span class="dim">— Bal Tashchit!</span>` : T`Dig up <b>${seed.name}</b>`, act: T`Dig` };
+  if (sel && sel.kind === 'gear' && sel.id === 'trowel') return { icon: '⛏️', text: T`Pick up <b>${seed.name}</b> to move it`, act: T`Move` };
+  if (sel && sel.kind === 'gear' && sel.id === 'watering_can') return { icon: '🚿', text: T`Water <b>${seed.name}</b> <span class="dim">(${gameState.gear.watering_can} uses)</span>`, act: T`Water` };
   const ripe = ripeFruitCount(p);
   const block = harvestBlock(p);
-  if (block === 'orlah' && p.age >= p.grow) return { icon: '🚫', text: `<b>Orlah</b> — tree year ${treeYear(p)} of 3. Its fruit isn't for us yet!`, act: 'Info', dim: true };
-  if (ripe && block === 'peah') return { icon: '💙', text: '<b>Peah</b> — this corner is for the poor. Leave it!', act: 'Leave', dim: true };
-  if (ripe && block === 'shich') return { icon: '🧺', text: "<b>Shichecha</b> — you forgot it. Don't go back!", act: 'Leave', dim: true };
-  if (ripe && needsReed(p)) return { icon: '🎀', text: `First ${seed.name}! Tie a reed: <b>"These are Bikkurim!"</b>`, act: 'Tie' };
-  if (ripe && orlahPhase(p) === 'revai') return { icon: '🏛️', text: `Pick <b>${ripe} Neta Revai</b> ${seed.emoji} — bring them to the Kohen`, act: 'Harvest' };
+  if (block === 'orlah' && p.age >= p.grow) return { icon: '🚫', text: T`<b>Orlah</b> — tree year ${treeYear(p)} of 3. Its fruit isn't for us yet!`, act: T`Info`, dim: true };
+  if (ripe && block === 'peah') return { icon: '💙', text: T`<b>Peah</b> — this corner is for the poor. Leave it!`, act: T`Leave`, dim: true };
+  if (ripe && block === 'shich') return { icon: '🧺', text: T`<b>Shichecha</b> — you forgot it. Don't go back!`, act: T`Leave`, dim: true };
+  if (ripe && needsReed(p)) return { icon: '🎀', text: T`First ${seed.name}! Tie a reed: <b>"These are Bikkurim!"</b>`, act: T`Tie` };
+  if (ripe && orlahPhase(p) === 'revai') return { icon: '🏛️', text: T`Pick <b>${ripe} Neta Revai</b> ${seed.emoji} — bring them to the Kohen`, act: T`Harvest` };
   if (ripe) {
-    if (!seed.multi) return { icon: '🧺', text: `Harvest ${fruitLabel({ s: p.s, m: p.m })} <span class="dim">${p.kg}kg • ¢${fmtSheckles(fruitValue({ s: p.s, kg: p.kg, m: p.m }))}</span>`, act: 'Harvest' };
-    return { icon: '🧺', text: `Harvest <b>${ripe} ${seed.emoji} ${seed.name}</b>`, act: 'Harvest' };
+    if (!seed.multi) return { icon: '🧺', text: T`Harvest ${fruitLabel({ s: p.s, m: p.m })} <span class="dim">${p.kg}kg • ¢${fmtSheckles(fruitValue({ s: p.s, kg: p.kg, m: p.m }))}</span>`, act: T`Harvest` };
+    return { icon: '🧺', text: T`Harvest <b>${ripe} ${seed.emoji} ${seed.name}</b>`, act: T`Harvest` };
   }
   const rate = growthRate(p);
-  if (p.age < p.grow) return { icon: seed.emoji, text: `<b>${seed.name}</b> ${Math.round(p.age / p.grow * 100)}% <span class="dim">• grown in ${fmtTime((p.grow - p.age) / rate)}${p.water > 0 ? ' • 💧' : ''}</span>`, act: 'Info', dim: true };
+  if (p.age < p.grow) return { icon: seed.emoji, text: T`<b>${seed.name}</b> ${Math.round(p.age / p.grow * 100)}% <span class="dim">• grown in ${fmtTime((p.grow - p.age) / rate)}${p.water > 0 ? ' • 💧' : ''}</span>`, act: T`Info`, dim: true };
   const next = Math.min(...p.fruits.filter(Boolean).map(fr => seed.fruitTime - fr.age));
-  return { icon: seed.emoji, text: `<b>${seed.name}</b> <span class="dim">• next fruit in ${fmtTime(next / rate)}</span>`, act: 'Info', dim: true };
+  return { icon: seed.emoji, text: T`<b>${seed.name}</b> <span class="dim">• next fruit in ${fmtTime(next / rate)}</span>`, act: T`Info`, dim: true };
 }
 
 function interact(f) {
@@ -2506,7 +2531,7 @@ function interact(f) {
   if (isAnyPanelOpen()) return;
   if (!f) {
     const sel = selectedItem();
-    if (sel && sel.kind === 'seed' && !inMyGarden(playerPos.x, playerPos.z)) { showToast('🏡', 'Go to your garden to plant! (tap 🏡 Garden)'); hintTarget = 'garden'; hintTimer = 6; }
+    if (sel && sel.kind === 'seed' && !inMyGarden(playerPos.x, playerPos.z)) { showToast('🏡', T`Go to your garden to plant! (tap 🏡 Garden)`); hintTarget = 'garden'; hintTimer = 6; }
     return;
   }
   const sel = selectedItem();
@@ -2514,9 +2539,9 @@ function interact(f) {
     case 'stall': openStall(f.id); return;
     case 'drop': dropCarried(f.x, f.z); return;
     case 'pet': petPetAt(petEntities.get(f.id)); return;
-    case 'egg': if (f.egg.left <= 0) hatchEgg(f.egg); else { Sfx.play('click'); showToast('🥚', `Hatches in ${fmtTime(f.egg.left)}`); } return;
+    case 'egg': if (f.egg.left <= 0) hatchEgg(f.egg); else { Sfx.play('click'); showToast('🥚', T`Hatches in ${fmtTime(f.egg.left)}`); } return;
     case 'placed': Sfx.play('click'); return;
-    case 'gift': Sfx.play('click'); if (!teach('leket')) showToast('🌾', "That's Leket — leave it for the poor. Rut will come for it!"); return;
+    case 'gift': Sfx.play('click'); if (!teach('leket')) showToast('🌾', T`That's Leket — leave it for the poor. Rut will come for it!`); return;
     case 'spot':
       // the held item may have changed since focus was computed — re-check it
       if (!sel) return;
@@ -2538,22 +2563,22 @@ function interact(f) {
       }
       if (orlahPhase(p) === 'orlah' && p.age >= p.grow) { explainBlock('orlah', p); return; }
       Sfx.play('click');
-      floatText(p.x, 1.8, p.z, p.age < p.grow ? `⏳ ${fmtTime((p.grow - p.age) / growthRate(p))}` : '🌱 Fruit growing…', '#FFFFFF');
+      floatText(p.x, 1.8, p.z, p.age < p.grow ? `⏳ ${fmtTime((p.grow - p.age) / growthRate(p))}` : T`🌱 Fruit growing…`, '#FFFFFF');
     }
   }
 }
 
 function explainBlock(block, p) {
   Sfx.play('deny');
-  if (block === 'peah') { if (!teach('peah')) showToast('💙', "This is your Peah corner — it's for the poor. Leave it, and Rut will come!"); }
-  else if (block === 'shich') { if (!teach('shichecha')) showToast('🧺', "You forgot this one, so it's Shichecha — don't go back for it!"); }
-  else if (block === 'orlah') { if (!teach('orlah')) showToast('🚫', `Orlah: this tree is in year ${treeYear(p)} of 3. Its fruit isn't for us yet!`); }
+  if (block === 'peah') { if (!teach('peah')) showToast('💙', T`This is your Peah corner — it's for the poor. Leave it, and Rut will come!`); }
+  else if (block === 'shich') { if (!teach('shichecha')) showToast('🧺', T`You forgot this one, so it's Shichecha — don't go back for it!`); }
+  else if (block === 'orlah') { if (!teach('orlah')) showToast('🚫', T`Orlah: this tree is in year ${treeYear(p)} of 3. Its fruit isn't for us yet!`); }
 }
 function tieReed(p) {
   p.bk = 1;
   Sfx.play('sparkle');
   spawnParticles(p.x, 1.4, p.z, [0xFFD54F, 0xFF80AB, 0xFFFFFF], 24, 2.5, 0.09);
-  floatText(p.x, 2.4, p.z, '🎀 "These are Bikkurim!"', '#FFE082');
+  floatText(p.x, 2.4, p.z, T`🎀 "These are Bikkurim!"`, '#FFE082');
   teach('bikkurim');
   refreshPlantView(p);
   saveGame();
@@ -2614,10 +2639,10 @@ function hotbarItems() {
   const items = [];
   Object.keys(gameState.seeds).filter(id => gameState.seeds[id] > 0 && getSeedData(id))
     .sort((a, b) => getSeedData(a).price - getSeedData(b).price)
-    .forEach(id => items.push({ key: 'seed:' + id, emoji: getSeedData(id).emoji, name: getSeedData(id).name + ' Seed', count: gameState.seeds[id], color: RARITY[getSeedData(id).rarity].color }));
+    .forEach(id => items.push({ key: 'seed:' + id, emoji: getSeedData(id).emoji, name: T`${getSeedData(id).name} Seed`, count: gameState.seeds[id], color: RARITY[getSeedData(id).rarity].color }));
   Object.keys(gameState.eggs).filter(id => gameState.eggs[id] > 0).forEach(id => items.push({ key: 'egg:' + id, emoji: '🥚', name: EGGS[id].name, count: gameState.eggs[id], color: RARITY[EGGS[id].rarity].color, eggColor: EGGS[id].color }));
   GEAR_LIST.filter(id => gameState.gear[id] > 0).forEach(id => items.push({ key: 'gear:' + id, emoji: GEAR[id].emoji, name: GEAR[id].name, count: gameState.gear[id], color: '#90CAF9' }));
-  items.push({ key: 'gear:shovel', emoji: '⛏️', name: 'Shovel', count: null, color: '#BCAAA4' });
+  items.push({ key: 'gear:shovel', emoji: '⛏️', name: T('Shovel'), count: null, color: '#BCAAA4' });
   return items;
 }
 function updateHotbar() {
@@ -2636,7 +2661,7 @@ function updateHotbar() {
   });
   const more = document.createElement('button');
   more.className = 'hotbar-slot bag';
-  more.innerHTML = `<span class="slot-emoji">🎒</span><span class="slot-count">${gameState.fruits.length}</span><span class="slot-name">Backpack</span>`;
+  more.innerHTML = `<span class="slot-emoji">🎒</span><span class="slot-count">${gameState.fruits.length}</span><span class="slot-name">${T('Backpack')}</span>`;
   more.addEventListener('click', e => { e.stopPropagation(); togglePanel('bag-panel', openBag); });
   bar.appendChild(more);
 }
@@ -2691,10 +2716,10 @@ function renderTasks() {
     const row = document.createElement('div');
     row.className = 'task' + (t.done ? ' done' : '') + (t.tutorial ? ' tutorial' : '');
     const pct = Math.round(t.progress / t.goal * 100);
-    row.innerHTML = `<span class="task-icon">${t.done ? '✅' : t.icon}</span><div class="task-body"><div class="task-text">${t.text}</div><div class="task-bar"><div style="width:${pct}%"></div></div></div><span class="task-reward">${t.goal > 1 && t.type !== 'earn' ? `${t.progress}/${t.goal}<br>` : ''}¢${fmtSheckles(t.reward)}</span>`;
+    row.innerHTML = `<span class="task-icon">${t.done ? '✅' : t.icon}</span><div class="task-body"><div class="task-text">${taskText(t)}</div><div class="task-bar"><div style="width:${pct}%"></div></div></div><span class="task-reward">${t.goal > 1 && t.type !== 'earn' ? `${t.progress}/${t.goal}<br>` : ''}¢${fmtSheckles(t.reward)}</span>`;
     list.appendChild(row);
   });
-  $('#tasks-title').textContent = gameState.tutorialStep < TUTORIAL_TASKS.length ? `🎓 Getting started (${gameState.tutorialStep + 1}/${TUTORIAL_TASKS.length})` : '📋 Tasks';
+  $('#tasks-title').textContent = gameState.tutorialStep < TUTORIAL_TASKS.length ? T`🎓 Getting started (${gameState.tutorialStep + 1}/${TUTORIAL_TASKS.length})` : T('📋 Tasks');
 }
 
 // ─── Panels ───
@@ -2724,7 +2749,7 @@ function openShop(kind) {
 function renderShop() {
   const head = $('#shop-head');
   head.className = 'panel-header shop-header s-' + shopKind;
-  $('#shop-title').innerHTML = { seeds: "🌱 Seed Shop <small>by Shlomo</small>", gear: '⚙️ Gear Shop', pets: '🥚 Pet Eggs' }[shopKind];
+  $('#shop-title').innerHTML = { seeds: T('🌱 Seed Shop <small>by Shlomo</small>'), gear: T('⚙️ Gear Shop'), pets: T('🥚 Pet Eggs') }[shopKind];
   $('#shop-tabs').querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === shopKind));
   const body = $('#shop-body');
   body.innerHTML = '';
@@ -2738,25 +2763,25 @@ function renderShop() {
     const seasonal = Object.keys(getSeasonalSeeds());
     seedShopList().forEach(id => {
       if (seasonal.includes(id) && id === seasonal[0]) {
-        const h = document.createElement('div'); h.className = 'section-title seasonal'; h.innerHTML = `${getActiveHolidayLabels().join(' ')} <span class="tag">Event seeds!</span>`; body.appendChild(h);
+        const h = document.createElement('div'); h.className = 'section-title seasonal'; h.innerHTML = `${getActiveHolidayLabels().join(' ')} <span class="tag">${T('Event seeds!')}</span>`; body.appendChild(h);
       }
       const s = getSeedData(id);
       body.appendChild(shopRow({ emoji: s.emoji, name: s.name, rarity: s.rarity, price: s.price, stock: stock[id],
-        sub: `${SPECIES_OF_SEED[id] ? '<span class="tag seven">✡️ Seven Species</span> ' : ''}${s.multi ? '♻️ Multi-harvest' : '🌾 Single harvest'}${isFruitTree(id) ? ' • 🌳 Orlah 3 yrs' : ''} • grows in ${fmtTime(s.grow)} • fruit ¢${fmtSheckles(s.sell)}+` }, () => buyFromShop('seed', id)));
+        sub: `${SPECIES_OF_SEED[id] ? `<span class="tag seven">${T('✡️ Seven Species')}</span> ` : ''}${s.multi ? T('♻️ Multi-harvest') : T('🌾 Single harvest')}${isFruitTree(id) ? ` • ${T('🌳 Orlah 3 yrs')}` : ''} • ${T`grows in ${fmtTime(s.grow)}`} • ${T`fruit ¢${fmtSheckles(s.sell)}+`}` }, () => buyFromShop('seed', id)));
     });
   } else if (shopKind === 'gear') {
     const stock = currentGearStock();
     GEAR_LIST.forEach(id => {
       const g = GEAR[id];
       body.appendChild(shopRow({ emoji: g.emoji, name: g.name, rarity: g.price >= 400000 ? 'divine' : g.price >= 100000 ? 'mythical' : g.price >= 30000 ? 'legendary' : g.price >= 10000 ? 'rare' : 'uncommon', price: g.price, stock: stock[id],
-        sub: g.desc + (g.uses > 1 ? ` • ${g.uses} uses` : '') }, () => buyFromShop('gear', id)));
+        sub: g.desc + (g.uses > 1 ? ` • ${T`${g.uses} uses`}` : '') }, () => buyFromShop('gear', id)));
     });
   } else {
     currentEggStock().forEach((e, i) => {
       const d = EGGS[e.id];
       const chances = Object.entries(d.pets).map(([pid, w]) => `${PETS[pid].emoji} ${PETS[pid].name} ${w}%`).join(' • ');
       body.appendChild(shopRow({ emoji: '🥚', eggColor: d.color, name: d.name, rarity: d.rarity, price: d.price, stock: e.bought ? 0 : 1,
-        sub: `Hatches in ${fmtTime(d.hatch)}<br><span class="chances">${chances}</span>` }, () => buyFromShop('egg', i)));
+        sub: `${T`Hatches in ${fmtTime(d.hatch)}`}<br><span class="chances">${chances}</span>` }, () => buyFromShop('egg', i)));
     });
   }
 }
@@ -2771,7 +2796,7 @@ function shopRow(o, onBuy) {
     <div class="sr-info">
       <div class="sr-name">${o.name} <span class="rarity${rar.rainbow ? ' prism' : ''}">${rar.name}</span></div>
       <div class="sr-sub">${o.sub}</div>
-      <div class="sr-stock">${o.stock ? `x${o.stock} Stock` : 'NO STOCK'}</div>
+      <div class="sr-stock">${o.stock ? T`x${o.stock} Stock` : T('NO STOCK')}</div>
     </div>
     <button class="buy-btn" ${can ? '' : 'disabled'}>¢${fmtSheckles(o.price)}</button>`;
   row.querySelector('.buy-btn').addEventListener('click', e => {
@@ -2784,7 +2809,7 @@ function updateRestockTimer() {
   const el = $('#restock-timer');
   if (!el) return;
   const t = shopKind === 'pets' ? slotLeft(EGG_RESTOCK) : slotLeft(SHOP_RESTOCK);
-  setText(el, `🔄 New ${shopKind === 'seeds' ? 'seeds' : shopKind === 'gear' ? 'gear' : 'eggs'} in ${fmtTime(t)}`);
+  setText(el, shopKind === 'seeds' ? T`🔄 New seeds in ${fmtTime(t)}` : shopKind === 'gear' ? T`🔄 New gear in ${fmtTime(t)}` : T`🔄 New eggs in ${fmtTime(t)}`);
 }
 function floatTextScreen(x, y, text) {
   const el = document.createElement('div');
@@ -2806,13 +2831,13 @@ function renderSell() {
   const all = document.createElement('button');
   all.className = 'btn big sell-all';
   all.disabled = !sellable.length;
-  all.innerHTML = sellable.length ? `💰 Sell my inventory (${sellable.length}) — worth ¢${fmtSheckles(split.gross)}` : 'Nothing to sell — go harvest some fruit!';
+  all.innerHTML = sellable.length ? T`💰 Sell my inventory (${sellable.length}) — worth ¢${fmtSheckles(split.gross)}` : T('Nothing to sell — go harvest some fruit!');
   all.addEventListener('click', e => {
     const r = e.currentTarget.getBoundingClientRect();
     const got = sellFruits(sellable.slice());
     Sfx.play('sell'); setTimeout(() => Sfx.play('coin'), 120);
     coinFly(r.left + r.width / 2, r.top, 8);
-    showToast('💰', `Steven paid you ¢${fmtSheckles(got)}!`);
+    showToast('💰', T`Steven paid you ¢${fmtSheckles(got)}!`);
     renderSell(); updateHotbar();
   });
   body.appendChild(all);
@@ -2820,19 +2845,19 @@ function renderSell() {
     // Pick how much Terumah to give (Mishnah Terumot 4:3)
     const cur = terumahPick();
     const choose = document.createElement('div'); choose.className = 'terumah-pick';
-    choose.innerHTML = '<div class="tp-q">🌾 How much <b>Terumah</b> will you give the Kohen?</div><div class="tp-opts">' +
-      Object.entries(TERUMAH_CHOICES).map(([k, c]) => `<button class="tp-opt${k === cur ? ' on' : ''}" data-k="${k}"><span>${c.emoji}</span><b>${c.name}</b><small>1/${Math.round(1 / c.frac)} • <span dir="rtl">${c.he}</span></small></button>`).join('') + '</div>';
+    choose.innerHTML = '<div class="tp-q">' + T('🌾 How much <b>Terumah</b> will you give the Kohen?') + '</div><div class="tp-opts">' +
+      Object.entries(TERUMAH_CHOICES).map(([k, c]) => `<button class="tp-opt${k === cur ? ' on' : ''}" data-k="${k}"><span>${c.emoji}</span><b>${c.name}</b><small>1/${Math.round(1 / c.frac)}${IS_HE ? '' : ` • <span dir="rtl">${c.he}</span>`}</small></button>`).join('') + '</div>';
     choose.querySelectorAll('.tp-opt').forEach(b => b.addEventListener('click', () => { gameState.mz.tPick = b.dataset.k; Sfx.play('click'); saveGame(); renderSell(); }));
     body.appendChild(choose);
     const t = document.createElement('div'); t.className = 'tithe-box';
-    t.innerHTML = `<span>🌾 Terumah → Kohen <b>¢${fmtSheckles(split.terumah)}</b></span><span>🪙 Ma'aser → Levi <b>¢${fmtSheckles(split.maaser)}</b></span>${split.exempt ? '<span class="dim">🌷 Flowers & mushrooms aren\'t food — no Ma\'aser</span>' : ''}`;
+    t.innerHTML = `<span>${T`🌾 Terumah → Kohen <b>¢${fmtSheckles(split.terumah)}</b>`}</span><span>${T`🪙 Ma'aser → Levi <b>¢${fmtSheckles(split.maaser)}</b>`}</span>${split.exempt ? '<span class="dim">' + T('🌷 Flowers & mushrooms aren\'t food — no Ma\'aser') + '</span>' : ''}`;
     body.appendChild(t);
   }
   if (gameState.fruits.some(f => !sellableFruit(f))) {
-    const note = document.createElement('p'); note.className = 'note'; note.textContent = "🎀 Bikkurim and 🏛️ Revai go to the Kohen. 🌿 Shevi'it fruit is for eating, not selling."; body.appendChild(note);
+    const note = document.createElement('p'); note.className = 'note'; note.textContent = T("🎀 Bikkurim and 🏛️ Revai go to the Kohen. 🌿 Shevi'it fruit is for eating, not selling."); body.appendChild(note);
   }
   if (gameState.fruits.some(f => f.fav)) {
-    const note = document.createElement('p'); note.className = 'note'; note.textContent = '⭐ Favorited fruit are kept when you sell everything.'; body.appendChild(note);
+    const note = document.createElement('p'); note.className = 'note'; note.textContent = T('⭐ Favorited fruit are kept when you sell everything.'); body.appendChild(note);
   }
   body.appendChild(fruitList(gameState.fruits, true));
 }
@@ -2845,16 +2870,16 @@ function fruitList(fruits, sellButtons) {
     const row = document.createElement('div');
     row.className = 'fruit-row';
     row.style.setProperty('--rar', RARITY[s.rarity].color);
-    const tags = (f.bk ? '<span class="mut" style="--mc:#FFB300">🎀 Bikkurim</span>' : '') + (f.rv ? '<span class="mut" style="--mc:#42A5F5">🏛️ Revai</span>' : '') + (f.sv ? '<span class="mut" style="--mc:#66BB6A">🌿 Shevi\'it</span>' : '');
+    const tags = (f.bk ? '<span class="mut" style="--mc:#FFB300">' + T('🎀 Bikkurim') + '</span>' : '') + (f.rv ? '<span class="mut" style="--mc:#42A5F5">' + T('🏛️ Revai') + '</span>' : '') + (f.sv ? '<span class="mut" style="--mc:#66BB6A">' + T('🌿 Shevi\'it') + '</span>' : '');
     const muts = tags + (f.m || []).map(k => `<span class="mut" style="--mc:${MUTATIONS[k].color}">${MUTATIONS[k].emoji} ${MUTATIONS[k].name}</span>`).join('');
     const canSell = sellButtons && sellableFruit(f);
-    row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>${s.name}</b> <span class="kg">${f.kg}kg</span><div>${muts}</div></div><span class="fr-val">¢${fmtSheckles(fruitValue(f))}</span>
-      <button class="fav${f.fav ? ' on' : ''}" title="Favorite">⭐</button>${canSell ? '<button class="btn small sell1">Sell</button>' : ''}${f.sv && !sellButtons ? '<button class="btn small eat1">🍽️ Eat</button>' : ''}`;
+    row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>${s.name}</b> <span class="kg">${T`${f.kg}kg`}</span><div>${muts}</div></div><span class="fr-val">¢${fmtSheckles(fruitValue(f))}</span>
+      <button class="fav${f.fav ? ' on' : ''}" title="${T('Favorite')}">⭐</button>${canSell ? '<button class="btn small sell1">' + T('Sell') + '</button>' : ''}${f.sv && !sellButtons ? '<button class="btn small eat1">' + T('🍽️ Eat') + '</button>' : ''}`;
     const eat = row.querySelector('.eat1');
     if (eat) eat.addEventListener('click', () => {
       gameState.fruits = gameState.fruits.filter(x => x !== f);
       mitzvah('eaten', 1);
-      floatText(playerPos.x, 2.4, playerPos.z, "😋 Yum! Holy Shevi'it fruit", '#C5E1A5');
+      floatText(playerPos.x, 2.4, playerPos.z, T("😋 Yum! Holy Shevi'it fruit"), '#C5E1A5');
       Sfx.play('pop'); saveGame(); openBag();
     });
     row.querySelector('.fav').addEventListener('click', () => { f.fav = !f.fav; Sfx.play('click'); saveGame(); sellButtons ? renderSell() : openBag(); });
@@ -2862,7 +2887,7 @@ function fruitList(fruits, sellButtons) {
     if (sb) sb.addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); const got = sellFruits([f]); Sfx.play('coin'); floatTextScreen(r.left, r.top, `+¢${fmtSheckles(got)}`); renderSell(); updateHotbar(); });
     wrap.appendChild(row);
   });
-  if (!fruits.length) { const p = document.createElement('p'); p.className = 'empty-msg'; p.innerHTML = 'Your backpack has no fruit yet.<br>Harvest plants in your garden! 🧺'; wrap.appendChild(p); }
+  if (!fruits.length) { const p = document.createElement('p'); p.className = 'empty-msg'; p.innerHTML = T('Your backpack has no fruit yet.<br>Harvest plants in your garden! 🧺'); wrap.appendChild(p); }
   return wrap;
 }
 
@@ -2872,11 +2897,11 @@ function openBag() {
   body.innerHTML = '';
   const h = document.createElement('div'); h.className = 'section-title';
   const worth = gameState.fruits.reduce((a, f) => a + fruitValue(f), 0);
-  h.innerHTML = `🧺 Fruit <span class="dim">${gameState.fruits.length}/${MAX_FRUITS} • worth ¢${fmtSheckles(worth)}</span>`;
+  h.innerHTML = T`🧺 Fruit <span class="dim">${gameState.fruits.length}/${MAX_FRUITS} • worth ¢${fmtSheckles(worth)}</span>`;
   body.appendChild(h);
   body.appendChild(fruitList(gameState.fruits, false));
   const items = hotbarItems();
-  const h2 = document.createElement('div'); h2.className = 'section-title'; h2.textContent = '🎒 Seeds, gear & eggs (tap to hold)'; body.appendChild(h2);
+  const h2 = document.createElement('div'); h2.className = 'section-title'; h2.textContent = T('🎒 Seeds, gear & eggs (tap to hold)'); body.appendChild(h2);
   const g = document.createElement('div'); g.className = 'bag-grid';
   items.forEach(it => {
     const d = document.createElement('div');
@@ -2894,7 +2919,7 @@ function openBag() {
 function openPets() {
   const body = $('#pets-body');
   body.innerHTML = '';
-  const h = document.createElement('div'); h.className = 'section-title'; h.textContent = `🐾 Equipped (${gameState.equipped.length}/${MAX_PETS_EQUIPPED}) — they live in your garden`; body.appendChild(h);
+  const h = document.createElement('div'); h.className = 'section-title'; h.textContent = T`🐾 Equipped (${gameState.equipped.length}/${MAX_PETS_EQUIPPED}) — they live in your garden`; body.appendChild(h);
   const g = document.createElement('div'); g.className = 'card-grid';
   const sorted = gameState.pets.slice().sort((a, b) => (gameState.equipped.includes(b.id) - gameState.equipped.includes(a.id)));
   sorted.forEach(pet => {
@@ -2905,19 +2930,19 @@ function openPets() {
     const card = document.createElement('div');
     card.className = 'card' + (eq ? ' owned' : '');
     card.style.setProperty('--rar', rar.color);
-    card.innerHTML = `<div class="card-rarity">${rar.name}</div><div class="card-emoji">${d.emoji}</div><div class="card-name">${pet.name}</div>
-      <div class="card-stats">${d.name} • Age ${petLevel(pet)}</div><div class="card-desc">${describeAbility(d.ability)}</div>
-      <button class="btn ${eq ? 'alt' : ''}">${eq ? 'Unequip' : 'Equip'}</button>`;
+    card.innerHTML = `<div class="card-rarity">${rar.name}</div><div class="card-emoji">${d.emoji}</div><div class="card-name">${petName(pet)}</div>
+      <div class="card-stats">${d.name} • ${T`Age ${petLevel(pet)}`}</div><div class="card-desc">${describeAbility(d.ability)}</div>
+      <button class="btn ${eq ? 'alt' : ''}">${eq ? T('Unequip') : T('Equip')}</button>`;
     card.querySelector('button').addEventListener('click', () => {
       if (eq) gameState.equipped = gameState.equipped.filter(id => id !== pet.id);
-      else if (gameState.equipped.length >= MAX_PETS_EQUIPPED) { Sfx.play('deny'); showToast('🐾', `You can equip ${MAX_PETS_EQUIPPED} pets. Unequip one first.`); return; }
+      else if (gameState.equipped.length >= MAX_PETS_EQUIPPED) { Sfx.play('deny'); showToast('🐾', T`You can equip ${MAX_PETS_EQUIPPED} pets. Unequip one first.`); return; }
       else gameState.equipped.push(pet.id);
       syncPetEntities(); saveGame(); openPets();
     });
     g.appendChild(card);
   });
   body.appendChild(g);
-  const p = document.createElement('p'); p.className = 'note'; p.innerHTML = 'Get more pets from <b>🥚 Pet Eggs</b> in the market. Pets get stronger as they age!';
+  const p = document.createElement('p'); p.className = 'note'; p.innerHTML = T('Get more pets from <b>🥚 Pet Eggs</b> in the market. Pets get stronger as they age!');
   body.appendChild(p);
   openPanel('pets-panel');
 }
@@ -2930,7 +2955,7 @@ function openWardrobe() {
   const body = $('#wardrobe-body');
   body.innerHTML = '';
   const cur = currentSkin();
-  const sh = document.createElement('p'); sh.className = 'note'; sh.textContent = '🧵 Every outfit is checked: no shatnez (wool + linen together)!'; body.appendChild(sh);
+  const sh = document.createElement('p'); sh.className = 'note'; sh.textContent = T('🧵 Every outfit is checked: no shatnez (wool + linen together)!'); body.appendChild(sh);
   const g = document.createElement('div'); g.className = 'card-grid';
   Object.entries(CHARACTER_SKINS).forEach(([key, skin]) => {
     const unlocked = gameState.unlockedSkins.includes(key);
@@ -2939,8 +2964,8 @@ function openWardrobe() {
     card.className = 'card' + (active ? ' owned' : '') + (!unlocked ? ' locked-soft' : '');
     card.style.setProperty('--rar', active ? '#69F0AE' : '#B388FF');
     let btn;
-    if (active) btn = '<button class="btn" disabled>👕 Wearing</button>';
-    else if (unlocked) btn = '<button class="btn wear">Wear</button>';
+    if (active) btn = '<button class="btn" disabled>' + T('👕 Wearing') + '</button>';
+    else if (unlocked) btn = '<button class="btn wear">' + T('Wear') + '</button>';
     else btn = `<button class="btn buy" ${gameState.sheckles < skin.cost ? 'disabled' : ''}>¢${fmtSheckles(skin.cost)}</button>`;
     card.innerHTML = `<div class="card-emoji">${skin.emoji}</div><div class="card-name">${skin.name}</div>${btn}`;
     const wear = card.querySelector('.wear');
@@ -2953,7 +2978,7 @@ function openWardrobe() {
       equipSkin(key);
       checkAchievement('fashion_forward');
       Sfx.play('unlock');
-      bigBanner(`${skin.emoji} New outfit!`, `You unlocked ${skin.name}`);
+      bigBanner(T`${skin.emoji} New outfit!`, T`You unlocked ${skin.name}`);
       updateHUD(); saveGame();
       openWardrobe();
     });
@@ -2986,7 +3011,7 @@ function openAchievements() {
   const got = gameState.achievements.filter(id => ACHIEVEMENTS[id]);
   const head = document.createElement('div');
   head.className = 'achieve-summary';
-  head.innerHTML = `<b>${got.length}</b> of ${Object.keys(ACHIEVEMENTS).length} unlocked<div class="task-bar"><div style="width:${Math.round(got.length / Object.keys(ACHIEVEMENTS).length * 100)}%"></div></div>`;
+  head.innerHTML = `${T`<b>${got.length}</b> of ${Object.keys(ACHIEVEMENTS).length} unlocked`}<div class="task-bar"><div style="width:${Math.round(got.length / Object.keys(ACHIEVEMENTS).length * 100)}%"></div></div>`;
   body.appendChild(head);
   const g = document.createElement('div'); g.className = 'achieve-grid';
   Object.entries(ACHIEVEMENTS).forEach(([id, a]) => {
@@ -3011,7 +3036,7 @@ function maybeDailyGift() {
   const body = $('#gift-body');
   body.innerHTML = `
     <div class="gift-box" id="gift-box">🎁</div>
-    <p class="gift-text">${streak > 1 ? `🔥 ${streak} days in a row!` : 'Welcome back, gardener!'}<br>Tap the present to open it!</p>
+    <p class="gift-text">${streak > 1 ? T`🔥 ${streak} days in a row!` : T('Welcome back, gardener!')}<br>${T('Tap the present to open it!')}</p>
     <div class="gift-streak">${[1, 2, 3, 4, 5, 6, 7].map(d => `<span class="${d <= Math.min(streak, 7) ? 'on' : ''}">${d === 7 ? '🌟' : '⭐'}</span>`).join('')}</div>`;
   openPanel('gift-panel');
   $('#gift-box').addEventListener('click', function open() {
@@ -3026,7 +3051,7 @@ function maybeDailyGift() {
     confetti(60);
     this.classList.add('opened');
     this.textContent = '✨';
-    body.querySelector('.gift-text').innerHTML = `You got <b>¢${fmtSheckles(coins)}</b> and <b>3 ${s.emoji} ${s.name}</b> seeds${streak >= 3 ? ' and <b>5 🚿 watering can uses</b>' : ''}!<br><button class="btn big" id="gift-ok">Yay! 🎉</button>`;
+    body.querySelector('.gift-text').innerHTML = `${streak >= 3 ? T`You got <b>¢${fmtSheckles(coins)}</b> and <b>3 ${s.emoji} ${s.name}</b> seeds and <b>5 🚿 watering can uses</b>!` : T`You got <b>¢${fmtSheckles(coins)}</b> and <b>3 ${s.emoji} ${s.name}</b> seeds!`}<br><button class="btn big" id="gift-ok">${T('Yay! 🎉')}</button>`;
     $('#gift-ok').addEventListener('click', () => { closeAllPanels(); Sfx.play('click'); });
     updateHUD(); updateHotbar(); saveGame();
   });
@@ -3077,7 +3102,7 @@ function profileCard(p, shk, tag) {
   card.addEventListener('click', () => selectProfile(p.id));
   let pressTimer = null;
   const del = () => {
-    const msg = cloudProfiles && !tag ? `Delete ${p.name}'s garden for EVERYONE in the family world? This cannot be undone!` : `Delete ${p.name}'s garden? This cannot be undone!`;
+    const msg = cloudProfiles && !tag ? T`Delete ${p.name}'s garden for EVERYONE in the family world? This cannot be undone!` : T`Delete ${p.name}'s garden? This cannot be undone!`;
     if (confirm(msg)) deleteProfile(p.id);
   };
   card.addEventListener('contextmenu', e => { e.preventDefault(); del(); });
@@ -3103,46 +3128,51 @@ function showProfileScreen() {
   overlay.innerHTML = `
     <div class="profile-container">
       <div class="logo-emoji">🌱</div>
-      <h1>Grow a Garden</h1>
+      <h1>${T('Grow a Garden')}</h1>
       <div id="world-bar"></div>
-      <p class="subtitle" id="profile-subtitle">${profiles.length || world ? "Who's playing?" : 'Make your gardener to start!'}</p>
+      <p class="subtitle" id="profile-subtitle">${profiles.length || world ? T("Who's playing?") : T('Make your gardener to start!')}</p>
       <div class="profile-grid" id="profile-grid"></div>
-      <button class="btn big" id="new-profile-btn">＋ New Gardener</button>
-      <p class="profile-hint" id="profile-hint">${profiles.length ? 'Right-click or long-press a gardener to delete it' : ''}</p>
+      <button class="btn big" id="new-profile-btn">${T('＋ New Gardener')}</button>
+      <p class="profile-hint" id="profile-hint">${profiles.length ? T('Right-click or long-press a gardener to delete it') : ''}</p>
     </div>`;
   document.body.appendChild(overlay);
+  const lb = document.createElement('button');
+  lb.className = 'btn lang-btn';
+  lb.textContent = IS_HE ? '🌐 English' : '🌐 עברית';
+  lb.addEventListener('click', () => setLang(IS_HE ? 'en' : 'he'));
+  overlay.appendChild(lb);
   const grid = document.getElementById('profile-grid');
   const bar = document.getElementById('world-bar');
   document.getElementById('new-profile-btn').addEventListener('click', showNewProfileModal);
   const renderLocal = () => { grid.innerHTML = ''; getProfiles().forEach(p => grid.appendChild(profileCard(p, localShk(p.id)))); };
 
   if (!world) {
-    bar.innerHTML = `<button class="btn world-btn" id="world-join-btn">🌍 Play together with family</button>`;
+    bar.innerHTML = `<button class="btn world-btn" id="world-join-btn">${T('🌍 Play together with family')}</button>`;
     document.getElementById('world-join-btn').addEventListener('click', showWorldModal);
     renderLocal();
     return;
   }
-  bar.innerHTML = `<div class="world-pill"><span>🌍 Family world <b>${esc(world)}</b></span><span id="world-status" class="world-status">Connecting…</span><button class="btn small alt" id="world-leave-btn">Leave</button></div>`;
+  bar.innerHTML = `<div class="world-pill"><span>${T`🌍 Family world <b>${esc(world)}</b>`}</span><span id="world-status" class="world-status">${T('Connecting…')}</span><button class="btn small alt" id="world-leave-btn">${T('Leave')}</button></div>`;
   document.getElementById('world-leave-btn').addEventListener('click', () => {
-    if (!confirm('Leave the family world? You will play on this device only. (You can join again with the same code.)')) return;
+    if (!confirm(T('Leave the family world? You will play on this device only. (You can join again with the same code.)'))) return;
     Net.leaveWorld();
     showProfileScreen();
   });
-  grid.innerHTML = '<div class="profile-loading">🌱 Loading your family…</div>';
+  grid.innerHTML = '<div class="profile-loading">' + T('🌱 Loading your family…') + '</div>';
   withTimeout(Net.fetchProfiles(), 14000).then(list => {
     if (token !== profileScreenToken) return;
     cloudProfiles = list;
-    setText($('#world-status'), `🟢 ${list.length}/${MAX_WORLD_GARDENERS} gardens`);
+    setText($('#world-status'), T`🟢 ${list.length}/${MAX_WORLD_GARDENERS} gardens`);
     grid.innerHTML = '';
     const ids = new Set(list.map(p => p.id));
     list.sort((a, b) => (a.slot | 0) - (b.slot | 0)).forEach(p => grid.appendChild(profileCard({ id: p.id, name: shortName(p.name), avatar: shortAvatar(p.avatar) }, +p.s || 0)));
-    getProfiles().filter(p => !ids.has(p.id)).forEach(p => grid.appendChild(profileCard(p, localShk(p.id), '📱 Tap to bring into the world')));
-    if (!grid.children.length) setText($('#profile-subtitle'), 'Make your gardener to start!');
-    else setText($('#profile-hint'), 'Right-click or long-press a gardener to delete it');
+    getProfiles().filter(p => !ids.has(p.id)).forEach(p => grid.appendChild(profileCard(p, localShk(p.id), T('📱 Tap to bring into the world'))));
+    if (!grid.children.length) setText($('#profile-subtitle'), T('Make your gardener to start!'));
+    else setText($('#profile-hint'), T('Right-click or long-press a gardener to delete it'));
   }).catch(() => {
     if (token !== profileScreenToken) return;
     cloudProfiles = null;
-    setText($('#world-status'), '🔴 Offline — playing on this device');
+    setText($('#world-status'), T('🔴 Offline — playing on this device'));
     renderLocal();
   });
 }
@@ -3153,14 +3183,14 @@ function showWorldModal() {
   const suggestion = 'GARDEN-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
   modal.innerHTML = `
     <div class="profile-modal-box">
-      <h2>🌍 Play together</h2>
-      <p class="world-explain">Everyone in your family types the <b>same secret code</b> on their own device. Then you all play in one world — each with your own garden — and you can see each other!</p>
+      <h2>${T('🌍 Play together')}</h2>
+      <p class="world-explain">${T('Everyone in your family types the <b>same secret code</b> on their own device. Then you all play in one world — each with your own garden — and you can see each other!')}</p>
       <input type="text" id="world-code-input" placeholder="SECRET-CODE" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false">
-      <p class="world-explain small">At least ${Net.MIN_CODE} letters or numbers. Make it hard to guess and <b>only share it with your family</b>.</p>
-      <button class="btn small alt" id="world-make-btn">✨ Make a code for me</button>
+      <p class="world-explain small">${T`At least ${Net.MIN_CODE} letters or numbers. Make it hard to guess and <b>only share it with your family</b>.`}</p>
+      <button class="btn small alt" id="world-make-btn">${T('✨ Make a code for me')}</button>
       <div class="modal-buttons">
-        <button class="btn big" id="world-go-btn">Join world 🌍</button>
-        <button class="btn alt" id="world-cancel-btn">Cancel</button>
+        <button class="btn big" id="world-go-btn">${T('Join world 🌍')}</button>
+        <button class="btn alt" id="world-cancel-btn">${T('Cancel')}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -3168,7 +3198,7 @@ function showWorldModal() {
   const go = () => {
     const code = Net.cleanCode(input.value);
     if (code.length < Net.MIN_CODE) { input.classList.add('shake'); setTimeout(() => input.classList.remove('shake'), 400); input.focus(); return; }
-    if (!Net.available) { alert("Can't reach the internet right now — try again when you're online."); return; }
+    if (!Net.available) { alert(T("Can't reach the internet right now — try again when you're online.")); return; }
     Net.setWorld(code);
     modal.remove();
     Sfx.play('unlock');
@@ -3190,21 +3220,21 @@ function showConnecting(text) {
 function hideConnecting() { const el = document.getElementById('net-overlay'); if (el) el.remove(); }
 
 function showNewProfileModal() {
-  if (cloudProfiles && cloudProfiles.length >= MAX_WORLD_GARDENERS) { alert(`This family world already has ${MAX_WORLD_GARDENERS} gardens — it's full! Long-press a gardener to delete it.`); return; }
-  if (!cloudProfiles && getProfiles().length >= MAX_PROFILES) { alert('Maximum 10 gardeners! Long-press one to delete it.'); return; }
+  if (cloudProfiles && cloudProfiles.length >= MAX_WORLD_GARDENERS) { alert(T`This family world already has ${MAX_WORLD_GARDENERS} gardens — it's full! Long-press a gardener to delete it.`); return; }
+  if (!cloudProfiles && getProfiles().length >= MAX_PROFILES) { alert(T('Maximum 10 gardeners! Long-press one to delete it.')); return; }
   const modal = document.createElement('div');
   modal.id = 'new-profile-modal';
   modal.innerHTML = `
     <div class="profile-modal-box">
-      <h2>New Gardener</h2>
-      <input type="text" id="profile-name-input" placeholder="Your name..." maxlength="12" autocomplete="off">
-      <p class="modal-label">Pick an avatar:</p>
+      <h2>${T('New Gardener')}</h2>
+      <input type="text" id="profile-name-input" placeholder="${T('Your name...')}" maxlength="12" autocomplete="off">
+      <p class="modal-label">${T('Pick an avatar:')}</p>
       <div class="avatar-grid" id="avatar-grid"></div>
-      <p class="modal-label">Choose your character:</p>
+      <p class="modal-label">${T('Choose your character:')}</p>
       <div class="skin-grid" id="skin-grid"></div>
       <div class="modal-buttons">
-        <button class="btn big" id="create-profile-btn">Let's grow! 🌱</button>
-        <button class="btn alt" id="cancel-profile-btn">Cancel</button>
+        <button class="btn big" id="create-profile-btn">${T("Let's grow! 🌱")}</button>
+        <button class="btn alt" id="cancel-profile-btn">${T('Cancel')}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -3227,7 +3257,7 @@ function showNewProfileModal() {
   });
   const more = document.createElement('div');
   more.className = 'skin-more';
-  more.textContent = '🥷 🦔 ⚔️ More outfits in the wardrobe!';
+  more.textContent = T('🥷 🦔 ⚔️ More outfits in the wardrobe!');
   sg.appendChild(more);
   const input = document.getElementById('profile-name-input');
   const create = () => {
@@ -3248,7 +3278,7 @@ function showNewProfileModal() {
 
 async function deleteProfile(id) {
   if (cloudProfiles && cloudProfiles.some(p => p.id === id)) {
-    try { await Net.deleteProfile(id); } catch (e) { alert("Couldn't reach the family world — try again in a moment."); return; }
+    try { await Net.deleteProfile(id); } catch (e) { alert(T("Couldn't reach the family world — try again in a moment.")); return; }
   }
   saveProfiles(getProfiles().filter(p => p.id !== id));
   localStorage.removeItem(SAVE_PREFIX + id);
@@ -3264,14 +3294,14 @@ async function selectProfile(id) {
   const modal = document.getElementById('new-profile-modal'); if (modal) modal.remove();
   if (Net.world && Net.available && cloudProfiles) {
     selecting = true;
-    showConnecting('Joining your family world…');
+    showConnecting(T('Joining your family world…'));
     let slot = -1, offline = false;
     try { slot = await withTimeout(joinWorldAs(id), 20000); } catch (e) { offline = true; }
     hideConnecting();
     selecting = false;
-    if (offline && !getProfiles().some(p => p.id === id)) { alert("Couldn't reach the family world — check the internet and try again!"); return; }
+    if (offline && !getProfiles().some(p => p.id === id)) { alert(T("Couldn't reach the family world — check the internet and try again!")); return; }
     if (!offline && slot < 0) return;
-    if (offline) setTimeout(() => showToast('📴', "Couldn't reach the family world — playing on this device for now"), 800);
+    if (offline) setTimeout(() => showToast('📴', T("Couldn't reach the family world — playing on this device for now")), 800);
     else { mySlot = slot; netMode = true; }
   }
   activeProfileId = id;
@@ -3323,7 +3353,7 @@ function normalizeState(st) {
   if (typeof st.sheckles !== 'number' || !isFinite(st.sheckles)) st.sheckles = 50;
   st.gear.shovel = 1;
   ['farmer', 'noob'].forEach(s => { if (!st.unlockedSkins.includes(s)) st.unlockedSkins.push(s); });
-  if (!st.pets.length) st.pets.push({ id: 'buddy', type: 'dog', name: 'Buddy', age: 0 });
+  if (!st.pets.length) st.pets.push({ id: 'buddy', type: 'dog', name: T('Buddy'), age: 0 });
   st.pets = st.pets.filter(p => PETS[p.type]);
   st.equipped = st.equipped.filter(id => st.pets.some(p => p.id === id)).slice(0, MAX_PETS_EQUIPPED);
   st.fruits = st.fruits.filter(f => f && getSeedData(f.s)).map(f => {
@@ -3688,13 +3718,20 @@ function orlahPhase(p) {
   return y <= MITZVAH.ORLAH_YEARS ? 'orlah' : y === MITZVAH.ORLAH_YEARS + 1 ? 'revai' : 'free';
 }
 
-// ─── Peah: the back corner of each garden's right-hand bed ───
-function peahRect(g) {
+// ─── Peah: one corner at the far end of each bed ───
+// Peah is left once per field, at its end (Rashi on Vayikra 19:9; Rambam, Matnot Aniyim 2:12).
+// The permanent path down the middle splits the garden into two fields (Mishnah Peah 2:1),
+// so each bed gets its own Peah (Rambam, Matnot Aniyim 3:1).
+function peahRects(g) {
   g = g || MY_GARDEN;
   const back = g.z + g.dir * BED_Z, inner = back - g.dir * MITZVAH.PEAH_D;
-  return { x1: g.x + BED_X1 - MITZVAH.PEAH_W, x2: g.x + BED_X1, z1: Math.min(back, inner), z2: Math.max(back, inner), back };
+  const z1 = Math.min(back, inner), z2 = Math.max(back, inner);
+  return [
+    { x1: g.x + BED_X1 - MITZVAH.PEAH_W, x2: g.x + BED_X1, z1, z2, back },
+    { x1: g.x - BED_X1, x2: g.x - BED_X1 + MITZVAH.PEAH_W, z1, z2, back },
+  ];
 }
-function inPeah(x, z) { const r = peahRect(); return x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2; }
+function inPeah(x, z) { return peahRects().some(r => x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2); }
 const isPeahPlant = p => inPeah(p.x, p.z);
 // Why you may not pick this yourself (null = go ahead)
 function harvestBlock(p) {
@@ -3777,9 +3814,9 @@ function showNextTeach() {
   const id = teachQueue.shift();
   const body = $('#teach-body');
   if (id === 'rut') {
-    body.innerHTML = `<div class="teach-emoji">👩‍🌾</div><h3>Meet Rut!</h3><p>Rut comes to gather the gifts you leave for the poor — just like <b>Ruth</b> gleaning in Boaz's field. Every gift you leave brings you a <b>blessing</b>!</p>${sourceHTML('ruth2_2')}`;
+    body.innerHTML = `<div class="teach-emoji">👩‍🌾</div><h3>${T`Meet Rut!`}</h3><p>${T`Rut comes to gather the gifts you leave for the poor — just like <b>Ruth</b> gleaning in Boaz's field. Every gift you leave brings you a <b>blessing</b>!`}</p>${sourceHTML('ruth2_2')}`;
   } else if (id === 'intro') {
-    body.innerHTML = `<div class="teach-emoji">📜</div><h3>Mitzvot of the Garden!</h3><p>Your garden is bigger now, and it follows the Torah's farming mitzvot: <b>Peah, Leket, Shichecha, Kilayim, Orlah, Bikkurim, Ma'aser</b> and <b>Shemitah</b>. Keep them to earn ⭐ stars and blessings!</p><p>Every day in the game is one garden year. Open the 📜 <b>Mitzvot</b> book to learn them all.</p>`;
+    body.innerHTML = `<div class="teach-emoji">📜</div><h3>${T`Mitzvot of the Garden!`}</h3><p>${T`Your garden is bigger now, and it follows the Torah's farming mitzvot: <b>Peah, Leket, Shichecha, Kilayim, Orlah, Bikkurim, Ma'aser</b> and <b>Shemitah</b>. Keep them to earn ⭐ stars and blessings!`}</p><p>${T`Every day in the game is one garden year. Open the 📜 <b>Mitzvot</b> book to learn them all.`}</p>`;
   } else {
     const m = MITZVOT.find(x => x.id === id);
     if (!m) return;
@@ -3792,6 +3829,7 @@ function sourceHTML(key) {
   const s = SOURCES[key];
   if (!s) return '';
   const url = 'https://www.sefaria.org/' + encodeURIComponent(s.ref.replace(/ /g, '_').replace(':', '.'));
+  if (IS_HE) return `<div class="source"><div class="src-he" dir="rtl" lang="he">${s.he}</div><a class="src-ref" href="${url}" target="_blank" rel="noopener">📖 ${s.heRef || s.ref}</a></div>`;
   return `<div class="source"><div class="src-he" dir="rtl" lang="he">${s.he}</div><div class="src-en">“${s.en}”</div><a class="src-ref" href="${url}" target="_blank" rel="noopener">📖 ${s.ref}</a></div>`;
 }
 
@@ -3844,18 +3882,18 @@ function spawnRut() {
   const basket = new THREE.Mesh(bb.build(), MATS.voxel);
   basket.position.set(0.42, 0.75, 0.15);
   model.add(basket);
-  const label = textSprite('🌾 Rut', '#FFFFFF');
+  const label = textSprite(T('🌾 Rut'), '#FFFFFF');
   label.scale.multiplyScalar(0.8);
   scene.add(model, label);
   rut = { model, label, x: gate.x, z: gate.z, target: null, wait: 0, leaving: false, got: 0, value: 0, stars: 0, walk: 0 };
   model.position.set(rut.x, 0, rut.z);
-  if (!teach('rut') && Math.hypot(playerPos.x - gate.x, playerPos.z - gate.z) < 30) showToast('👩‍🌾', 'Rut is coming to gather the gifts for the poor!');
+  if (!teach('rut') && Math.hypot(playerPos.x - gate.x, playerPos.z - gate.z) < 30) showToast('👩‍🌾', T('Rut is coming to gather the gifts for the poor!'));
 }
 function despawnRut() {
   scene.remove(rut.model, rut.label);
   rut.label.material.map.dispose(); rut.label.material.dispose();
   if (rut.got) {
-    showToast('💙', `Rut gathered ${rut.got} gift${rut.got > 1 ? 's' : ''} for the poor. Blessing: +¢${fmtSheckles(rut.value)} ⭐+${rut.stars}`);
+    showToast('💙', rut.got > 1 ? T`Rut gathered ${rut.got} gifts for the poor. Blessing: +¢${fmtSheckles(rut.value)} ⭐+${rut.stars}` : T`Rut gathered 1 gift for the poor. Blessing: +¢${fmtSheckles(rut.value)} ⭐+${rut.stars}`);
     Sfx.play('quest');
   }
   rut = null;
@@ -3887,8 +3925,8 @@ function collectGift(t) {
   gameState.sheckles += value;
   gameState.totalEarned += value;
   rut.got += count; rut.value += value; rut.stars += stars;
-  mitzvah(t.kind, stars, t.kind === 'peah' ? 'Peah' : t.kind === 'leket' ? 'Leket' : 'Shichecha', t.x, t.z);
-  floatText(t.x, 1.7, t.z, '💙 Thank you!', '#B3E5FC');
+  mitzvah(t.kind, stars, t.kind === 'peah' ? T('Peah') : t.kind === 'leket' ? T('Leket') : T('Shichecha'), t.x, t.z);
+  floatText(t.x, 1.7, t.z, T('💙 Thank you!'), '#B3E5FC');
   spawnParticles(t.x, 0.8, t.z, [0x90CAF9, 0xFFFFFF, 0xFFE082], 16, 2.5, 0.09);
   Sfx.play('coin');
   updateHUD(); saveGame();
@@ -3940,11 +3978,11 @@ function checkShichecha() {
       tripHarvests.some(h => Math.hypot(h.x - p.x, h.z - p.z) < 3.2));
     if (forgot.length && forgot.length <= 2) {
       forgot.forEach(p => { p.sh = 1; refreshPlantView(p); });
-      if (!teach('shichecha')) showToast('🧺', `You forgot ${forgot.length === 1 ? 'one' : 'two'} — that's Shichecha! Don't go back; it's for the poor.`);
+      if (!teach('shichecha')) showToast('🧺', forgot.length === 1 ? T`You forgot one — that's Shichecha! Don't go back; it's for the poor.` : T`You forgot two — that's Shichecha! Don't go back; it's for the poor.`);
       saveGame();
     } else if (forgot.length >= 3 && !gameState.mz.tips.three) {
       gameState.mz.tips.three = 1;
-      showToast('🧺', 'You left 3 or more behind — that\'s not "forgetting", so they\'re still yours! (Mishnah Peah 6:5)');
+      showToast('🧺', T('You left 3 or more behind — that\'s not "forgetting", so they\'re still yours! (Mishnah Peah 6:5)'));
     }
     tripHarvests = [];
   }
@@ -3969,11 +4007,11 @@ function tickYears() {
       if (p.fruits) p.fruits = p.fruits.map(() => null);   // fruit that grew in the Orlah years is buried
       spawnParticles(p.x, 1.5, p.z, [0xFFE082, 0xFFFFFF, 0x81C784], 30, 3, 0.1);
       const s = getSeedData(p.s);
-      mitzvah('orlah', 3, 'Orlah kept!', p.x, p.z);
-      showToast('🌳', `Your ${s.name} finished 3 years of Orlah! Its old fruit falls away — new fruit is Revai 🏛️.`);
+      mitzvah('orlah', 3, T('Orlah kept!'), p.x, p.z);
+      showToast('🌳', T`Your ${s.name} finished 3 years of Orlah! Its old fruit falls away — new fruit is Revai 🏛️.`);
       teach('revai');
     } else if (was === 'revai' && ph === 'free') {
-      showToast('🌳', `Your ${getSeedData(p.s).name}'s fruit is now yours to sell!`);
+      showToast('🌳', T`Your ${getSeedData(p.s).name}'s fruit is now yours to sell!`);
     }
     refreshPlantView(p);
   });
@@ -3981,14 +4019,14 @@ function tickYears() {
     const cy = cycleYear(yi);
     refreshAllPlants();
     if (cy === MITZVAH.YEAR_CYCLE) {
-      bigBanner('🌿 Shemitah Year!', 'The land rests — no planting this year.<br>Fruit you pick is holy Shevi\'it fruit: eat it, don\'t sell it.');
+      bigBanner(T('🌿 Shemitah Year!'), T('The land rests — no planting this year.<br>Fruit you pick is holy Shevi\'it fruit: eat it, don\'t sell it.'));
       teach('shemitah');
     } else if (cy === 1 && gameState.mz.restYear === yi - 1) {
       mitzvah('shemitah', 7);
-      bigBanner('🌱 The land rested!', `You kept Shemitah! ⭐+7<br>A new 7-year cycle begins — you can plant again.`);
+      bigBanner(T('🌱 The land rested!'), T`You kept Shemitah! ⭐+7<br>A new 7-year cycle begins — you can plant again.`);
     } else if (cy === MITZVAH.YEAR_CYCLE - 1) {
-      bigBanner('✨ Year 6 — a blessing!', '"I will command My blessing upon you in the sixth year" (Vayikra 25:21)<br>Every harvest is doubled this year!');
-    } else showToast('📅', `A new garden year: Year ${cy} of 7`);
+      bigBanner(T('✨ Year 6 — a blessing!'), T('"I will command My blessing upon you in the sixth year" (Vayikra 25:21)<br>Every harvest is doubled this year!'));
+    } else showToast('📅', T`A new garden year: Year ${cy} of 7`);
     saveGame();
   }
   lastYear = yi;
@@ -4000,7 +4038,7 @@ function updateYearHUD(bump) {
   const el = $('#year-text');
   if (!el) return;
   const left = fmtTime(yearSecondsLeft());
-  setHTML(el, cy === 7 ? `🌿 <b>Shemitah</b> <span class="dim">${left}</span>` : cy === 6 ? `✨ <b>Year 6</b> blessed <span class="dim">${left}</span>` : `📅 Year <b>${cy}</b> of 7 <span class="dim">${left}</span>`);
+  setHTML(el, cy === 7 ? T`🌿 <b>Shemitah</b> <span class="dim">${left}</span>` : cy === 6 ? T`✨ <b>Year 6</b> blessed <span class="dim">${left}</span>` : T`📅 Year <b>${cy}</b> of 7 <span class="dim">${left}</span>`);
   $('#year-card').classList.toggle('shemitah', cy === 7);
   $('#year-card').classList.toggle('blessed', cy === 6);
   setText($('#star-count'), fmtSheckles(gameState.mz.stars));
@@ -4014,27 +4052,27 @@ function openTemple() {
   const mz = gameState.mz;
   const basket = document.createElement('div');
   basket.className = 'species-basket';
-  basket.innerHTML = '<div class="section-title">🎀 Bikkurim — the Seven Species</div>' + Object.entries(SEVEN_SPECIES).map(([k, s]) =>
+  basket.innerHTML = '<div class="section-title">' + T('🎀 Bikkurim — the Seven Species') + '</div>' + Object.entries(SEVEN_SPECIES).map(([k, s]) =>
     `<div class="species${mz.bik.includes(k) ? ' got' : ''}"><span>${s.emoji}</span><b>${s.name}</b><small dir="rtl">${s.he}</small></div>`).join('');
   body.appendChild(basket);
   const bik = gameState.fruits.filter(f => f.bk);
   const rv = gameState.fruits.filter(f => f.rv);
   if (!bik.length && !rv.length) {
     const p = document.createElement('p'); p.className = 'empty-msg';
-    p.innerHTML = 'Grow the Seven Species 🌾🍇🫒🌴 in your garden. When one ripens for the first time, tie a reed 🎀 and bring it here!<br><br>Fruit from a tree in its 4th year (Neta Revai 🏛️) comes here too.';
+    p.innerHTML = T('Grow the Seven Species 🌾🍇🫒🌴 in your garden. When one ripens for the first time, tie a reed 🎀 and bring it here!<br><br>Fruit from a tree in its 4th year (Neta Revai 🏛️) comes here too.');
     body.appendChild(p);
   }
   bik.forEach(f => {
     const s = getSeedData(f.s), sp = SPECIES_OF_SEED[f.s];
     const row = document.createElement('div'); row.className = 'fruit-row'; row.style.setProperty('--rar', '#FFD54F');
-    row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>Bikkurim: ${s.name}</b><div class="kg">First fruits of the ${SEVEN_SPECIES[sp].name}</div></div><button class="btn small">Give 🧺</button>`;
+    row.innerHTML = `<span class="fr-emoji">${s.emoji}</span><div class="fr-info"><b>${T`Bikkurim: ${s.name}`}</b><div class="kg">${T`First fruits of the ${SEVEN_SPECIES[sp].name}`}</div></div><button class="btn small">${T`Give 🧺`}</button>`;
     row.querySelector('button').addEventListener('click', e => bringBikkurim(f, e.currentTarget));
     body.appendChild(row);
   });
   if (rv.length) {
     const worth = rv.reduce((a, f) => a + fruitValue(f), 0);
     const row = document.createElement('div'); row.className = 'fruit-row'; row.style.setProperty('--rar', '#90CAF9');
-    row.innerHTML = `<span class="fr-emoji">🏛️</span><div class="fr-info"><b>${rv.length} Neta Revai fruit</b><div class="kg">Eat them in Yerushalayim, praising Hashem</div></div><button class="btn small">¢${fmtSheckles(worth)}</button>`;
+    row.innerHTML = `<span class="fr-emoji">🏛️</span><div class="fr-info"><b>${T`${rv.length} Neta Revai fruit`}</b><div class="kg">${T`Eat them in Yerushalayim, praising Hashem`}</div></div><button class="btn small">¢${fmtSheckles(worth)}</button>`;
     row.querySelector('button').addEventListener('click', e => {
       const r = e.currentTarget.getBoundingClientRect();
       gameState.fruits = gameState.fruits.filter(f => !f.rv);
@@ -4043,13 +4081,13 @@ function openTemple() {
       mitzvah(null, rv.length);
       coinFly(r.left + r.width / 2, r.top, 6);
       Sfx.play('coin');
-      showToast('🏛️', `You enjoyed your Revai fruit in Yerushalayim! +¢${fmtSheckles(worth)} ⭐+${rv.length}`);
+      showToast('🏛️', T`You enjoyed your Revai fruit in Yerushalayim! +¢${fmtSheckles(worth)} ⭐+${rv.length}`);
       updateHUD(); saveGame(); openTemple();
     });
     body.appendChild(row);
   }
   const t = document.createElement('p'); t.className = 'note';
-  t.innerHTML = `From your sales so far: 🌾 Terumah to the Kohen ¢${fmtSheckles(mz.terumahTotal || 0)} • 🪙 Ma'aser to the Levi ¢${fmtSheckles(mz.maaserTotal || 0)}`;
+  t.innerHTML = T`From your sales so far: 🌾 Terumah to the Kohen ¢${fmtSheckles(mz.terumahTotal || 0)} • 🪙 Ma'aser to the Levi ¢${fmtSheckles(mz.maaserTotal || 0)}`;
   body.appendChild(t);
   body.insertAdjacentHTML('beforeend', sourceHTML('deut26_2'));
   openPanel('temple-panel');
@@ -4070,8 +4108,8 @@ function bringBikkurim(f, btn) {
     const bonus = Math.round(7000 * wealthScale());
     gameState.sheckles += bonus; gameState.totalEarned += bonus;
     checkAchievement('seven_species');
-    setTimeout(() => bigBanner('✡️ All Seven Species!', `"A land of wheat and barley, vines, figs and pomegranates, olives and dates"<br>Bonus +¢${fmtSheckles(bonus)}`), 400);
-  } else bigBanner('🎀 Bikkurim!', `"I have brought the first of the fruit of the land" (Devarim 26:10)<br>+¢${fmtSheckles(reward)} ⭐+5 • ${gameState.mz.bik.length} of 7 species`);
+    setTimeout(() => bigBanner(T('✡️ All Seven Species!'), T`"A land of wheat and barley, vines, figs and pomegranates, olives and dates"<br>Bonus +¢${fmtSheckles(bonus)}`), 400);
+  } else bigBanner(T('🎀 Bikkurim!'), T`"I have brought the first of the fruit of the land" (Devarim 26:10)<br>+¢${fmtSheckles(reward)} ⭐+5 • ${gameState.mz.bik.length} of 7 species`);
   updateHUD(); refreshAllPlants(); saveGame(); openTemple();
 }
 
@@ -4080,16 +4118,16 @@ function openMitzvot() {
   const body = $('#mitzvot-body');
   const mz = gameState.mz;
   const cy = cycleYear();
-  let html = `<div class="mz-head"><div class="mz-stars">⭐ <b>${fmtSheckles(mz.stars)}</b> mitzvah stars</div>
-    <div class="mz-year">${cy === 7 ? '🌿 Shemitah year — the land rests' : cy === 6 ? '✨ Year 6 — harvests are doubled!' : `📅 Garden year ${cy} of 7`} <span class="dim">• next year in ${fmtTime(yearSecondsLeft())}</span></div>
+  let html = `<div class="mz-head"><div class="mz-stars">${T`⭐ <b>${fmtSheckles(mz.stars)}</b> mitzvah stars`}</div>
+    <div class="mz-year">${cy === 7 ? T('🌿 Shemitah year — the land rests') : cy === 6 ? T('✨ Year 6 — harvests are doubled!') : T`📅 Garden year ${cy} of 7`} <span class="dim">${T`• next year in ${fmtTime(yearSecondsLeft())}`}</span></div>
     <div class="species-row">${Object.entries(SEVEN_SPECIES).map(([k, s]) => `<span class="${mz.bik.includes(k) ? 'got' : ''}" title="${s.name}">${s.emoji}</span>`).join('')}</div></div>`;
   MITZVOT.forEach(m => {
     const n = m.stat === 'bik' ? mz.bik.length : m.stat ? (mz[m.stat] || 0) : null;
     html += `<details class="mz-card"${m.id === 'peah' ? ' open' : ''}><summary><span class="mz-emoji">${m.emoji}</span><span class="mz-title"><span class="he" dir="rtl">${m.he}</span><b>${m.name}</b></span>${n != null ? `<span class="mz-count">${n}${m.stat === 'bik' ? '/7' : ''}</span>` : ''}</summary>
       <p>${m.what}</p><p class="teach-game">🎮 ${m.game}</p>${m.fact ? `<p class="mz-fact">💡 ${m.fact}</p>` : ''}
-      ${m.sources.map(sourceHTML).join('')}${n != null && m.unit ? `<p class="mz-done">You did it <b>${n}</b> ${m.stat === 'bik' ? 'of 7 — ' + m.unit : m.unit}</p>` : ''}</details>`;
+      ${m.sources.map(sourceHTML).join('')}${n != null && m.unit ? `<p class="mz-done">${m.stat === 'bik' ? T`You did it <b>${n}</b> of 7 — ${m.unit}` : T`You did it <b>${n}</b> ${m.unit}`}</p>` : ''}</details>`;
   });
-  html += `<p class="mz-credit">Texts from <a href="https://www.sefaria.org" target="_blank" rel="noopener">Sefaria</a>: Tanakh in English from JPS 1917 (public domain); Mishnah in English from Mishnah Yomit by Dr. Joshua Kulp (CC-BY). The game makes the halachot simpler so they're fun to learn — ask your rabbi for the real details!</p>`;
+  html += `<p class="mz-credit">${T`Texts from <a href="https://www.sefaria.org" target="_blank" rel="noopener">Sefaria</a>: Tanakh in English from JPS 1917 (public domain); Mishnah in English from Mishnah Yomit by Dr. Joshua Kulp (CC-BY). The game makes the halachot simpler so they're fun to learn — ask your rabbi for the real details!`}</p>`;
   body.innerHTML = html;
   openPanel('mitzvot-panel');
 }
@@ -4100,7 +4138,7 @@ function openMitzvot() {
 //  gardens growing, and can wave with kid-safe preset emotes.
 // ════════════════════════════════════════════
 const MAX_WORLD_GARDENERS = GARDENS.length;
-const EMOTES = [['👋', 'Hi!'], ['❤️', ''], ['😂', 'LOL'], ['🌱', 'Nice garden!'], ['🛒', 'To the shop!'], ['⭐', 'Wow!'], ['🎉', 'Yay!'], ['🙏', 'Thank you!']];
+const EMOTES = [['👋', T('Hi!')], ['❤️', ''], ['😂', T('LOL')], ['🌱', T('Nice garden!')], ['🛒', T('To the shop!')], ['⭐', T('Wow!')], ['🎉', T('Yay!')], ['🙏', T('Thank you!')]];
 const remotePlayers = new Map();   // pid → { model, label, bubble, ... }
 const worldProfiles = new Map();   // pid → { name, avatar, skin, slot, s }
 const worldGardens = new Map();    // pid → { snap, t }
@@ -4126,7 +4164,7 @@ function myInfo() {
 async function joinWorldAs(id) {
   await Net.connect();
   if (await Net.isPlayingElsewhere(id)) {
-    alert('This gardener is already playing on another device! Pick a different gardener, or close the game there first.');
+    alert(T('This gardener is already playing on another device! Pick a different gardener, or close the game there first.'));
     return -1;
   }
   const cloud = await Net.fetchProfiles();
@@ -4135,7 +4173,7 @@ async function joinWorldAs(id) {
   let slot = mine && validSlot(mine.slot) && !taken.has(mine.slot) ? mine.slot : -1;
   if (slot < 0) for (let i = 0; i < GARDENS.length; i++) if (!taken.has(i)) { slot = i; break; }
   if (slot < 0) {
-    alert(`This family world already has ${MAX_WORLD_GARDENERS} gardens — it's full! Delete a gardener you don't use anymore to make room.`);
+    alert(T`This family world already has ${MAX_WORLD_GARDENERS} gardens — it's full! Delete a gardener you don't use anymore to make room.`);
     return -1;
   }
   // Use whichever save is newer: the one on this device or the one in the cloud
@@ -4183,7 +4221,7 @@ function onRemotePlayer(pid, v) {
   if (!r) {
     r = { x: +v.x || 0, z: +v.z || 0, y: 0, r: +v.r || 0, walk: 0, et: v.et || 0, bubbleLeft: 0 };
     remotePlayers.set(pid, r);
-    showToast(avatar, `${name} is here!`);
+    showToast(avatar, T`${name} is here!`);
     Sfx.play('pop');
   }
   if (r.skin !== skin) {
@@ -4221,7 +4259,7 @@ function removeRemote(pid) {
   [r.model, r.label, r.bubble].forEach(o => { if (o) scene.remove(o); });
   [r.label, r.bubble].forEach(o => { if (o) { o.material.map.dispose(); o.material.dispose(); } });
   remotePlayers.delete(pid);
-  if (started) showToast('👋', `${r.name || 'A gardener'} left`);
+  if (started) showToast('👋', T`${r.name || T('A gardener')} left`);
   updateOnlineCount();
 }
 function updateRemotePlayers(dt) {
@@ -4532,16 +4570,16 @@ function startProfile() {
   lastFocusKey = '?';
   lastSlot = shopSlot(SHOP_RESTOCK);
   if (result === 'migrated') {
-    setTimeout(() => bigBanner('🎉 Big Update!', 'Your garden moved to the new world!<br>Coins became ¢ Sheckles, crops are in your 🎒 Backpack, and Buddy is your first pet 🐶'), 600);
+    setTimeout(() => bigBanner(T('🎉 Big Update!'), T('Your garden moved to the new world!<br>Coins became ¢ Sheckles, crops are in your 🎒 Backpack, and Buddy is your first pet 🐶')), 600);
     saveGame();
   } else if (result === 'loaded') {
     const ripe = gameState.plants.filter(plantRipe).length;
-    if (ripe) showToast('🌅', `Welcome back! ${ripe} plant${ripe > 1 ? 's have' : ' has'} fruit ready!`);
+    if (ripe) showToast('🌅', ripe > 1 ? T`Welcome back! ${ripe} plants have fruit ready!` : T`Welcome back! 1 plant has fruit ready!`);
     setTimeout(maybeDailyGift, 900);
   } else {
     gameState.lastDaily = todayStr();
     gameState.dailyStreak = 1;
-    setTimeout(() => showToast('👋', 'Welcome! Follow the pointing hand 👇 to plant your first seed.'), 600);
+    setTimeout(() => showToast('👋', T('Welcome! Follow the pointing hand 👇 to plant your first seed.')), 600);
     saveGame();
   }
 }
@@ -4551,6 +4589,7 @@ window.addEventListener('beforeunload', () => { if (started) saveGame(true); });
 window.addEventListener('pagehide', () => { if (started) saveGame(true); });
 
 function boot() {
+  applyStaticLanguage();
   initRenderer();
   initMaterials();
   initSky();
@@ -4584,7 +4623,7 @@ window.__garden = {
   get player() { return { x: playerPos.x, z: playerPos.z, target: moveTarget && { x: moveTarget.x, z: moveTarget.z } }; },
   get mz() { return gameState.mz; },
   poke(x, z) { playerPos.set(x - Math.sin(playerFacing), 0, z - Math.cos(playerFacing)); focus = computeFocus(); const k = focus && focus.kind; interact(focus); return k; },
-  get garden() { return { x: MY_GARDEN.x, z: MY_GARDEN.z, dir: MY_GARDEN.dir, peah: peahRect() }; },
+  get garden() { return { x: MY_GARDEN.x, z: MY_GARDEN.z, dir: MY_GARDEN.dir, peah: peahRects()[0], peahs: peahRects() }; },
   get year() { return { cy: cycleYear(), idx: gardenYearIndex() }; },
   setYear(cy) { const cur = cycleYear(); dayOffset += ((cy - cur) % 7 + 7) % 7 || 0; tickYears(); },
   get gifts() { return gameState.gifts; },

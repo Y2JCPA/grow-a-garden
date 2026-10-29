@@ -43,6 +43,7 @@ function applyDataLanguage() {
     Object.entries(map).forEach(([id, v]) => {
       const row = table[id];
       if (!row) return;
+      if (row._en == null) row._en = row[fields[0]];
       if (typeof v === 'string') row[fields[0]] = v;
       else fields.forEach((f, i) => { if (v[i] != null) row[f] = v[i]; });
     });
