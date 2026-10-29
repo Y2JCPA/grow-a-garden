@@ -51,162 +51,224 @@ const SOURCES = {
  "lev19_9": {
   "ref": "Leviticus 19:9-10",
   "he": "וּבְקֻצְרְכֶם אֶת־קְצִיר אַרְצְכֶם לֹא תְכַלֶּה פְּאַת שָׂדְךָ לִקְצֹר וְלֶקֶט קְצִירְךָ לֹא תְלַקֵּט וְכַרְמְךָ לֹא תְעוֹלֵל וּפֶרֶט כַּרְמְךָ לֹא תְלַקֵּט לֶעָנִי וְלַגֵּר תַּעֲזֹב אֹתָם אֲנִי ה׳ אֱלֹקֵיכֶם",
-  "en": "And when ye reap the harvest of your land, thou shalt not wholly reap the corner of thy field, neither shalt thou gather the gleaning of thy harvest. And thou shalt not glean thy vineyard, neither shalt thou gather the fallen fruit of thy vineyard; thou shalt leave them for the poor and for the stranger: I am the LORD your G-d."
+  "en": "And when ye reap the harvest of your land, thou shalt not wholly reap the corner of thy field, neither shalt thou gather the gleaning of thy harvest. And thou shalt not glean thy vineyard, neither shalt thou gather the fallen fruit of thy vineyard; thou shalt leave them for the poor and for the stranger: I am the LORD your G-d.",
+  "heRef": "ויקרא י״ט:ט׳-י׳"
  },
  "deut24_19": {
   "ref": "Deuteronomy 24:19",
   "he": "כִּי תִקְצֹר קְצִירְךָ בְשָׂדֶךָ וְשָׁכַחְתָּ עֹמֶר בַּשָּׂדֶה לֹא תָשׁוּב לְקַחְתּוֹ לַגֵּר לַיָּתוֹם וְלָאַלְמָנָה יִהְיֶה לְמַעַן יְבָרֶכְךָ ה׳ אֱלֹקֶיךָ בְּכֹל מַעֲשֵׂה יָדֶיךָ",
-  "en": "When thou reapest thy harvest in thy field, and hast forgot a sheaf in the field, thou shalt not go back to fetch it; it shall be for the stranger, for the fatherless, and for the widow; that the LORD thy G-d may bless thee in all the work of thy hands."
+  "en": "When thou reapest thy harvest in thy field, and hast forgot a sheaf in the field, thou shalt not go back to fetch it; it shall be for the stranger, for the fatherless, and for the widow; that the LORD thy G-d may bless thee in all the work of thy hands.",
+  "heRef": "דברים כ״ד:י״ט"
  },
  "deut24_20": {
   "ref": "Deuteronomy 24:19-21",
   "he": "כִּי תִקְצֹר קְצִירְךָ בְשָׂדֶךָ וְשָׁכַחְתָּ עֹמֶר בַּשָּׂדֶה לֹא תָשׁוּב לְקַחְתּוֹ לַגֵּר לַיָּתוֹם וְלָאַלְמָנָה יִהְיֶה לְמַעַן יְבָרֶכְךָ ה׳ אֱלֹקֶיךָ בְּכֹל מַעֲשֵׂה יָדֶיךָ כִּי תַחְבֹּט זֵיתְךָ לֹא תְפַאֵר אַחֲרֶיךָ לַגֵּר לַיָּתוֹם וְלָאַלְמָנָה יִהְיֶה כִּי תִבְצֹר כַּרְמְךָ לֹא תְעוֹלֵל אַחֲרֶיךָ לַגֵּר לַיָּתוֹם וְלָאַלְמָנָה יִהְיֶה",
-  "en": "When thou reapest thy harvest in thy field, and hast forgot a sheaf in the field, thou shalt not go back to fetch it; it shall be for the stranger, for the fatherless, and for the widow; that the LORD thy G-d may bless thee in all the work of thy hands. When thou beatest thine olive-tree, thou shalt not go over the boughs again; it shall be for the stranger, for the fatherless, and for the widow. When thou gatherest the grapes of thy vineyard, thou shalt not glean it after thee; it shall be for the stranger, for the fatherless, and for the widow."
+  "en": "When thou reapest thy harvest in thy field, and hast forgot a sheaf in the field, thou shalt not go back to fetch it; it shall be for the stranger, for the fatherless, and for the widow; that the LORD thy G-d may bless thee in all the work of thy hands. When thou beatest thine olive-tree, thou shalt not go over the boughs again; it shall be for the stranger, for the fatherless, and for the widow. When thou gatherest the grapes of thy vineyard, thou shalt not glean it after thee; it shall be for the stranger, for the fatherless, and for the widow.",
+  "heRef": "דברים כ״ד:י״ט-כ״א"
  },
  "lev19_19": {
   "ref": "Leviticus 19:19",
   "he": "אֶת־חֻקֹּתַי תִּשְׁמֹרוּ בְּהֶמְתְּךָ לֹא־תַרְבִּיעַ כִּלְאַיִם שָׂדְךָ לֹא־תִזְרַע כִּלְאָיִם וּבֶגֶד כִּלְאַיִם שַׁעַטְנֵז לֹא יַעֲלֶה עָלֶיךָ",
-  "en": "Ye shall keep My statutes. Thou shalt not let thy cattle gender with a diverse kind; thou shalt not sow thy field with two kinds of seed; neither shall there come upon thee a garment of two kinds of stuff mingled together."
+  "en": "Ye shall keep My statutes. Thou shalt not let thy cattle gender with a diverse kind; thou shalt not sow thy field with two kinds of seed; neither shall there come upon thee a garment of two kinds of stuff mingled together.",
+  "heRef": "ויקרא י״ט:י״ט"
  },
  "deut22_9": {
   "ref": "Deuteronomy 22:9",
   "he": "לֹא־תִזְרַע כַּרְמְךָ כִּלְאָיִם פֶּן־תִּקְדַּשׁ הַמְלֵאָה הַזֶּרַע אֲשֶׁר תִּזְרָע וּתְבוּאַת הַכָּרֶם",
-  "en": "Thou shalt not sow thy vineyard with two kinds of seed; lest the fulness of the seed which thou hast sown be forfeited together with the increase of the vineyard."
+  "en": "Thou shalt not sow thy vineyard with two kinds of seed; lest the fulness of the seed which thou hast sown be forfeited together with the increase of the vineyard.",
+  "heRef": "דברים כ״ב:ט׳"
  },
  "deut22_11": {
   "ref": "Deuteronomy 22:11",
   "he": "לֹא תִלְבַּשׁ שַׁעַטְנֵז צֶמֶר וּפִשְׁתִּים יַחְדָּו",
-  "en": "Thou shalt not wear a mingled stuff, wool and linen together."
+  "en": "Thou shalt not wear a mingled stuff, wool and linen together.",
+  "heRef": "דברים כ״ב:י״א"
  },
  "lev19_23": {
   "ref": "Leviticus 19:23-25",
   "he": "וְכִי־תָבֹאוּ אֶל־הָאָרֶץ וּנְטַעְתֶּם כׇּל־עֵץ מַאֲכָל וַעֲרַלְתֶּם עׇרְלָתוֹ אֶת־פִּרְיוֹ שָׁלֹשׁ שָׁנִים יִהְיֶה לָכֶם עֲרֵלִים לֹא יֵאָכֵל וּבַשָּׁנָה הָרְבִיעִת יִהְיֶה כׇּל־פִּרְיוֹ קֹדֶשׁ הִלּוּלִים לַיהֹוָה וּבַשָּׁנָה הַחֲמִישִׁת תֹּאכְלוּ אֶת־פִּרְיוֹ לְהוֹסִיף לָכֶם תְּבוּאָתוֹ אֲנִי ה׳ אֱלֹקֵיכֶם",
-  "en": "And when ye shall come into the land, and shall have planted all manner of trees for food, then ye shall count the fruit thereof as forbidden; three years shall it be as forbidden unto you; it shall not be eaten. And in the fourth year all the fruit thereof shall be holy, for giving praise unto the LORD. But in the fifth year may ye eat of the fruit thereof, that it may yield unto you more richly the increase thereof: I am the LORD your G-d."
+  "en": "And when ye shall come into the land, and shall have planted all manner of trees for food, then ye shall count the fruit thereof as forbidden; three years shall it be as forbidden unto you; it shall not be eaten. And in the fourth year all the fruit thereof shall be holy, for giving praise unto the LORD. But in the fifth year may ye eat of the fruit thereof, that it may yield unto you more richly the increase thereof: I am the LORD your G-d.",
+  "heRef": "ויקרא י״ט:כ״ג-כ״ה"
  },
  "deut26_2": {
   "ref": "Deuteronomy 26:2",
   "he": "וְלָקַחְתָּ מֵרֵאשִׁית כׇּל־פְּרִי הָאֲדָמָה אֲשֶׁר תָּבִיא מֵאַרְצְךָ אֲשֶׁר ה׳ אֱלֹקֶיךָ נֹתֵן לָךְ וְשַׂמְתָּ בַטֶּנֶא וְהָלַכְתָּ אֶל־הַמָּקוֹם אֲשֶׁר יִבְחַר ה׳ אֱלֹקֶיךָ לְשַׁכֵּן שְׁמוֹ שָׁם",
-  "en": "that thou shalt take of the first of all the fruit of the ground, which thou shalt bring in from thy land that the LORD thy G-d giveth thee; and thou shalt put it in a basket and shalt go unto the place which the LORD thy G-d shall choose to cause His name to dwell there."
+  "en": "that thou shalt take of the first of all the fruit of the ground, which thou shalt bring in from thy land that the LORD thy G-d giveth thee; and thou shalt put it in a basket and shalt go unto the place which the LORD thy G-d shall choose to cause His name to dwell there.",
+  "heRef": "דברים כ״ו:ב׳"
  },
  "deut26_10": {
   "ref": "Deuteronomy 26:10-11",
   "he": "וְעַתָּה הִנֵּה הֵבֵאתִי אֶת־רֵאשִׁית פְּרִי הָאֲדָמָה אֲשֶׁר־נָתַתָּה לִּי ה׳ וְהִנַּחְתּוֹ לִפְנֵי ה׳ אֱלֹקֶיךָ וְהִשְׁתַּחֲוִיתָ לִפְנֵי ה׳ אֱלֹקֶיךָ וְשָׂמַחְתָּ בְכׇל־הַטּוֹב אֲשֶׁר נָתַן־לְךָ ה׳ אֱלֹקֶיךָ וּלְבֵיתֶךָ אַתָּה וְהַלֵּוִי וְהַגֵּר אֲשֶׁר בְּקִרְבֶּךָ",
-  "en": "And now, behold, I have brought the first of the fruit of the land, which Thou, O LORD, hast given me.’ And thou shalt set it down before the LORD thy G-d, and worship before the LORD thy G-d. And thou shalt rejoice in all the good which the LORD thy G-d hath given unto thee, and unto thy house, thou, and the Levite, and the stranger that is in the midst of thee."
+  "en": "And now, behold, I have brought the first of the fruit of the land, which Thou, O LORD, hast given me.’ And thou shalt set it down before the LORD thy G-d, and worship before the LORD thy G-d. And thou shalt rejoice in all the good which the LORD thy G-d hath given unto thee, and unto thy house, thou, and the Levite, and the stranger that is in the midst of thee.",
+  "heRef": "דברים כ״ו:י׳-י״א"
  },
  "deut8_8": {
   "ref": "Deuteronomy 8:8",
   "he": "אֶרֶץ חִטָּה וּשְׂעֹרָה וְגֶפֶן וּתְאֵנָה וְרִמּוֹן אֶרֶץ־זֵית שֶׁמֶן וּדְבָשׁ",
-  "en": "a land of wheat and barley, and vines and fig-trees and pomegranates; a land of olive-trees and honey;"
+  "en": "a land of wheat and barley, and vines and fig-trees and pomegranates; a land of olive-trees and honey;",
+  "heRef": "דברים ח׳:ח׳"
  },
  "deut14_22": {
   "ref": "Deuteronomy 14:22",
   "he": "עַשֵּׂר תְּעַשֵּׂר אֵת כׇּל־תְּבוּאַת זַרְעֶךָ הַיֹּצֵא הַשָּׂדֶה שָׁנָה שָׁנָה",
-  "en": "Thou shalt surely tithe all the increase of thy seed, that which is brought forth in the field year by year."
+  "en": "Thou shalt surely tithe all the increase of thy seed, that which is brought forth in the field year by year.",
+  "heRef": "דברים י״ד:כ״ב"
  },
  "deut18_4": {
   "ref": "Deuteronomy 18:4",
   "he": "רֵאשִׁית דְּגָנְךָ תִּירֹשְׁךָ וְיִצְהָרֶךָ וְרֵאשִׁית גֵּז צֹאנְךָ תִּתֶּן־לוֹ",
-  "en": "The first-fruits of thy corn, of thy wine, and of thine oil, and the first of the fleece of thy sheep, shalt thou give him."
+  "en": "The first-fruits of thy corn, of thy wine, and of thine oil, and the first of the fleece of thy sheep, shalt thou give him.",
+  "heRef": "דברים י״ח:ד׳"
  },
  "num18_26": {
   "ref": "Numbers 18:26",
   "he": "וְאֶל־הַלְוִיִּם תְּדַבֵּר וְאָמַרְתָּ אֲלֵהֶם כִּי־תִקְחוּ מֵאֵת בְּנֵי־יִשְׂרָאֵל אֶת־הַמַּעֲשֵׂר אֲשֶׁר נָתַתִּי לָכֶם מֵאִתָּם בְּנַחֲלַתְכֶם וַהֲרֵמֹתֶם מִמֶּנּוּ תְּרוּמַת ה׳ מַעֲשֵׂר מִן־הַמַּעֲשֵׂר",
-  "en": "’Moreover thou shalt speak unto the Levites, and say unto them: When ye take of the children of Israel the tithe which I have given you from them for your inheritance, then ye shall set apart of it a gift for the LORD, even a tithe of the tithe."
+  "en": "’Moreover thou shalt speak unto the Levites, and say unto them: When ye take of the children of Israel the tithe which I have given you from them for your inheritance, then ye shall set apart of it a gift for the LORD, even a tithe of the tithe.",
+  "heRef": "במדבר י״ח:כ״ו"
  },
  "mal3_10": {
   "ref": "Malachi 3:10",
   "he": "הָבִיאוּ אֶת־כׇּל־הַמַּעֲשֵׂר אֶל־בֵּית הָאוֹצָר וִיהִי טֶרֶף בְּבֵיתִי וּבְחָנוּנִי נָא בָּזֹאת אָמַר ה׳ צְבָאוֹת אִם־לֹא אֶפְתַּח לָכֶם אֵת אֲרֻבּוֹת הַשָּׁמַיִם וַהֲרִיקֹתִי לָכֶם בְּרָכָה עַד־בְּלִי־דָי",
-  "en": "Bring ye the whole tithe into the store-house, that there may be food in My house, and try Me now herewith, Saith the LORD of hosts, if I will not open you the windows of heaven, and pour you out a blessing, that there shall be more than sufficiency."
+  "en": "Bring ye the whole tithe into the store-house, that there may be food in My house, and try Me now herewith, Saith the LORD of hosts, if I will not open you the windows of heaven, and pour you out a blessing, that there shall be more than sufficiency.",
+  "heRef": "מלאכי ג׳:י׳"
  },
  "lev25_3": {
   "ref": "Leviticus 25:3-4",
   "he": "שֵׁשׁ שָׁנִים תִּזְרַע שָׂדֶךָ וְשֵׁשׁ שָׁנִים תִּזְמֹר כַּרְמֶךָ וְאָסַפְתָּ אֶת־תְּבוּאָתָהּ וּבַשָּׁנָה הַשְּׁבִיעִת שַׁבַּת שַׁבָּתוֹן יִהְיֶה לָאָרֶץ שַׁבָּת לַיהֹוָה שָׂדְךָ לֹא תִזְרָע וְכַרְמְךָ לֹא תִזְמֹר",
-  "en": "Six years thou shalt sow thy field, and six years thou shalt prune thy vineyard, and gather in the produce thereof. But in the seventh year shall be a sabbath of solemn rest for the land, a sabbath unto the LORD; thou shalt neither sow thy field, nor prune thy vineyard."
+  "en": "Six years thou shalt sow thy field, and six years thou shalt prune thy vineyard, and gather in the produce thereof. But in the seventh year shall be a sabbath of solemn rest for the land, a sabbath unto the LORD; thou shalt neither sow thy field, nor prune thy vineyard.",
+  "heRef": "ויקרא כ״ה:ג׳-ד׳"
  },
  "lev25_21": {
   "ref": "Leviticus 25:20-21",
   "he": "וְכִי תֹאמְרוּ מַה־נֹּאכַל בַּשָּׁנָה הַשְּׁבִיעִת הֵן לֹא נִזְרָע וְלֹא נֶאֱסֹף אֶת־תְּבוּאָתֵנוּ וְצִוִּיתִי אֶת־בִּרְכָתִי לָכֶם בַּשָּׁנָה הַשִּׁשִּׁית וְעָשָׂת אֶת־הַתְּבוּאָה לִשְׁלֹשׁ הַשָּׁנִים",
-  "en": "And if ye shall say: ‘What shall we eat the seventh year? behold, we may not sow, nor gather in our increase’; then I will command My blessing upon you in the sixth year, and it shall bring forth produce for the three years."
+  "en": "And if ye shall say: ‘What shall we eat the seventh year? behold, we may not sow, nor gather in our increase’; then I will command My blessing upon you in the sixth year, and it shall bring forth produce for the three years.",
+  "heRef": "ויקרא כ״ה:כ׳-כ״א"
  },
  "ex23_11": {
   "ref": "Exodus 23:11",
   "he": "וְהַשְּׁבִיעִת תִּשְׁמְטֶנָּה וּנְטַשְׁתָּהּ וְאָכְלוּ אֶבְיֹנֵי עַמֶּךָ וְיִתְרָם תֹּאכַל חַיַּת הַשָּׂדֶה כֵּן־תַּעֲשֶׂה לְכַרְמְךָ לְזֵיתֶךָ",
-  "en": "but the seventh year thou shalt let it rest and lie fallow, that the poor of thy people may eat; and what they leave the beast of the field shall eat. In like manner thou shalt deal with thy vineyard, and with thy oliveyard."
+  "en": "but the seventh year thou shalt let it rest and lie fallow, that the poor of thy people may eat; and what they leave the beast of the field shall eat. In like manner thou shalt deal with thy vineyard, and with thy oliveyard.",
+  "heRef": "שמות כ״ג:י״א"
  },
  "deut20_19": {
   "ref": "Deuteronomy 20:19",
   "he": "כִּי־תָצוּר אֶל־עִיר יָמִים רַבִּים לְהִלָּחֵם עָלֶיהָ לְתׇפְשָׂהּ לֹא־תַשְׁחִית אֶת־עֵצָהּ לִנְדֹּחַ עָלָיו גַּרְזֶן כִּי מִמֶּנּוּ תֹאכֵל וְאֹתוֹ לֹא תִכְרֹת כִּי הָאָדָם עֵץ הַשָּׂדֶה לָבֹא מִפָּנֶיךָ בַּמָּצוֹר",
-  "en": "When thou shalt besiege a city a long time, in making war against it to take it, thou shalt not destroy the trees thereof by wielding an axe against them; for thou mayest eat of them, but thou shalt not cut them down; for is the tree of the field man, that it should be besieged of thee?"
+  "en": "When thou shalt besiege a city a long time, in making war against it to take it, thou shalt not destroy the trees thereof by wielding an axe against them; for thou mayest eat of them, but thou shalt not cut them down; for is the tree of the field man, that it should be besieged of thee?",
+  "heRef": "דברים כ׳:י״ט"
  },
  "ruth2_2": {
   "ref": "Ruth 2:2-3",
   "he": "וַתֹּאמֶר רוּת הַמּוֹאֲבִיָּה אֶל־נׇעֳמִי אֵלְכָה־נָּא הַשָּׂדֶה וַאֲלַקֳּטָה בַשִּׁבֳּלִים אַחַר אֲשֶׁר אֶמְצָא־חֵן בְּעֵינָיו וַתֹּאמֶר לָהּ לְכִי בִתִּי וַתֵּלֶךְ וַתָּבוֹא וַתְּלַקֵּט בַּשָּׂדֶה אַחֲרֵי הַקֹּצְרִים וַיִּקֶר מִקְרֶהָ חֶלְקַת הַשָּׂדֶה לְבֹעַז אֲשֶׁר מִמִּשְׁפַּחַת אֱלִימֶלֶךְ",
-  "en": "And Ruth the Moabitess said unto Naomi: ‘Let me now go to the field, and glean among the ears of corn after him in whose sight I shall find favour.’ And she said unto her: ‘Go, my daughter.’ And she went, and came and gleaned in the field after the reapers; and her hap was to light on the portion of the field belonging unto Boaz, who was of the family of Elimelech."
+  "en": "And Ruth the Moabitess said unto Naomi: ‘Let me now go to the field, and glean among the ears of corn after him in whose sight I shall find favour.’ And she said unto her: ‘Go, my daughter.’ And she went, and came and gleaned in the field after the reapers; and her hap was to light on the portion of the field belonging unto Boaz, who was of the family of Elimelech.",
+  "heRef": "רות ב׳:ב׳-ג׳"
  },
  "ruth2_16": {
   "ref": "Ruth 2:15-16",
   "he": "וַתָּקׇם לְלַקֵּט וַיְצַו בֹּעַז אֶת־נְעָרָיו לֵאמֹר גַּם בֵּין הָעֳמָרִים תְּלַקֵּט וְלֹא תַכְלִימוּהָ וְגַם שֹׁל־תָּשֹׁלּוּ לָהּ מִן־הַצְּבָתִים וַעֲזַבְתֶּם וְלִקְּטָה וְלֹא תִגְעֲרוּ־בָהּ",
-  "en": "And when she was risen up to glean, Boaz commanded his young men, saying: ‘Let her glean even among the sheaves, and put her not to shame. And also pull out some for her of purpose from the bundles, and leave it, and let her glean, and rebuke her not.’"
+  "en": "And when she was risen up to glean, Boaz commanded his young men, saying: ‘Let her glean even among the sheaves, and put her not to shame. And also pull out some for her of purpose from the bundles, and leave it, and let her glean, and rebuke her not.’",
+  "heRef": "רות ב׳:ט״ו-ט״ז"
  },
  "m_peah1_1": {
   "ref": "Mishnah Peah 1:1",
   "he": "אֵלּוּ דְבָרִים שֶׁאֵין לָהֶם שִׁעוּר. הַפֵּאָה, וְהַבִּכּוּרִים, וְהָרֵאָיוֹן, וּגְמִילוּת חֲסָדִים, וְתַלְמוּד תּוֹרָה. אֵלּוּ דְבָרִים שֶׁאָדָם אוֹכֵל פֵּרוֹתֵיהֶן בָּעוֹלָם הַזֶּה וְהַקֶּרֶן קַיֶּמֶת לוֹ לָעוֹלָם הַבָּא. כִּבּוּד אָב וָאֵם, וּגְמִילוּת חֲסָדִים, וַהֲבָאַת שָׁלוֹם בֵּין אָדָם לַחֲבֵרוֹ, וְתַלְמוּד תּוֹרָה כְּנֶגֶד כֻּלָּם:",
-  "en": "These are the things that have no definite quantity: The corners [of the field]. First-fruits; [The offerings brought] on appearing [at the Temple on the three pilgrimage festivals]. The performance of righteous deeds; And the study of the torah."
+  "en": "These are the things that have no definite quantity: The corners [of the field]. First-fruits; [The offerings brought] on appearing [at the Temple on the three pilgrimage festivals]. The performance of righteous deeds; And the study of the torah.",
+  "heRef": "משנה פאה א׳:א׳"
  },
  "m_peah1_2": {
   "ref": "Mishnah Peah 1:2",
   "he": "אֵין פּוֹחֲתִין לַפֵּאָה מִשִּׁשִּׁים, וְאַף עַל פִּי שֶׁאָמְרוּ אֵין לַפֵּאָה שִׁעוּר. הַכֹּל לְפִי גֹדֶל הַשָּׂדֶה, וּלְפִי רֹב הָעֲנִיִּים, וּלְפִי רֹב הָעֲנָוָה:",
-  "en": "They should not leave peah of less than one-sixtieth [of the field]. But even though they said, “there is no measure for peah,” everything depends upon the size of the field, the number of poor people, and the extent of the yield."
+  "en": "They should not leave peah of less than one-sixtieth [of the field]. But even though they said, “there is no measure for peah,” everything depends upon the size of the field, the number of poor people, and the extent of the yield.",
+  "heRef": "משנה פאה א׳:ב׳"
  },
  "m_peah4_10": {
   "ref": "Mishnah Peah 4:10",
   "he": "אֵיזֶהוּ לֶקֶט, הַנּוֹשֵׁר בִּשְׁעַת הַקְּצִירָה.",
-  "en": "What are gleanings? That which falls down at the time of harvesting."
+  "en": "What are gleanings? That which falls down at the time of harvesting.",
+  "heRef": "משנה פאה ד׳:י׳"
  },
  "m_peah6_5": {
   "ref": "Mishnah Peah 6:5",
   "he": "שְׁנֵי עֳמָרִים, שִׁכְחָה, וּשְׁלשָׁה אֵינָן שִׁכְחָה. שְׁנֵי צִבּוּרֵי זֵיתִים וְחָרוּבִין, שִׁכְחָה, וּשְׁלשָׁה אֵינָן שִׁכְחָה. שְׁנֵי הוּצְנֵי פִשְׁתָּן, שִׁכְחָה, וּשְׁלשָׁה אֵינָן שִׁכְחָה.",
-  "en": "Two sheaves [left lying together] are “forgotten,” but three are not “forgotten.” Two bundles of olives or carobs are “forgotten” but three are not “forgotten.” Two flax-stalks are “forgotten”, but three are not “forgotten”. Two grapes are considered “grape gleanings,” but three are not “grape gleanings.” Two ears of grain are deemed “gleanings,” but three are not gleanings.” All these [rulings] are according to Bet Hillel. And concerning them all Bet Shammai says that three [that are left] belong to the poor, and four belong to the owner."
+  "en": "Two sheaves [left lying together] are “forgotten,” but three are not “forgotten.” Two bundles of olives or carobs are “forgotten” but three are not “forgotten.” Two flax-stalks are “forgotten”, but three are not “forgotten”. Two grapes are considered “grape gleanings,” but three are not “grape gleanings.” Two ears of grain are deemed “gleanings,” but three are not gleanings.” All these [rulings] are according to Bet Hillel. And concerning them all Bet Shammai says that three [that are left] belong to the poor, and four belong to the owner.",
+  "heRef": "משנה פאה ו׳:ה׳"
  },
  "m_kil1_1": {
   "ref": "Mishnah Kilayim 1:1",
   "he": "הַחִטִּים וְהַזּוּנִין אֵינָן כִּלְאַיִם זֶה בָזֶה. הַשְּׂעֹרִים וְשִׁבֹּלֶת שׁוּעָל, הַכֻּסְּמִין וְהַשִּׁיפוֹן, הַפּוֹל וְהַסַּפִּיר, הַפֻּרְקְדָן וְהַטֹּפֵחַ, וּפוֹל הַלָּבָן וְהַשְּׁעוּעִים, אֵינָם כִּלְאַיִם זֶה בָזֶה:",
-  "en": "Wheat and zunin do not constitute kilayim one with the other. Barley and oats, spelt and rye, or beans and sapir (a type of bean), or purkdan and tofah (two similar types of beans), or white beans and kidney beans, do not constitute kilayim one with the other."
+  "en": "Wheat and zunin do not constitute kilayim one with the other. Barley and oats, spelt and rye, or beans and sapir (a type of bean), or purkdan and tofah (two similar types of beans), or white beans and kidney beans, do not constitute kilayim one with the other.",
+  "heRef": "משנה כלאים א׳:א׳"
  },
  "m_kil9_1": {
   "ref": "Mishnah Kilayim 9:1",
   "he": "אֵין אָסוּר מִשּׁוּם כִּלְאַיִם אֶלָּא צֶמֶר וּפִשְׁתִּים.",
-  "en": "Nothing is forbidden on account of kilayim except [a mixture of] wool and linen."
+  "en": "Nothing is forbidden on account of kilayim except [a mixture of] wool and linen.",
+  "heRef": "משנה כלאים ט׳:א׳"
  },
  "m_orlah1_2": {
   "ref": "Mishnah Orlah 1:2",
   "he": "עֵת שֶׁבָּאוּ אֲבוֹתֵינוּ לָאָרֶץ, מָצְאוּ נָטוּעַ, פָּטוּר.",
-  "en": "If at the time when our ancestors came into the land and they found [a tree already] planted it was exempt [from the laws of orlah]."
+  "en": "If at the time when our ancestors came into the land and they found [a tree already] planted it was exempt [from the laws of orlah].",
+  "heRef": "משנה ערלה א׳:ב׳"
  },
  "m_bik1_3": {
   "ref": "Mishnah Bikkurim 1:3",
   "he": "אֵין מְבִיאִין בִּכּוּרִים חוּץ מִשִּׁבְעַת הַמִּינִים.",
-  "en": "Bikkurim are brought only from the seven species."
+  "en": "Bikkurim are brought only from the seven species.",
+  "heRef": "משנה ביכורים א׳:ג׳"
  },
  "m_bik3_1": {
   "ref": "Mishnah Bikkurim 3:1",
   "he": "כֵּיצַד מַפְרִישִׁין הַבִּכּוּרִים. יוֹרֵד אָדָם בְּתוֹךְ שָׂדֵהוּ וְרוֹאֶה תְּאֵנָה שֶׁבִּכְּרָה, אֶשְׁכּוֹל שֶׁבִּכֵּר, רִמּוֹן שֶׁבִּכֵּר, קוֹשְׁרוֹ בְגֶמִי, וְאוֹמֵר, הֲרֵי אֵלּוּ בִּכּוּרִים. רַבִּי שִׁמְעוֹן אוֹמֵר, אַף עַל פִּי כֵן חוֹזֵר וְקוֹרֵא אוֹתָם בִּכּוּרִים מֵאַחַר שֶׁיִּתָּלְשׁוּ מִן הַקַּרְקָע:",
-  "en": "How does one set aside bikkurim? A man goes down into his field, he sees a fig that ripened, or a cluster of grapes that ripened, or a pomegranate that ripened, he ties a reed-rope around it and says: “Let these be bikkurim.” Rabbi Shimon says: even so, he must again designate them as bikkurim after they have been plucked from the soil."
+  "en": "How does one set aside bikkurim? A man goes down into his field, he sees a fig that ripened, or a cluster of grapes that ripened, or a pomegranate that ripened, he ties a reed-rope around it and says: “Let these be bikkurim.” Rabbi Shimon says: even so, he must again designate them as bikkurim after they have been plucked from the soil.",
+  "heRef": "משנה ביכורים ג׳:א׳"
  },
  "m_bik3_3": {
   "ref": "Mishnah Bikkurim 3:3",
   "he": "הַקְּרוֹבִים מְבִיאִים הַתְּאֵנִים וְהָעֲנָבִים, וְהָרְחוֹקִים מְבִיאִים גְּרוֹגָרוֹת וְצִמּוּקִים. וְהַשּׁוֹר הוֹלֵךְ לִפְנֵיהֶם, וְקַרְנָיו מְצֻפּוֹת זָהָב, וַעֲטֶרֶת שֶׁל זַיִת בְּרֹאשׁוֹ. הֶחָלִיל מַכֶּה לִפְנֵיהֶם, עַד שֶׁמַּגִּיעִים קָרוֹב לִירוּשָׁלָיִם. הִגִּיעוּ קָרוֹב לִירוּשָׁלַיִם, שָׁלְחוּ לִפְנֵיהֶם, וְעִטְּרוּ אֶת בִּכּוּרֵיהֶם.",
-  "en": "Those who lived near [Jerusalem] would bring fresh figs and grapes, while those who lived far away would bring dried figs and raisins. An ox would go in front of them, his horns bedecked with gold and with an olive-crown on its head. The flute would play before them until they would draw close to Jerusalem. When they drew close to Jerusalem they would send messengers in advance, and they would adorn their bikkurim."
+  "en": "Those who lived near [Jerusalem] would bring fresh figs and grapes, while those who lived far away would bring dried figs and raisins. An ox would go in front of them, his horns bedecked with gold and with an olive-crown on its head. The flute would play before them until they would draw close to Jerusalem. When they drew close to Jerusalem they would send messengers in advance, and they would adorn their bikkurim.",
+  "heRef": "משנה ביכורים ג׳:ג׳"
  },
  "m_maasrot1_1": {
   "ref": "Mishnah Maasrot 1:1",
   "he": "כְּלָל אָמְרוּ בַּמַּעַשְׂרוֹת, כָּל שֶׁהוּא אֹכֶל, וְנִשְׁמָר, וְגִדּוּלָיו מִן הָאָרֶץ, חַיָּב בַּמַּעַשְׂרוֹת. וְעוֹד כְּלָל אַחֵר אָמְרוּ, כָּל שֶׁתְּחִלָּתוֹ אֹכֶל וְסוֹפוֹ אֹכֶל, אַף עַל פִּי שֶׁהוּא שׁוֹמְרוֹ לְהוֹסִיף אֹכֶל, חַיָּב קָטָן וְגָדוֹל. וְכָל שֶׁאֵין תְּחִלָּתוֹ אֹכֶל אֲבָל סוֹפוֹ אֹכֶל, אֵינוֹ חַיָּב עַד שֶׁיֵּעָשֶׂה אֹכֶל:",
-  "en": "They said a general principle concerning tithes: whatever is food, and is looked after, and grows from the land, is liable for tithes."
+  "en": "They said a general principle concerning tithes: whatever is food, and is looked after, and grows from the land, is liable for tithes.",
+  "heRef": "משנה מעשרות א׳:א׳"
  },
  "m_terumot4_3": {
   "ref": "Mishnah Terumot 4:3",
   "he": "שִׁעוּר תְּרוּמָה, עַיִן יָפָה, אֶחָד מֵאַרְבָּעִים. בֵּית שַׁמַּאי אוֹמְרִים, מִשְּׁלֹשִׁים. וְהַבֵּינוֹנִית, מֵחֲמִשִּׁים. וְהָרָעָה, מִשִּׁשִּׁים. תָּרַם וְעָלָה בְיָדוֹ אֶחָד מִשִּׁשִּׁים, תְּרוּמָה, וְאֵינוֹ צָרִיךְ לִתְרֹם. חָזַר וְהוֹסִיף, חַיָּב בְּמַעַשְׂרוֹת. עָלָה בְיָדוֹ מִשִּׁשִּׁים וְאֶחָד, תְּרוּמָה, וְיַחֲזֹר וְיִתְרֹם כְּמוֹת שֶׁהוּא לָמוּד, בְּמִדָּה וּבְמִשְׁקָל וּבְמִנְיָן. רַבִּי יְהוּדָה אוֹמֵר, אַף שֶׁלֹּא מִן הַמֻּקָּף:",
-  "en": "The amount of terumah: A generous amount: one fortieth. Beth Shammai say: one thirtieth. The average amount: one fiftieth. A stingy amount: one sixtieth."
+  "en": "The amount of terumah: A generous amount: one fortieth. Beth Shammai say: one thirtieth. The average amount: one fiftieth. A stingy amount: one sixtieth.",
+  "heRef": "משנה תרומות ד׳:ג׳"
+ },
+ "m_peah1_3": {
+  "ref": "Mishnah Peah 1:3",
+  "he": "נוֹתְנִין פֵּאָה מִתְּחִלַּת הַשָּׂדֶה וּמֵאֶמְצָעָהּ. רַבִּי שִׁמְעוֹן אוֹמֵר, וּבִלְבַד שֶׁיִּתֵּן בַּסּוֹף כַּשִּׁעוּר. רַבִּי יְהוּדָה אוֹמֵר, אִם שִׁיֵּר קֶלַח אֶחָד, סוֹמֵךְ לוֹ מִשּׁוּם פֵּאָה. וְאִם לָאו, אֵינוֹ נוֹתֵן אֶלָּא מִשּׁוּם הֶפְקֵר",
+  "en": "They may give peah at either at the beginning of the [reaping of the] field or at the middle of it. Rabbi Shimon says: as long as he gives at the end according to the set amount.",
+  "heRef": "משנה פאה א׳:ג׳"
+ },
+ "m_peah2_1": {
+  "ref": "Mishnah Peah 2:1",
+  "he": "וְאֵלּוּ מַפְסִיקִין לַפֵּאָה. הַנַּחַל, וְהַשְּׁלוּלִית, וְדֶרֶךְ הַיָּחִיד, וְדֶרֶךְ הָרַבִּים, וּשְׁבִיל הָרַבִּים, וּשְׁבִיל הַיָּחִיד הַקָּבוּעַ בִּימוֹת הַחַמָּה וּבִימוֹת הַגְּשָׁמִים, וְהַבּוּר, וְהַנִּיר, וְזֶרַע אַחֵר",
+  "en": "The following divide a field for peah: a stream, a pool, a private road, a public road, a public path, a private path in constant use in summer and the rainy season, fallow land, a plowed field and a different seed.",
+  "heRef": "משנה פאה ב׳:א׳"
+ },
+ "rashi_lev19_9": {
+  "ref": "Rashi on Leviticus 19:9",
+  "he": "לא תכלה פאת שדך. שֶׁיַּנִּיחַ פֵּאָה בְסוֹף שָׂדֵהוּ (עי' ספרא)",
+  "en": "לא תכלה פאת שדך THOU SHALT NOT WHOLLY REAP THE CORNER OF THY FIELD — This means that one must leave פאה (an uncut portion) at the extremity of one's field (cf. Sifra, Kedoshim, Chapter 1 9; Mishna Peah 1:2; Shabbat 23a).",
+  "heRef": "רש״י על ויקרא י״ט:ט׳"
+ },
+ "rambam_aniyim2_12": {
+  "ref": "Mishneh Torah, Gifts to the Poor 2:12",
+  "he": "אֵין מַנִּיחִין אֶת הַפֵּאָה אֶלָּא בְּסוֹף הַשָּׂדֶה. כְּדֵי שֶׁיִּהְיוּ עֲנִיִּים יוֹדְעִין מָקוֹם שֶׁיָּבוֹאוּ לוֹ וּכְדֵי שֶׁתִּהְיֶה נִכֶּרֶת לָעוֹבְרִים וְלַשָּׁבִים וְלֹא יֵחָשֵׁד. וּמִפְּנֵי הָרַמָּאִים שֶׁלֹּא יִתְכַּוֵּן לִקְצֹר הַכּל וְאוֹמֵר לְאֵלּוּ שֶׁרוֹאִים אוֹתוֹ קוֹצֵר סוֹף הַשָּׂדֶה בִּתְחִלַּת הַשָּׂדֶה הִנַּחְתִּי. וְעוֹד שֶׁלֹּא יִשְׁמֹר שָׁעָה שֶׁאֵין שָׁם אָדָם וְיַנִּיחֶנָּהּ וְיִתְּנֶנָּה לֶעָנִי הַקָּרוֹב לוֹ. עָבַר וְהִנִּיחַ הַפֵּאָה בִּתְחִלַּת הַשָּׂדֶה אוֹ בְּאֶמְצָעָהּ הֲרֵי זוֹ פֵּאָה. וְצָרִיךְ שֶׁיַּנִּיחַ בְּסוֹף הַשָּׂדֶה כְּשִׁעוּר הַפֵּאָה הָרְאוּיָה לְמַה שֶּׁנִּשְׁאַר בַּשָּׂדֶה אַחַר שֶׁהִפְרִישׁ אֶת הָרִאשׁוֹנָה",
+  "en": "Pe'ah is left only at the end of the field — so the poor know where to come, so passers-by can see it, and so no one can pretend they left it somewhere else. (summary)",
+  "heRef": "משנה תורה, הלכות מתנות עניים ב׳:י״ב"
+ },
+ "rambam_aniyim3_1": {
+  "ref": "Mishneh Torah, Gifts to the Poor 3:1",
+  "he": "אֵין מַנִּיחִין אֶת הַפֵּאָה מִשָּׂדֶה עַל חֲבֶרְתָּהּ. כֵּיצַד. הָיוּ לוֹ שְׁתֵּי שָׂדוֹת לֹא יִקְצֹר אֶת הָאַחַת כֻּלָּהּ וְיַנִּיחַ בַּשְּׁנִיָּה פֵּאָה הָרְאוּיָה לִשְׁתֵּיהֶן. שֶׁנֶּאֱמַר (ויקרא כג כב) \"לֹא תְכַלֶּה פְּאַת שָׂדְךָ בְּקֻצְרֶךָ\" שֶׁיַּנִּיחַ בְּכָל אַחַת וְאַחַת פֵּאָה הָרְאוּיָה לָהּ. וְאִם הִנִּיחַ מִשָּׂדֶה עַל חֲבֶרְתָּהּ אֵינָהּ פֵּאָה",
+  "en": "Pe'ah is not left in one field for another: someone who owns two fields leaves the right amount of Pe'ah in each one of them. (summary)",
+  "heRef": "משנה תורה, הלכות מתנות עניים ג׳:א׳"
  }
 };
 
@@ -214,8 +276,9 @@ const SOURCES = {
 const MITZVOT = [
   { id: 'peah', emoji: '💙', he: 'פֵּאָה', name: 'Peah — the corner of the field',
     what: "When you harvest, you don't cut the corner of your field. You leave it for poor people to take.",
-    game: 'Every garden has a blue-roped <b>Peah corner</b>. Plant in it — but when it is ripe, leave it! Rut comes to take it, and Hashem blesses you.',
-    sources: ['lev19_9', 'm_peah1_1', 'm_peah1_2'], stat: 'peah', unit: 'gifts left in the corner' },
+    game: 'Peah is left once per field, at its <b>end</b>. The path down the middle of your garden splits it into two fields, so each bed has its own blue-roped <b>Peah corner</b>. Plant in it — but when it is ripe, leave it! Rut comes to take it, and Hashem blesses you.',
+    fact: 'Not every corner — one Peah at the end of each field, so the poor know where to come (Rambam). A permanent path divides a field, and each field needs its own Peah (Mishnah Peah 2:1).',
+    sources: ['lev19_9', 'rashi_lev19_9', 'rambam_aniyim2_12', 'm_peah2_1', 'rambam_aniyim3_1', 'm_peah1_2'], stat: 'peah', unit: 'gifts left in the corner' },
   { id: 'leket', emoji: '🌾', he: 'לֶקֶט', name: 'Leket — what falls',
     what: "If one or two stalks fall while you're harvesting, you don't pick them up. They belong to the poor.",
     game: "Sometimes a fruit falls when you harvest. That's <b>Leket</b> — leave it on the ground for Rut.",

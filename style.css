@@ -546,3 +546,15 @@ body.online .net-only { display: flex !important; }
   #weather-banner div { display: none; }
   .achieve-pop { top: 30%; right: 10px; }
 }
+
+/* ─── Hebrew (right-to-left) ─── */
+body.lang-he { font-family: 'Fredoka', 'Rubik', 'Arial Hebrew', 'Segoe UI', system-ui, sans-serif; }
+body.lang-he .src-he { text-align: right; }
+body.lang-he .source { text-align: right; border-left: 2px solid #D7CCC8; border-right: 6px solid #FFB300; }
+body.lang-he .mz-title .he { display: none; }
+body.lang-he #teach-body h3 .he { display: none; }
+body.lang-he .tithe-box span, body.lang-he .lb-row { direction: rtl; }
+body.lang-he kbd { direction: ltr; unicode-bidi: isolate; }
+body.lang-he .sheckles, body.lang-he .fr-val, body.lang-he .buy-btn, body.lang-he .slot-count { direction: ltr; unicode-bidi: isolate; }
+.lang-btn { position: fixed; top: calc(12px + var(--safe-top)); right: calc(12px + var(--safe-right)); z-index: 1002; width: auto; font-size: 16px; padding: 7px 14px; background: linear-gradient(#5EC8FF, #1E88E5); }
+body.lang-he .lang-btn { right: auto; left: calc(12px + var(--safe-left)); }
