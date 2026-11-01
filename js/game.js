@@ -712,12 +712,12 @@ function buildClouds(rand) {
 // ════════════════════════════════════════════
 //  GARDEN RENDERING
 // ════════════════════════════════════════════
-const SELF_SCALING = ['watermelon', 'pumpkin', 'mushroom', 'bamboo', 'beanstalk'];
+const SELF_SCALING = ['watermelon', 'pumpkin', 'mushroom', 'bamboo', 'beanstalk', 'sufganiya'];
 const SEED_RADIUS = {
   carrot: 0.35, strawberry: 0.5, blueberry: 0.55, orange_tulip: 0.3, tomato: 0.5, corn: 0.55, daffodil: 0.3,
   watermelon: 0.6, pumpkin: 0.6, apple: 1.1, bamboo: 0.6, coconut: 1.0, cactus: 0.65, dragon_fruit: 0.7,
   mango: 1.1, grape: 0.9, mushroom: 0.8, pepper: 0.5, cacao: 0.9, beanstalk: 0.55,
-  wheat: 0.35, barley: 0.35, olive: 1.0, fig: 1.0, pomegranate: 0.8, gefen: 0.9, date_palm: 0.9,
+  sufganiya: 0.7, wheat: 0.35, barley: 0.35, olive: 1.0, fig: 1.0, pomegranate: 0.8, gefen: 0.9, date_palm: 0.9,
 };
 function seedRadius(id) { return SEED_RADIUS[id] || 0.5; }
 
