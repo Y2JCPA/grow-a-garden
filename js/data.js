@@ -116,7 +116,7 @@ const HOLIDAY_WINDOWS_BY_YEAR = {
     lag_bomer:    { start: [3, 21], end: [4, 6] },   // May 5
     shavuot:      { start: [4, 8],  end: [4, 23] },  // May 22-23
     rosh_hashana: { start: [7, 29], end: [8, 14] },  // Sep 12-13
-    chanukah:     { start: [10, 20], end: [11, 13] }, // Dec 5-12
+    chanukah:     { start: [10, 1],  end: [11, 12] }, // Chanukah Dec 4 (evening) – Dec 12; the shop opens early on Nov 1
   },
   2027: {
     tu_bshvat:    { start: [0, 8],  end: [0, 23] },  // Jan 23
