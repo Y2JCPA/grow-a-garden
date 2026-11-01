@@ -22,7 +22,8 @@ const SEEDS = {
   corn:         { name: 'Corn',         emoji: '🌽', rarity: 'rare',      price: 1300,     sell: 36,     kg: 1.9,  grow: 100, multi: true,  fruitTime: 32, maxFruits: 4, chance: 0.5, stock: [1, 3], color: 0x7CB342, fruitColor: 0xFFD54F },
   daffodil:     { name: 'Daffodil',     emoji: '🌼', rarity: 'rare',      price: 1000,     sell: 903,    kg: 0.16, grow: 90,  multi: false, chance: 0.55, stock: [1, 3], color: 0xFFEB3B, topColor: 0xFFA000 },
   pomegranate:  { name: 'Pomegranate',  emoji: '🔴', rarity: 'rare',      price: 1600,     sell: 85,     kg: 0.6,  grow: 130, multi: true,  fruitTime: 32, maxFruits: 5, chance: 0.6, stock: [1, 2], color: 0x2E7D32, fruitColor: 0xC62828 },
-  gefen:        { name: 'Grapevine',    emoji: '🍇', rarity: 'legendary', price: 2200,     sell: 130,    kg: 1.2,  grow: 150, multi: true,  fruitTime: 36, maxFruits: 5, chance: 0.5, stock: [1, 2], color: 0x558B2F, fruitColor: 0x6A1B9A },
+  // retired: the Grape below is the game's grape (and counts for the Seven Species); kept so old gardens still work
+  gefen:        { retired: true, name: 'Grapevine',    emoji: '🍇', rarity: 'legendary', price: 2200,     sell: 130,    kg: 1.2,  grow: 150, multi: true,  fruitTime: 36, maxFruits: 5, chance: 0.5, stock: [1, 2], color: 0x558B2F, fruitColor: 0x6A1B9A },
   watermelon:   { name: 'Watermelon',   emoji: '🍉', rarity: 'legendary', price: 2500,     sell: 2708,   kg: 7.3,  grow: 150, multi: false, chance: 0.35, stock: [1, 2], color: 0x2E7D32, topColor: 0x66BB6A },
   date_palm:    { name: 'Date Palm',    emoji: '🌴', rarity: 'legendary', price: 2800,     sell: 160,    kg: 0.8,  grow: 170, multi: true,  fruitTime: 40, maxFruits: 4, chance: 0.45, stock: [1, 2], color: 0x8D6E63, fruitColor: 0xB5651D },
   pumpkin:      { name: 'Pumpkin',      emoji: '🎃', rarity: 'legendary', price: 3000,     sell: 3700,   kg: 6.9,  grow: 160, multi: false, chance: 0.33, stock: [1, 2], color: 0xFF8F00, topColor: 0x558B2F },
@@ -38,7 +39,7 @@ const SEEDS = {
   cacao:        { name: 'Cacao',        emoji: '🍫', rarity: 'divine',    price: 2500000,  sell: 10830,  kg: 7.6,  grow: 420, multi: true,  fruitTime: 90, maxFruits: 4, chance: 0.04, stock: [1, 1], color: 0x5D4037, fruitColor: 0xA1662F },
   beanstalk:    { name: 'Beanstalk',    emoji: '🌿', rarity: 'prismatic', price: 10000000, sell: 25270,  kg: 9.5,  grow: 480, multi: true,  fruitTime: 100, maxFruits: 5, chance: 0.02, stock: [1, 1], color: 0x43A047, fruitColor: 0x76FF03 },
 };
-const SHOP_SEED_LIST = Object.keys(SEEDS);
+const SHOP_SEED_LIST = Object.keys(SEEDS).filter(id => !SEEDS[id].retired);
 
 // ─── Classic seeds (from earlier versions — still plantable if you own them) ───
 const CLASSIC_SEEDS = {

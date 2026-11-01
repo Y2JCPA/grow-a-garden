@@ -49,7 +49,7 @@ The gardens follow the Torah's farming mitzvot in a kid-sized way. Every day in 
 | 🌿 **Shemitah** (שמיטה) | Year 7: no planting, and picked fruit is Shevi'it, for eating, not selling. Year 6 harvests are doubled (Vayikra 25:21) |
 | 🌳 **Bal Tashchit** | Digging up a fruit tree asks you to think twice |
 
-Keeping a mitzvah earns ⭐ stars, blessings in Sheckles, and badges. The 📜 book shows each mitzvah's sources in Hebrew and English, fetched from [Sefaria](https://www.sefaria.org) (Tanakh: JPS 1917, public domain; Mishnah: Mishnah Yomit by Dr. Joshua Kulp, CC-BY). The seed shop now has the Seven Species: wheat, barley, grapevine, fig, pomegranate, olive and date palm.
+Keeping a mitzvah earns ⭐ stars, blessings in Sheckles, and badges. The 📜 book shows each mitzvah's sources in Hebrew and English, fetched from [Sefaria](https://www.sefaria.org) (Tanakh: JPS 1917, public domain; Mishnah: Mishnah Yomit by Dr. Joshua Kulp, CC-BY). The seed shop has the Seven Species: wheat, barley, fig, pomegranate, olive and date palm, plus the (divine) Grape for grapes.
 
 ## Playing together (family worlds)
 On the start screen, tap **🌍 Play together with family** and type a secret code (8+ letters/numbers). Everyone who uses the same code shares one world:
