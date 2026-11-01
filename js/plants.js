@@ -617,6 +617,26 @@ function buildSeedModel(seedId, seed, progress, ripe) {
       }
       break;
     }
+    case 'sufganiya': {
+      // a leafy little plant holding up one big jelly doughnut
+      for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2 + 0.3;
+        b.box(0.62, 0.05, 0.22, i % 2 ? leaf : leafL, Math.cos(a) * 0.36, 0.06, Math.sin(a) * 0.36, 0, -a, 0.15);
+      }
+      b.box(0.1, 0.35, 0.1, leafD, 0, 0.18, 0);
+      const s = 0.3 + p * 0.7, y = 0.34;
+      const dough = ripe ? 0xD9902E : lerpColor(0xF3D9A4, 0xD9902E, p);
+      b.box(0.86 * s, 0.22 * s, 0.86 * s, lerpColor(dough, 0x000000, 0.08), 0, y + 0.11 * s, 0);
+      b.box(1.04 * s, 0.32 * s, 1.04 * s, dough, 0, y + 0.36 * s, 0);
+      b.box(0.86 * s, 0.2 * s, 0.86 * s, dough, 0, y + 0.6 * s, 0);
+      b.box(0.94 * s, 0.07 * s, 0.94 * s, 0xFFF8E7, 0, y + 0.53 * s, 0);          // pale ring around the middle
+      if (p > 0.5) {
+        b.box(0.64 * s, 0.06 * s, 0.64 * s, 0xFFFFFF, 0, y + 0.72 * s, 0);       // powdered sugar
+        [[0.22, 0.15], [-0.2, -0.18], [0.05, 0.27], [-0.26, 0.12]].forEach(([dx, dz]) => b.box(0.08 * s, 0.04 * s, 0.08 * s, 0xFFFFFF, dx * s, y + 0.77 * s, dz * s));
+        b.box(0.2 * s, 0.12 * s, 0.2 * s, 0xC62828, 0.08 * s, y + 0.8 * s, -0.06 * s); // the jelly
+      }
+      break;
+    }
     case 'bamboo': {
       [[0, 0, 3.2], [0.3, 0.15, 2.6], [-0.25, 0.2, 2.9], [0.1, -0.3, 2.3]].forEach(([x, z, h]) => {
         const hh = h * (0.3 + p * 0.7);

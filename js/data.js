@@ -37,9 +37,12 @@ const SEEDS = {
   mushroom:     { name: 'Mushroom',     emoji: '🍄', rarity: 'divine',    price: 150000,   sell: 136278, kg: 25.9, grow: 330, multi: false, chance: 0.07, stock: [1, 1], color: 0xE53935, topColor: 0xFFF8E1 },
   pepper:       { name: 'Pepper',       emoji: '🌶️', rarity: 'divine',    price: 1000000,  sell: 7220,   kg: 4.75, grow: 380, multi: true,  fruitTime: 80, maxFruits: 5, chance: 0.05, stock: [1, 1], color: 0x388E3C, fruitColor: 0xD50000 },
   cacao:        { name: 'Cacao',        emoji: '🍫', rarity: 'divine',    price: 2500000,  sell: 10830,  kg: 7.6,  grow: 420, multi: true,  fruitTime: 90, maxFruits: 4, chance: 0.04, stock: [1, 1], color: 0x5D4037, fruitColor: 0xA1662F },
+  // 🕎 Chanukah only: one big harvest, the most valuable crop in the game
+  sufganiya:    { name: 'Sufganiya',    emoji: '🍩', rarity: 'prismatic', price: 150000,   sell: 500000, kg: 1.5,  grow: 600, multi: false, chance: 1, stock: [1, 2], holiday: 'chanukah', color: 0xD9902E, topColor: 0x8BC34A },
   beanstalk:    { name: 'Beanstalk',    emoji: '🌿', rarity: 'prismatic', price: 10000000, sell: 25270,  kg: 9.5,  grow: 480, multi: true,  fruitTime: 100, maxFruits: 5, chance: 0.02, stock: [1, 1], color: 0x43A047, fruitColor: 0x76FF03 },
 };
-const SHOP_SEED_LIST = Object.keys(SEEDS).filter(id => !SEEDS[id].retired);
+// Seeds sold all year (holiday seeds only appear in their season)
+const SHOP_SEED_LIST = Object.keys(SEEDS).filter(id => !SEEDS[id].retired && !SEEDS[id].holiday);
 
 // ─── Classic seeds (from earlier versions — still plantable if you own them) ───
 const CLASSIC_SEEDS = {
@@ -76,7 +79,6 @@ const HOLIDAY_SEEDS = {
   shofar:       { id: 'shofar',       name: 'Shofar Plant',  emoji: '📯', growTime: 85,  sellPrice: 35,  seedCost: 25, color: 0xDEB887, topColor: 0xD2B48C,  category: 'Rosh Hashana', holiday: 'rosh_hashana', description: 'Tekiah Gedolah!', rarity: 'legendary' },
 
   // 🕎 Chanukah
-  sufganiya:    { id: 'sufganiya',    name: 'Sufganiya Bush', emoji: '🍩', growTime: 45,  sellPrice: 18,  seedCost: 12, color: 0xD2691E, topColor: 0xFF6347,  category: 'Chanukah', holiday: 'chanukah', description: 'Jelly-filled goodness', rarity: 'legendary' },
   olive:        { id: 'olive',        name: 'Olive Tree',    emoji: '🫒', growTime: 90,  sellPrice: 38,  seedCost: 28, color: 0x556B2F, topColor: 0x6B8E23,  category: 'Chanukah', holiday: 'chanukah', description: 'Pure pressed oil', rarity: 'legendary' },
   menorah:      { id: 'menorah',      name: 'Menorah Cactus', emoji: '🕎', growTime: 75, sellPrice: 30,  seedCost: 22, color: 0xFFD700, topColor: 0xFFA500,  category: 'Chanukah', holiday: 'chanukah', description: '8 crazy nights', rarity: 'legendary' },
 
@@ -151,6 +153,10 @@ function getSeasonalSeeds() {
     if (active.includes(seed.holiday)) {
       seasonal[id] = seed;
     }
+  }
+  // full-size holiday seeds that live in SEEDS (like the Chanukah Sufganiya)
+  for (const [id, seed] of Object.entries(SEEDS)) {
+    if (seed.holiday && active.includes(seed.holiday)) seasonal[id] = seed;
   }
   return seasonal;
 }

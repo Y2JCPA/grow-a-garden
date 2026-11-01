@@ -26,6 +26,9 @@ A blocky 3D gardening game for kids, modeled on the Roblox game **Grow a Garden*
 | Emotes (family world) | `T` | 👋 button |
 | Mitzvot book | `L` | 📜 button |
 
+## 🕎 Chanukah: the Sufganiya
+During Chanukah the seed shop's holiday section sells the **Sufganiya** (¢150,000): a one-time plant that grows a single giant jelly doughnut worth **¢500,000** — the most valuable crop in the game. It shows up for Chanukah only (the holiday windows are in js/data.js).
+
 ## עברית / Hebrew
 The whole game can be played in Hebrew, right to left: menus, fruits and vegetables, pets, messages, signs, the Mitzvot book (with the sources in Hebrew) — everything. Tap **🌐 עברית** on the start screen or the 🌐 button in the game. The choice is remembered on each device; a device set to Hebrew starts in Hebrew.
 
