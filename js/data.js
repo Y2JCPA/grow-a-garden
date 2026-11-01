@@ -58,6 +58,7 @@ const CLASSIC_SEEDS = {
 };
 
 // ─── Seasonal / Holiday Seeds ───
+// (olive, wheat, fig, date palm and pomegranate are Seven Species seeds in SEEDS, sold all year)
 const HOLIDAY_SEEDS = {
   // 🎭 Purim
   hamentash:    { id: 'hamentash',    name: 'Hamentash',     emoji: '🔺', growTime: 45,  sellPrice: 18,  seedCost: 12, color: 0xD2691E, topColor: 0x8B4513,  category: 'Purim',  holiday: 'purim',  description: 'A triangular treat bush', rarity: 'legendary' },
@@ -75,17 +76,12 @@ const HOLIDAY_SEEDS = {
 
   // 🍎 Rosh Hashana
   apple_honey:  { id: 'apple_honey',  name: 'Apple & Honey', emoji: '🍯', growTime: 55,  sellPrice: 20,  seedCost: 14, color: 0xFF4444, topColor: 0xFFBF00,  category: 'Rosh Hashana', holiday: 'rosh_hashana', description: 'Shana Tova!', rarity: 'legendary' },
-  pomegranate:  { id: 'pomegranate',  name: 'Pomegranate',   emoji: '🔴', growTime: 70,  sellPrice: 28,  seedCost: 20, color: 0xDC143C, topColor: 0x8B0000,  category: 'Rosh Hashana', holiday: 'rosh_hashana', description: '613 seeds of merit', rarity: 'legendary' },
   shofar:       { id: 'shofar',       name: 'Shofar Plant',  emoji: '📯', growTime: 85,  sellPrice: 35,  seedCost: 25, color: 0xDEB887, topColor: 0xD2B48C,  category: 'Rosh Hashana', holiday: 'rosh_hashana', description: 'Tekiah Gedolah!', rarity: 'legendary' },
 
   // 🕎 Chanukah
-  olive:        { id: 'olive',        name: 'Olive Tree',    emoji: '🫒', growTime: 90,  sellPrice: 38,  seedCost: 28, color: 0x556B2F, topColor: 0x6B8E23,  category: 'Chanukah', holiday: 'chanukah', description: 'Pure pressed oil', rarity: 'legendary' },
   menorah:      { id: 'menorah',      name: 'Menorah Cactus', emoji: '🕎', growTime: 75, sellPrice: 30,  seedCost: 22, color: 0xFFD700, topColor: 0xFFA500,  category: 'Chanukah', holiday: 'chanukah', description: '8 crazy nights', rarity: 'legendary' },
 
   // 🌳 Tu B'Shvat
-  date_palm:    { id: 'date_palm',    name: 'Date Palm',     emoji: '🌴', growTime: 80,  sellPrice: 30,  seedCost: 22, color: 0x8B6914, topColor: 0x228B22,  category: "Tu B'Shvat", holiday: 'tu_bshvat', description: 'Sweet as the land', rarity: 'legendary' },
-  fig:          { id: 'fig',          name: 'Fig Tree',      emoji: '🟤', growTime: 70,  sellPrice: 25,  seedCost: 18, color: 0x4B0082, topColor: 0x228B22,  category: "Tu B'Shvat", holiday: 'tu_bshvat', description: 'First fruits', rarity: 'legendary' },
-  wheat:        { id: 'wheat',        name: 'Wheat',         emoji: '🌾', growTime: 50,  sellPrice: 15,  seedCost: 10, color: 0xDAA520, topColor: 0xFFD700,  category: "Tu B'Shvat", holiday: 'tu_bshvat', description: 'Staff of life', rarity: 'legendary' },
 
   // 🌹 Shavuot
   cheesecake:   { id: 'cheesecake',   name: 'Cheesecake',    emoji: '🍰', growTime: 55,  sellPrice: 22,  seedCost: 16, color: 0xFFFDD0, topColor: 0xFFE4B5,  category: 'Shavuot', holiday: 'shavuot', description: 'Dairy delicious', rarity: 'legendary' },
