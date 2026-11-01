@@ -2761,9 +2761,10 @@ function renderShop() {
   updateRestockTimer();
   if (shopKind === 'seeds') {
     const stock = currentSeedStock();
-    const seasonal = Object.keys(getSeasonalSeeds());
+    // the holiday heading goes right above the seeds that are only here for the holiday
+    const seasonal = seedShopList().filter(id => !SHOP_SEED_LIST.includes(id));
     seedShopList().forEach(id => {
-      if (seasonal.includes(id) && id === seasonal[0]) {
+      if (id === seasonal[0]) {
         const h = document.createElement('div'); h.className = 'section-title seasonal'; h.innerHTML = `${getActiveHolidayLabels().join(' ')} <span class="tag">${T('Event seeds!')}</span>`; body.appendChild(h);
       }
       const s = getSeedData(id);
