@@ -1,5 +1,6 @@
 /* Hebrew translations (generated). English key → Hebrew; {0},{1}… are the values in English order. */
 Object.assign(HE, {
+ "Special — {} left": "מבצע מיוחד — נשארו {0}",
  "🌱 Seeds": "🌱 זרעים",
  "💰 Sell": "💰 מכירה",
  "⚙️ Gear": "⚙️ ציוד",
