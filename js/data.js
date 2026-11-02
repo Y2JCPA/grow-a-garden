@@ -41,6 +41,13 @@ const SEEDS = {
   sufganiya:    { name: 'Sufganiya',    emoji: '🍩', rarity: 'prismatic', price: 150000,   sell: 500000, kg: 1.5,  grow: 600, multi: false, chance: 0.1, stock: [1, 1], holiday: 'chanukah', color: 0xD9902E, topColor: 0x8BC34A },
   beanstalk:    { name: 'Beanstalk',    emoji: '🌿', rarity: 'prismatic', price: 10000000, sell: 25270,  kg: 9.5,  grow: 480, multi: true,  fruitTime: 100, maxFruits: 5, chance: 0.02, stock: [1, 1], color: 0x43A047, fruitColor: 0x76FF03 },
 };
+// Special shop events: a seed forced into stock for a limited time.
+// `stock` is how many each gardener can buy during the whole event.
+const SHOP_EVENTS = [
+  { id: 'beanstalk', stock: 3, from: Date.UTC(2026, 10, 2, 11, 20), until: Date.UTC(2026, 10, 2, 12, 25) },
+];
+function activeShopEvents() { const now = Date.now(); return SHOP_EVENTS.filter(e => now >= e.from && now < e.until); }
+
 // Seeds sold all year (holiday seeds only appear in their season)
 const SHOP_SEED_LIST = Object.keys(SEEDS).filter(id => !SEEDS[id].retired && !SEEDS[id].holiday);
 

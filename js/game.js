@@ -1847,6 +1847,8 @@ function currentSeedStock() {
   if (gameState.shop.slot !== slot) { gameState.shop.slot = slot; gameState.shop.seeds = {}; }
   const stock = stockFor(seedShopList(), 'seeds', slot, 11);
   Object.keys(stock).forEach(id => { stock[id] = Math.max(0, stock[id] - (gameState.shop.seeds[id] || 0)); });
+  // special events override the normal roll for the whole event (not per restock)
+  activeShopEvents().forEach(ev => { stock[ev.id] = Math.max(0, ev.stock - ((gameState.shop.events || {})[ev.id + '@' + ev.until] || 0)); });
   return stock;
 }
 function currentGearStock() {
@@ -1899,7 +1901,9 @@ function buyFromShop(kind, id) {
     const seed = getSeedData(id);
     if (gameState.sheckles < seed.price || !currentSeedStock()[id]) { Sfx.play('deny'); return false; }
     gameState.sheckles -= seed.price;
-    gameState.shop.seeds[id] = (gameState.shop.seeds[id] || 0) + 1;
+    const ev = activeShopEvents().find(e => e.id === id);
+    if (ev) { gameState.shop.events = gameState.shop.events || {}; const k = id + '@' + ev.until; gameState.shop.events[k] = (gameState.shop.events[k] || 0) + 1; }
+    else gameState.shop.seeds[id] = (gameState.shop.seeds[id] || 0) + 1;
     gameState.seeds[id] = (gameState.seeds[id] || 0) + 1;
     gameState.selected = 'seed:' + id;
     taskEvent('buy', 1);
@@ -2769,7 +2773,7 @@ function renderShop() {
       }
       const s = getSeedData(id);
       body.appendChild(shopRow({ emoji: s.emoji, name: s.name, rarity: s.rarity, price: s.price, stock: stock[id],
-        sub: `${SPECIES_OF_SEED[id] ? `<span class="tag seven">${T('✡️ Seven Species')}</span> ` : ''}${s.multi ? T('♻️ Multi-harvest') : T('🌾 Single harvest')}${isFruitTree(id) ? ` • ${T('🌳 Orlah 3 yrs')}` : ''} • ${T`grows in ${fmtTime(s.grow)}`} • ${T`fruit ¢${fmtSheckles(s.sell)}+`}` }, () => buyFromShop('seed', id)));
+        sub: `${(ev => ev ? `<span class="tag seven">⏰ ${T`Special — ${fmtTime((ev.until - Date.now()) / 1000)} left`}</span> ` : '')(activeShopEvents().find(e => e.id === id))}${SPECIES_OF_SEED[id] ? `<span class="tag seven">${T('✡️ Seven Species')}</span> ` : ''}${s.multi ? T('♻️ Multi-harvest') : T('🌾 Single harvest')}${isFruitTree(id) ? ` • ${T('🌳 Orlah 3 yrs')}` : ''} • ${T`grows in ${fmtTime(s.grow)}`} • ${T`fruit ¢${fmtSheckles(s.sell)}+`}` }, () => buyFromShop('seed', id)));
     });
   } else if (shopKind === 'gear') {
     const stock = currentGearStock();

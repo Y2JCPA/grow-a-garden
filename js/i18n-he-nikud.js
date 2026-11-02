@@ -1,6 +1,7 @@
 /* Hebrew with nikud (generated with Dicta Nakdan, then checked and corrected by hand).
    Used when nikud is on; js/i18n-he.js has the same texts in regular spelling. */
 Object.assign(HE_NK, {
+ "Special — {} left": "מִבְצָע מְיֻחָד — נִשְׁאֲרוּ {0}",
  "🌱 Seeds": "🌱 זְרָעִים",
  "💰 Sell": "💰 מְכִירָה",
  "⚙️ Gear": "⚙️ צִיּוּד",
