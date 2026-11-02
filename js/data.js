@@ -43,9 +43,8 @@ const SEEDS = {
 };
 // Special shop events: a seed forced into stock for a limited time.
 // `stock` is how many each gardener can buy during the whole event.
-const SHOP_EVENTS = [
-  { id: 'beanstalk', stock: 3, from: Date.UTC(2026, 10, 2, 11, 20), until: Date.UTC(2026, 10, 2, 12, 25) },
-];
+// e.g. { id: 'beanstalk', stock: 3, from: Date.UTC(2026, 10, 2, 11, 20), until: Date.UTC(2026, 10, 2, 12, 25) }
+const SHOP_EVENTS = [];
 function activeShopEvents() { const now = Date.now(); return SHOP_EVENTS.filter(e => now >= e.from && now < e.until); }
 
 // Seeds sold all year (holiday seeds only appear in their season)
