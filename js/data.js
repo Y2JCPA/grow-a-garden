@@ -38,7 +38,7 @@ const SEEDS = {
   pepper:       { name: 'Pepper',       emoji: '🌶️', rarity: 'divine',    price: 1000000,  sell: 7220,   kg: 4.75, grow: 380, multi: true,  fruitTime: 80, maxFruits: 5, chance: 0.05, stock: [1, 1], color: 0x388E3C, fruitColor: 0xD50000 },
   cacao:        { name: 'Cacao',        emoji: '🍫', rarity: 'divine',    price: 2500000,  sell: 10830,  kg: 7.6,  grow: 420, multi: true,  fruitTime: 90, maxFruits: 4, chance: 0.04, stock: [1, 1], color: 0x5D4037, fruitColor: 0xA1662F },
   // 🕎 Chanukah only: one big harvest, the most valuable crop in the game
-  sufganiya:    { name: 'Sufganiya',    emoji: '🍩', rarity: 'prismatic', price: 150000,   sell: 500000, kg: 1.5,  grow: 600, multi: false, chance: 1, stock: [1, 2], holiday: 'chanukah', color: 0xD9902E, topColor: 0x8BC34A },
+  sufganiya:    { name: 'Sufganiya',    emoji: '🍩', rarity: 'prismatic', price: 150000,   sell: 500000, kg: 1.5,  grow: 600, multi: false, chance: 0.1, stock: [1, 1], holiday: 'chanukah', color: 0xD9902E, topColor: 0x8BC34A },
   beanstalk:    { name: 'Beanstalk',    emoji: '🌿', rarity: 'prismatic', price: 10000000, sell: 25270,  kg: 9.5,  grow: 480, multi: true,  fruitTime: 100, maxFruits: 5, chance: 0.02, stock: [1, 1], color: 0x43A047, fruitColor: 0x76FF03 },
 };
 // Seeds sold all year (holiday seeds only appear in their season)
